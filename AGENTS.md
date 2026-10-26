@@ -1,5 +1,8 @@
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
+## Project Architecture Cache
+Before doing a full codebase scan or asking for domain context, ALWAYS consult [PROJECT_CACHE.md](file:///d:/asdasd/iglesia/PaneadorPastoral/PROJECT_CACHE.md). It contains the consolidated architecture, G12 discipleship hierarchy, network services, Supabase schema, ministries, routing, and operational rules.
+
 ## Expo has changed — do not trust your training data
 
 Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:

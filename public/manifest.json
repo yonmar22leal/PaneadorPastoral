@@ -1,0 +1,24 @@
+{
+  "short_name": "Planeador",
+  "name": "Planeador Pastoral IEC",
+  "description": "Sistema de Gestión y Planeación Pastoral - Iglesia Emmanuel de Caja de Agua",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1E3A8A",
+  "background_color": "#0F172A"
+}
