@@ -35,7 +35,7 @@
 | **Almacenamiento Local** | `@react-native-async-storage/async-storage` 2.2.0 | Persistencia de sesión de usuario y caché de ministerios sin conexión. |
 | **Animaciones / UI** | `react-native-reanimated` 4.5.1, `@expo/vector-icons` | Iconografía Ionicons, splash animado nativo en `src/components/animated-icon.tsx`. |
 | **Build & Deploy** | EAS Build (`eas.json`) | Perfiles `development`, `preview` (APK directo para Android) y `production`. |
-| **Web & iOS PWA** | Expo Web Static Export (`public/manifest.json`, `src/app/+html.tsx`) | PWA instalable en iOS/Android mediante "Agregar al inicio", soporte offline, pantalla completa sin barras de navegador. Compilación a `dist/`. |
+| **Web & iOS PWA** | Expo Web Static Export (`public/manifest.json`, `src/app/+html.tsx`) | PWA instalable en iOS/Android mediante "Agregar al inicio", soporte offline, pantalla completa sin barras de navegador. Desplegado en Vercel: `https://paneadorpastoral123.vercel.app`. |
 
 > [!WARNING]
 > **Ejecución en Windows (PowerShell):**  
