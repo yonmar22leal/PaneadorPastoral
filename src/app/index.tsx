@@ -89,7 +89,7 @@ export default function DashboardScreen() {
     });
   }, [pastoralPosts, currentUser]);
 
-  if (isLoading) {
+  if (isLoading && currentUser) {
     return (
       <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
         <StatusBar style="light" />

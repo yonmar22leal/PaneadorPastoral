@@ -279,6 +279,12 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     restoreSession();
+
+    // Fallback de seguridad: nunca dejar la app bloqueada más de 1.5 segundos
+    const fallbackTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500);
+    return () => clearTimeout(fallbackTimer);
   }, []);
 
   // 2. CARGA DE INFORMACIÓN EXCLUSIVAMENTE DESDE LA BASE DE DATOS (SUPABASE)

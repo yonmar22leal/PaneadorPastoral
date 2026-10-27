@@ -37,14 +37,21 @@ export default function Root({ children }: PropsWithChildren) {
 }
 
 const pwaStyles = `
-html, body, #root {
+html, body {
   height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
   background-color: #0F172A;
-  overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+}
+#root {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  width: 100%;
+  min-height: 100vh;
+  flex-direction: column;
 }
 `;
