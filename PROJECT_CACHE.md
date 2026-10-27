@@ -21,6 +21,9 @@
   5. Registro y consolidación de asistencia dominical por categorías demográficas.
   6. Check-in / check-out de Iglesia Infantil con códigos de seguridad.
 - **Identidad Visual / Icono:** Diseño pastoral y de gestión eclesial con Santa Biblia abierta en el centro, cruz en la página, congregación/comunidad tomada de la mano en unidad y discipulado, manos de apoyo pastoral y símbolos de gestión litúrgica (gráfica de crecimiento, reporte con checklist y corazón) sobre gradiente azul real (`#1E3A8A`). Totalmente limpio sin textos. Generado en 1024x1024 (`assets/images/icon.png`, `android-icon-foreground.png`, `splash-icon.png`, `favicon.png`).
+- **Fondos Patrón Estilo WhatsApp (Doodle cristiano):** 
+  - `assets/images/doodle-pattern-light.png`: Patrón doodle sutil en tonos pastel/azul pizarra suave con símbolos de cruz, Santa Biblia, paloma de la paz con rama de olivo, corazones, manos orando, peces ichthys, cáliz y báculos pastorales.
+  - `assets/images/doodle-pattern-dark.png`: Versión oscura con fondo azul medianoche profundo (`#0F172A`) y trazos sutiles en dorado/blanco, integrado en [src/app/login.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/login.tsx) y en el feed pastoral [src/app/index.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/index.tsx) con `ImageBackground` en repetición (`resizeMode: 'repeat'`).
 
 ---
 
