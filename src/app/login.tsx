@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
   Alert,
+  ImageBackground,
   ScrollView,
   StyleSheet,
   Text,
@@ -70,7 +71,12 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ImageBackground
+        source={require('@/assets/images/doodle-pattern-dark.png')}
+        style={styles.backgroundImage}
+        imageStyle={{ opacity: 0.22 }}
+        resizeMode="repeat">
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header Hero */}
         <View style={styles.headerHero}>
           <View style={styles.churchIconContainer}>
@@ -286,7 +292,8 @@ export default function LoginScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </SafeAreaView>
+    </ImageBackground>
+  </SafeAreaView>
   );
 }
 
@@ -294,6 +301,11 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#0F172A',
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
   },
   scrollContent: {
     paddingBottom: 40,

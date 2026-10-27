@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  ImageBackground,
   Modal,
   ScrollView,
   StyleSheet,
@@ -205,7 +206,12 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      <ImageBackground
+        source={require('@/assets/images/doodle-pattern-light.png')}
+        style={styles.backgroundImage}
+        imageStyle={{ opacity: 0.15 }}
+        resizeMode="repeat">
+        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* ========================================================= */}
         {/* HEADER HERO                                               */}
         {/* ========================================================= */}
@@ -544,6 +550,7 @@ export default function DashboardScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+    </ImageBackground>
 
       {/* ========================================================= */}
       {/* MODAL: ESCRIBIR MENSAJE PASTORAL CON BIBLE API            */}
@@ -737,9 +744,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1E3A8A',
   },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F8FAFC',
+  },
   scrollContainer: {
     paddingBottom: 24,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'transparent',
   },
   heroBanner: {
     backgroundColor: '#1E3A8A',
