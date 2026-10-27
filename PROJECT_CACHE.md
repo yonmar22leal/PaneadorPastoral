@@ -1,7 +1,7 @@
 # CACHE DE ARQUITECTURA Y ESTADO DEL PROYECTO
 **Proyecto:** Planeador Pastoral (IEC - Iglesia Emmanuel de Caja de Agua)  
 **Versión:** 1.0.0 | **Expo SDK:** 58.0.19 | **React Native:** 0.88.0 | **React:** 19.3.0  
-**Última actualización de caché:** 2026-10-26 (Actualizado a Expo SDK 58)  
+**Última actualización de caché:** 2026-10-26 (Doodle wallpapers universales, fix cierre de sesión web y CI/CD Vercel)  
 **Estado de TypeScript:** 100% libre de errores (`tsc --noEmit` exitoso) | **Expo Doctor:** 20/20 pasados | **Expo Lint:** 0 errores, 0 advertencias
 
 > **PROPÓSITO DE ESTE ARCHIVO:**  
@@ -21,9 +21,11 @@
   5. Registro y consolidación de asistencia dominical por categorías demográficas.
   6. Check-in / check-out de Iglesia Infantil con códigos de seguridad.
 - **Identidad Visual / Icono:** Diseño pastoral y de gestión eclesial con Santa Biblia abierta en el centro, cruz en la página, congregación/comunidad tomada de la mano en unidad y discipulado, manos de apoyo pastoral y símbolos de gestión litúrgica (gráfica de crecimiento, reporte con checklist y corazón) sobre gradiente azul real (`#1E3A8A`). Totalmente limpio sin textos. Generado en 1024x1024 (`assets/images/icon.png`, `android-icon-foreground.png`, `splash-icon.png`, `favicon.png`).
-- **Fondos Patrón Estilo WhatsApp (Doodle cristiano):** 
-  - `assets/images/doodle-pattern-light.png`: Patrón doodle sutil en tonos pastel/azul pizarra suave con símbolos de cruz, Santa Biblia, paloma de la paz con rama de olivo, corazones, manos orando, peces ichthys, cáliz y báculos pastorales.
-  - `assets/images/doodle-pattern-dark.png`: Versión oscura con fondo azul medianoche profundo (`#0F172A`) y trazos sutiles en dorado/blanco, integrado en [src/app/login.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/login.tsx) y en el feed pastoral [src/app/index.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/index.tsx) con `ImageBackground` en repetición (`resizeMode: 'repeat'`).
+- **Fondos Patrón Estilo WhatsApp (Doodle Cristiano):** 
+  - Componente universal: [`DoodleBackground`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/components/doodle-background.tsx) con `resizeMode="repeat"`.
+  - `assets/images/doodle-pattern-light.png`: Patrón sutil en tonos pastel/azul pizarra suave con símbolos de cruz, Santa Biblia, paloma de la paz con ramita de olivo, corazones, manos orando, peces ichthys, cáliz y báculos pastorales (opacidad 15%).
+  - `assets/images/doodle-pattern-dark.png`: Versión oscura con fondo azul medianoche profundo (`#0F172A`) y trazos sutiles en dorado/blanco (opacidad 22%).
+  - **Vistas que lo integran:** `login.tsx` (oscuro), `index.tsx`, `cells.tsx`, `attendance.tsx`, `members.tsx`, `planner/index.tsx`, `planner/[id].tsx`, `planner/editor.tsx`, `ministries.tsx`, `kids.tsx` y `register.tsx`.
 
 ---
 
@@ -38,11 +40,32 @@
 | **Almacenamiento Local** | `@react-native-async-storage/async-storage` 2.2.0 | Persistencia de sesión de usuario y caché de ministerios sin conexión. |
 | **Animaciones / UI** | `react-native-reanimated` 4.5.1, `@expo/vector-icons` | Iconografía Ionicons, splash animado nativo en `src/components/animated-icon.tsx`. |
 | **Build & Deploy** | EAS Build (`eas.json`) | Perfiles `development`, `preview` (APK directo para Android) y `production`. |
-| **Web & iOS PWA** | Expo Web Static Export (`public/manifest.json`, `src/app/+html.tsx`) | PWA instalable en iOS/Android mediante "Agregar al inicio", soporte offline, pantalla completa sin barras de navegador. Desplegado en Vercel: `https://paneadorpastoral123.vercel.app`. |
+| **Web & CI/CD (Vercel)** | Expo Web Static Export (`package.json`, `vercel.json`, `.npmrc`) | PWA universal. `vercel.json` configurado a `dist` con SPA rewrite. `.npmrc` con `legacy-peer-deps=true` para resolver peer dependencies con React 19 en Linux. Script `"build": "expo export -p web"`. Desplegado en Vercel: `https://paneadorpastoral123.vercel.app`. |
 
 > [!WARNING]
 > **Ejecución en Windows (PowerShell):**  
 > La política de ejecución de scripts de Windows puede bloquear comandos como `npx expo` directos. Utilizar siempre `cmd /c npx <comando>` o `npx.cmd`.
+
+---
+
+## 2.1. REGLAS CRÍTICAS DE COMPATIBILIDAD WEB (REACT NATIVE WEB)
+
+1. **`Alert.alert` con Callbacks en Web:**
+   - En `react-native-web`, `Alert.alert(title, msg, buttons)` solo muestra una alerta simple (`window.alert`) e **ignora por completo el array de botones y los callbacks `onPress`**.
+   - **Regla obligatoria:** Para toda acción de confirmación destructiva o interactiva (ej: cerrar sesión, eliminar posts, borrar cultos o ministerios, checkout de niños), utilizar verificación por plataforma:
+     ```tsx
+     if (Platform.OS === 'web') {
+       const confirmed = typeof window !== 'undefined' ? window.confirm('¿Confirmar acción?') : true;
+       if (confirmed) { /* callback */ }
+       return;
+     }
+     Alert.alert('Título', 'Mensaje', [ ... ]);
+     ```
+2. **Splash Nativo vs Web:**
+   - `AnimatedSplashOverlay` solo debe ejecutarse en móvil (`Platform.OS !== 'web'`). En web debe retornar `null` de inmediato porque los worklets de Reanimated (`scheduleOnRN`) no terminan de transicionar en navegadores, congelando la interfaz.
+3. **Control de Carga (`isLoading`):**
+   - Si no hay sesión activa (`!currentUser`), renderizar directamente `<LoginScreen />` sin esperar a `isLoading`.
+   - `ChurchContext` implementa un temporizador de seguridad de 1.5s para `isLoading` garantizando que la aplicación jamás quede atascada en un spinner infinito.
 
 ---
 
