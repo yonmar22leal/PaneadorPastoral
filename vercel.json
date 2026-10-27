@@ -1,6 +1,7 @@
 {
   "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
+  "installCommand": "npm install --legacy-peer-deps",
   "cleanUrls": true,
   "headers": [
     {
@@ -14,10 +15,6 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/planner/:id",
-      "destination": "/planner/[id].html"
-    },
     {
       "source": "/((?!.*\\..*).*)",
       "destination": "/index.html"
