@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 import { EventCard } from '@/components/event-card';
 import {
@@ -128,7 +129,8 @@ export default function EventsListScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
+      <DoodleBackground style={{ backgroundColor: '#F8FAFC' }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
         {/* HERO HEADER */}
         <View style={styles.hero}>
           <Text style={styles.heroKicker}>
@@ -512,6 +514,7 @@ export default function EventsListScreen() {
           </View>
         )}
       </ScrollView>
+      </DoodleBackground>
     </SafeAreaView>
   );
 }

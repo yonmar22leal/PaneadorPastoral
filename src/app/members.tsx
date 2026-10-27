@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { DoodleBackground } from '@/components/doodle-background';
 
 export default function MembersScreen() {
   const { members, addMember, currentUser } = useChurch();
@@ -127,6 +128,7 @@ export default function MembersScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <DoodleBackground>
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -509,6 +511,7 @@ export default function MembersScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+      </DoodleBackground>
     </SafeAreaView>
   );
 }

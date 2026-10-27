@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { DoodleBackground } from '@/components/doodle-background';
 
 const PRESET_COLORS = [
   { label: 'Morado Alabanza', hex: '#8B5CF6' },
@@ -313,6 +314,7 @@ export default function MinistriesScreen() {
       </View>
 
       {/* LISTA DE MINISTERIOS */}
+      <DoodleBackground style={{ backgroundColor: '#F8FAFC' }}>
       <ScrollView
         contentContainerStyle={styles.scrollList}
         showsVerticalScrollIndicator={false}>
@@ -438,6 +440,7 @@ export default function MinistriesScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      </DoodleBackground>
 
       {/* MODAL CREAR / EDITAR MINISTERIO */}
       <Modal

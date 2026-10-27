@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { DoodleBackground } from '@/components/doodle-background';
 
 let personIdCounter = 0;
 function getNextPersonId(prefix: string): string {
@@ -280,6 +281,7 @@ export default function CellsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
+      <DoodleBackground>
 
       {/* Top Header */}
       <View style={styles.header}>
@@ -1231,6 +1233,7 @@ export default function CellsScreen() {
           </View>
         </View>
       </Modal>
+      </DoodleBackground>
     </SafeAreaView>
   );
 }

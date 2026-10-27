@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { DoodleBackground } from '@/components/doodle-background';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
@@ -381,7 +382,8 @@ export default function EventDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={{ paddingBottom: 130, backgroundColor: '#F8FAFC' }}>
+      <DoodleBackground style={{ backgroundColor: '#F8FAFC' }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 130, backgroundColor: 'transparent' }}>
         {/* HERO */}
         <View style={[styles.hero, { backgroundColor: '#1E3A8A' }]}>
           <View style={styles.heroTop}>
@@ -786,6 +788,7 @@ export default function EventDetailScreen() {
           </View>
         )}
       </ScrollView>
+      </DoodleBackground>
 
       {/* FAB FLOTANTE PARA EDITAR */}
       {canEditAll ? (

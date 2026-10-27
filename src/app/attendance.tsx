@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { DoodleBackground } from '@/components/doodle-background';
 
 export default function AttendanceScreen() {
   const {
@@ -353,6 +354,7 @@ export default function AttendanceScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
+      <DoodleBackground>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ============================================================== */}
         {/* IF CURRENT USER IS NOT PASTOR (LEADER / MEMBER VIEW)           */}
@@ -1219,6 +1221,7 @@ export default function AttendanceScreen() {
 
         <View style={{ height: 80 }} />
       </ScrollView>
+      </DoodleBackground>
     </SafeAreaView>
   );
 }

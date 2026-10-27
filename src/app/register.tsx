@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { DoodleBackground } from '@/components/doodle-background';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -116,6 +117,7 @@ export default function RegisterScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
+      <DoodleBackground>
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
@@ -435,6 +437,7 @@ export default function RegisterScreen() {
 
         <View style={{ height: 60 }} />
       </ScrollView>
+      </DoodleBackground>
     </SafeAreaView>
   );
 }

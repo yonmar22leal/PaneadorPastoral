@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 import {
   ChurchEvent,
@@ -483,6 +484,7 @@ export default function EventEditorScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: '#F8FAFC' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <DoodleBackground style={{ backgroundColor: '#F8FAFC' }}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 140 }}
           keyboardShouldPersistTaps="handled"
@@ -1172,6 +1174,7 @@ export default function EventEditorScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
+        </DoodleBackground>
       </KeyboardAvoidingView>
 
       <View style={styles.bottomBar}>

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 
 export default function KidsCheckInScreen() {
@@ -92,6 +93,7 @@ export default function KidsCheckInScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <DoodleBackground>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Recepción de Niños</Text>
@@ -410,6 +412,7 @@ export default function KidsCheckInScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+      </DoodleBackground>
     </SafeAreaView>
   );
 }
