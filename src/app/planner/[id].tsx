@@ -22,6 +22,7 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -238,6 +239,17 @@ export default function EventDetailScreen() {
   };
 
   const handleDelete = () => {
+    if (Platform.OS === 'web') {
+      const confirmed =
+        typeof window !== 'undefined'
+          ? window.confirm(`¿Seguro que deseas eliminar “${event.title}”?`)
+          : true;
+      if (confirmed) {
+        deleteEvent(event.id).then(() => goBack());
+      }
+      return;
+    }
+
     Alert.alert('Eliminar evento', `¿Seguro que deseas eliminar “${event.title}”?`, [
       { text: 'Cancelar', style: 'cancel' },
       {

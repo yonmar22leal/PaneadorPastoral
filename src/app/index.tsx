@@ -16,6 +16,7 @@ import {
   Alert,
   ImageBackground,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -112,6 +113,17 @@ export default function DashboardScreen() {
   }
 
   const handleLogout = () => {
+    if (Platform.OS === 'web') {
+      const confirmed =
+        typeof window !== 'undefined'
+          ? window.confirm('¿Deseas cerrar tu sesión actual?')
+          : true;
+      if (confirmed) {
+        logout();
+      }
+      return;
+    }
+
     Alert.alert('Cerrar Sesión', '¿Deseas cerrar tu sesión actual?', [
       { text: 'Cancelar', style: 'cancel' },
       {
@@ -382,7 +394,17 @@ export default function DashboardScreen() {
 
                     {isAuthor && (
                       <TouchableOpacity
-                        onPress={() =>
+                        onPress={() => {
+                          if (Platform.OS === 'web') {
+                            const confirmed =
+                              typeof window !== 'undefined'
+                                ? window.confirm('¿Estás seguro de que deseas eliminar esta publicación?')
+                                : true;
+                            if (confirmed) {
+                              deletePastoralPost(post.id);
+                            }
+                            return;
+                          }
                           Alert.alert(
                             'Eliminar Mensaje',
                             '¿Estás seguro de que deseas eliminar esta publicación?',
@@ -394,8 +416,8 @@ export default function DashboardScreen() {
                                 onPress: () => deletePastoralPost(post.id),
                               },
                             ]
-                          )
-                        }>
+                          );
+                        }}>
                         <Ionicons name="trash-outline" size={17} color="#94A3B8" />
                       </TouchableOpacity>
                     )}

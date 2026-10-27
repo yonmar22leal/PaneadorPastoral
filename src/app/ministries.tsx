@@ -8,6 +8,7 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -259,6 +260,17 @@ export default function MinistriesScreen() {
   };
 
   const handleDelete = (min: Ministry) => {
+    if (Platform.OS === 'web') {
+      const confirmed =
+        typeof window !== 'undefined'
+          ? window.confirm(`¿Estás seguro de eliminar el ministerio "${min.name}"? Los eventos existentes conservarán su historial.`)
+          : true;
+      if (confirmed) {
+        deleteMinistry(min.id);
+      }
+      return;
+    }
+
     Alert.alert(
       'Eliminar Ministerio',
       `¿Estás seguro de eliminar el ministerio "${min.name}"? Los eventos existentes conservarán su historial.`,

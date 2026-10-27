@@ -8,6 +8,7 @@ import {
   TextInput,
   Modal,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,6 +51,17 @@ export default function KidsCheckInScreen() {
   };
 
   const handleCheckOut = (kidId: string, name: string, code?: string) => {
+    if (Platform.OS === 'web') {
+      const confirmed =
+        typeof window !== 'undefined'
+          ? window.confirm(`¿El padre o tutor presentó el código de seguridad ${code || ''} para recoger a ${name}?`)
+          : true;
+      if (confirmed) {
+        checkOutKid(kidId);
+      }
+      return;
+    }
+
     Alert.alert(
       'Confirmar Entrega de Niño',
       `¿El padre o tutor presentó el código de seguridad ${code || ''} para recoger a ${name}?`,
