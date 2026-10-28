@@ -8,10 +8,15 @@ import {
   summarizeReports,
   uniqueReportDates,
 } from '@/lib/attendance';
-import { DiscipleAttendanceItem, PersonGender, ReportVisitorItem } from '@/types/church';
+import {
+  DiscipleAttendanceItem,
+  LeaderAttendanceReport,
+  PersonGender,
+  ReportVisitorItem,
+} from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -41,6 +46,14 @@ export default function AttendanceScreen() {
   const leaderInCharge = getLeaderInCharge(currentUser);
   const myLeaderAttendanceReports = getMyLeaderAttendanceReports();
   const isPastor = currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
+  const isLider12 =
+    currentUser?.role === 'g12_leader' ||
+    currentUser?.isLeaderOf12 ||
+    currentUser?.generationLevel === 2;
+  const canViewReports = isPastor || isLider12;
+  const [activeViewMode, setActiveViewMode] = useState<'form' | 'reports'>(
+    isPastor ? 'reports' : 'form'
+  );
 
   // Filtrar servicios permitidos según la red del usuario: solo su red y el servicio de adoración
   const allowedServices = servicesSchedule.filter((srv) => {
@@ -62,7 +75,7 @@ export default function AttendanceScreen() {
   const [pastorTab, setPastorTab] = useState<'consolidado' | 'reportes'>('consolidado');
   const [selectedServiceId, setSelectedServiceId] = useState(defaultServiceId);
 
-  // Filtrar los reportes según la red: pastores de red SOLO ven reportes de su red y adoración
+  // Filtrar los reportes según la red: pastores de red SOLO ven reportes de su red y adoración; Líderes 12 ven sus reportes y los de sus 144
   const networkReports = useMemo(() => {
     if (currentUser?.role === 'senior_pastor') {
       return leaderAttendanceReports;
@@ -91,8 +104,8 @@ export default function AttendanceScreen() {
         return author?.network === pastorNet;
       });
     }
-    return leaderAttendanceReports.filter((r) => r.leaderId === currentUser?.id);
-  }, [currentUser, leaderAttendanceReports, members]);
+    return myLeaderAttendanceReports;
+  }, [currentUser, leaderAttendanceReports, members, myLeaderAttendanceReports]);
 
   // Fechas disponibles en los reportes de su red
   const availableDates = useMemo(() => {
@@ -117,6 +130,154 @@ export default function AttendanceScreen() {
   const serviceSummary = useMemo(() => {
     return summarizeReports(reportsForSelectedService, members);
   }, [reportsForSelectedService, members]);
+
+  // Helper para resolver el Líder 12 de un reporte de asistencia
+  const resolveLeader12ForReport = useCallback(
+    (rep: LeaderAttendanceReport): { id: string; name: string } => {
+      const repAuthor = members.find(
+        (m) =>
+          m.id === rep.leaderId ||
+          `${m.firstName} ${m.lastName}`.trim().toLowerCase() ===
+            rep.leaderName.trim().toLowerCase()
+      );
+
+      const leaderOfAuthor = repAuthor?.leaderId
+        ? members.find((m) => m.id === repAuthor.leaderId)
+        : null;
+
+      // 1. Si el autor es Pastor principal o de red, es la cabeza de su propio reporte
+      if (repAuthor && (repAuthor.role === 'senior_pastor' || repAuthor.role === 'network_pastor')) {
+        return {
+          id: repAuthor.id,
+          name: `${repAuthor.firstName} ${repAuthor.lastName}`.trim(),
+        };
+      }
+
+      // 2. Si el autor es Líder 12 (nivel 2, o su líder directo es un pastor)
+      const isAuthorLider12 =
+        repAuthor &&
+        (repAuthor.generationLevel === 2 ||
+          repAuthor.isLeaderOf12 ||
+          (leaderOfAuthor &&
+            (leaderOfAuthor.role === 'senior_pastor' ||
+              leaderOfAuthor.role === 'network_pastor')));
+
+      if (isAuthorLider12 && repAuthor) {
+        return {
+          id: repAuthor.id,
+          name: `${repAuthor.firstName} ${repAuthor.lastName}`.trim(),
+        };
+      }
+
+      // 3. Si el autor es un 144 (nivel 3), su Líder 12 es su líder directo
+      if (leaderOfAuthor) {
+        return {
+          id: leaderOfAuthor.id,
+          name: `${leaderOfAuthor.firstName} ${leaderOfAuthor.lastName}`.trim(),
+        };
+      }
+
+      // 4. Verificar si el destinatario es un Líder 12
+      if (rep.recipientLeaderId) {
+        const recMember = members.find((m) => m.id === rep.recipientLeaderId);
+        if (
+          recMember &&
+          recMember.role !== 'senior_pastor' &&
+          recMember.role !== 'network_pastor'
+        ) {
+          return {
+            id: recMember.id,
+            name: `${recMember.firstName} ${recMember.lastName}`.trim(),
+          };
+        }
+      }
+
+      const recName = (rep.recipientLeaderName || '').trim();
+      const cleanRec = recName
+        .toLowerCase()
+        .replace(/^(líder|lider|pastor|pastora)\s+/i, '')
+        .trim();
+      const isRecPastor =
+        cleanRec.includes('josue') ||
+        cleanRec.includes('josué') ||
+        cleanRec.includes('norelis') ||
+        cleanRec.includes('carlos') ||
+        cleanRec.includes('neiyelis') ||
+        cleanRec.includes('peña');
+
+      if (recName && !isRecPastor) {
+        const matchingMember = members.find((m) =>
+          cleanRec.includes(m.firstName.toLowerCase())
+        );
+        if (matchingMember) {
+          return {
+            id: matchingMember.id,
+            name: `${matchingMember.firstName} ${matchingMember.lastName}`.trim(),
+          };
+        }
+        return {
+          id: cleanRec,
+          name: recName.replace(/^(líder|lider)\s+/i, '').trim(),
+        };
+      }
+
+      return {
+        id: rep.leaderId || rep.leaderName,
+        name: rep.leaderName.trim(),
+      };
+    },
+    [members]
+  );
+
+  const isReportFromLeader12 = (
+    rep: LeaderAttendanceReport,
+    leader12Name: string
+  ): boolean => {
+    const cleanL12 = leader12Name.toLowerCase().trim();
+    const cleanRep = (rep.leaderName || '').toLowerCase().trim();
+    return cleanRep.includes(cleanL12) || cleanL12.includes(cleanRep);
+  };
+
+  // Agrupación de reportes por Líder 12 con total consolidado exacto y deduplicado
+  const groupedAttendanceReports = useMemo(() => {
+    const map = new Map<
+      string,
+      { id: string; name: string; reports: LeaderAttendanceReport[] }
+    >();
+
+    for (const rep of reportsForSelectedService) {
+      const l12 = resolveLeader12ForReport(rep);
+      const key = l12.name.toLowerCase().trim();
+      if (!map.has(key)) {
+        map.set(key, { id: l12.id, name: l12.name, reports: [] });
+      }
+      map.get(key)!.reports.push(rep);
+    }
+
+    return Array.from(map.values()).map((group) => {
+      const cleanLeader = group.name.toLowerCase().trim();
+      // Ordenar: primero el reporte del propio Líder 12, luego los discípulos 144
+      const sortedReports = [...group.reports].sort((a, b) => {
+        const aName = (a.leaderName || '').toLowerCase().trim();
+        const bName = (b.leaderName || '').toLowerCase().trim();
+        const aIsLeader = aName.includes(cleanLeader) || cleanLeader.includes(aName);
+        const bIsLeader = bName.includes(cleanLeader) || cleanLeader.includes(bName);
+        if (aIsLeader && !bIsLeader) return -1;
+        if (!aIsLeader && bIsLeader) return 1;
+        return 0;
+      });
+
+      // Conteo consolidado del equipo del Líder 12 exacto y deduplicado
+      const groupSummary = summarizeReports(sortedReports, members);
+
+      return {
+        leader12Id: group.id,
+        leader12Name: group.name,
+        reports: sortedReports,
+        groupSummary,
+      };
+    });
+  }, [reportsForSelectedService, members, resolveLeader12ForReport]);
 
   // ==========================================
   // ESTADO PARA LÍDERES (ENVÍO DE REPORTE)
@@ -362,9 +523,56 @@ export default function AttendanceScreen() {
       <DoodleBackground>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ============================================================== */}
-        {/* IF CURRENT USER IS NOT PASTOR (LEADER / MEMBER VIEW)           */}
+        {/* SELECTOR DE MODO PARA LÍDERES 12 (ENVIAR REPORTE / VER RED)   */}
         {/* ============================================================== */}
-        {!isPastor ? (
+        {canViewReports && !isPastor && (
+          <View style={styles.topModeSelector}>
+            <TouchableOpacity
+              style={[
+                styles.topModeBtn,
+                activeViewMode === 'form' && styles.topModeBtnActive,
+              ]}
+              onPress={() => setActiveViewMode('form')}>
+              <Ionicons
+                name="create-outline"
+                size={16}
+                color={activeViewMode === 'form' ? '#FFFFFF' : '#1E3A8A'}
+              />
+              <Text
+                style={[
+                  styles.topModeBtnText,
+                  activeViewMode === 'form' && styles.topModeBtnTextActive,
+                ]}>
+                Enviar mi Reporte
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.topModeBtn,
+                activeViewMode === 'reports' && styles.topModeBtnActive,
+              ]}
+              onPress={() => setActiveViewMode('reports')}>
+              <Ionicons
+                name="bar-chart-outline"
+                size={16}
+                color={activeViewMode === 'reports' ? '#FFFFFF' : '#1E3A8A'}
+              />
+              <Text
+                style={[
+                  styles.topModeBtnText,
+                  activeViewMode === 'reports' && styles.topModeBtnTextActive,
+                ]}>
+                Reportes de mi Red ({reportsForSelectedService.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ============================================================== */}
+        {/* IF CURRENT USER IS NOT PASTOR IN FORM MODE (LEADER SUBMISSION) */}
+        {/* ============================================================== */}
+        {!isPastor && activeViewMode === 'form' ? (
           <View>
             {/* Header */}
             <View style={styles.header}>
@@ -1006,12 +1214,14 @@ export default function AttendanceScreen() {
                         {serviceSummary.reportsCount} reportes recibidos para este servicio
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      style={styles.saveLiveBtn}
-                      onPress={handleSaveConsolidatedAsOfficial}>
-                      <Ionicons name="cloud-upload" size={18} color="#FFFFFF" />
-                      <Text style={styles.saveLiveBtnText}>Guardar</Text>
-                    </TouchableOpacity>
+                    {isPastor && (
+                      <TouchableOpacity
+                        style={styles.saveLiveBtn}
+                        onPress={handleSaveConsolidatedAsOfficial}>
+                        <Ionicons name="cloud-upload" size={18} color="#FFFFFF" />
+                        <Text style={styles.saveLiveBtnText}>Guardar</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   {/* Stat Chips: Hombres, Mujeres, Prejuvenil (<14), Visitas */}
@@ -1066,7 +1276,7 @@ export default function AttendanceScreen() {
                   </View>
                 </View>
 
-                {/* Resumen de Líderes que reportaron */}
+                {/* Resumen de Líderes agrupados por Líder 12 */}
                 <View style={styles.reportsSummaryCard}>
                   <Text style={styles.sectionHeading}>
                     Líderes que reportaron para este servicio ({reportsForSelectedService.length})
@@ -1076,22 +1286,64 @@ export default function AttendanceScreen() {
                       Aún no hay reportes de líderes enviados para este servicio en la fecha {selectedDate}.
                     </Text>
                   ) : (
-                    reportsForSelectedService.map((rep) => {
-                      const repSummary = summarizeReports([rep], members);
+                    groupedAttendanceReports.map((group) => {
                       return (
-                        <View key={rep.id} style={styles.leaderSummaryRow}>
-                          <View style={styles.leaderSummaryAvatar}>
-                            <Text style={styles.leaderSummaryAvatarText}>{rep.leaderName[0]}</Text>
+                        <View key={group.leader12Name} style={styles.consolidadoGroupContainer}>
+                          {/* Banner de Líder 12 */}
+                          <View style={styles.consolidadoGroupHeader}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                              <Ionicons name="shield-checkmark" size={16} color="#1E3A8A" />
+                              <Text style={styles.consolidadoGroupTitle}>
+                                Líder 12: {group.leader12Name}
+                              </Text>
+                            </View>
+                            <View style={styles.consolidadoGroupBadge}>
+                              <Text style={styles.consolidadoGroupBadgeText}>
+                                Total Red: +{group.groupSummary.total}
+                              </Text>
+                            </View>
                           </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.leaderSummaryName}>{rep.leaderName}</Text>
-                            <Text style={styles.leaderSummaryMeta}>
-                              {repSummary.hombres} Hombres • {repSummary.mujeres} Mujeres • {repSummary.prejuvenil} Prejuveniles
-                            </Text>
-                          </View>
-                          <View style={styles.leaderSummaryTotalBadge}>
-                            <Text style={styles.leaderSummaryTotalText}>+{repSummary.total}</Text>
-                          </View>
+
+                          {/* Filas de líderes dentro del grupo */}
+                          {group.reports.map((rep) => {
+                            const repSummary = summarizeReports([rep], members);
+                            const isL12 = isReportFromLeader12(rep, group.leader12Name);
+                            return (
+                              <View key={rep.id} style={styles.leaderSummaryRow}>
+                                <View
+                                  style={[
+                                    styles.leaderSummaryAvatar,
+                                    isL12 ? { backgroundColor: '#1E3A8A' } : { backgroundColor: '#059669' },
+                                  ]}>
+                                  <Text style={styles.leaderSummaryAvatarText}>{rep.leaderName[0]}</Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Text style={styles.leaderSummaryName}>{rep.leaderName}</Text>
+                                    <View
+                                      style={[
+                                        styles.roleTagPill,
+                                        isL12 ? styles.roleTagL12 : styles.roleTag144,
+                                      ]}>
+                                      <Text
+                                        style={[
+                                          styles.roleTagPillText,
+                                          isL12 ? { color: '#1D4ED8' } : { color: '#15803D' },
+                                        ]}>
+                                        {isL12 ? 'Líder 12' : 'Discípulo 144'}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                  <Text style={styles.leaderSummaryMeta}>
+                                    {repSummary.hombres} H • {repSummary.mujeres} M • {repSummary.prejuvenil} P • {repSummary.visitors} Visitas
+                                  </Text>
+                                </View>
+                                <View style={styles.leaderSummaryTotalBadge}>
+                                  <Text style={styles.leaderSummaryTotalText}>+{repSummary.total}</Text>
+                                </View>
+                              </View>
+                            );
+                          })}
                         </View>
                       );
                     })
@@ -1099,7 +1351,7 @@ export default function AttendanceScreen() {
                 </View>
               </View>
             ) : (
-              /* Reportes Detallados */
+              /* Reportes Detallados Agrupados por Líder 12 */
               <View style={styles.reportsListSection}>
                 <Text style={styles.sectionHeading}>
                   Detalle de Reportes Recibidos ({reportsForSelectedService.length})
@@ -1111,109 +1363,216 @@ export default function AttendanceScreen() {
                     </Text>
                   </View>
                 ) : (
-                  reportsForSelectedService.map((rep) => {
-                    const repSummary = summarizeReports([rep], members);
-                    const repAuthor = members.find(
-                      (m) =>
-                        m.id === rep.leaderId ||
-                        `${m.firstName} ${m.lastName}`.trim().toLowerCase() ===
-                        rep.leaderName.trim().toLowerCase()
-                    );
-                    const repLeader = repAuthor?.leaderId
-                      ? members.find((m) => m.id === repAuthor.leaderId)
-                      : null;
-                    const recipientDisplay =
-                      rep.recipientLeaderName ||
-                      (repLeader
-                        ? `${repLeader.role === 'network_pastor' || repLeader.role === 'senior_pastor' ? (repLeader.gender === 'F' ? 'Pastora' : 'Pastor') : 'Líder'} ${repLeader.firstName} ${repLeader.lastName}`
-                        : repAuthor?.leaderName || leaderInCharge.name);
-
+                  groupedAttendanceReports.map((group) => {
                     return (
-                      <View key={rep.id} style={styles.reportCard}>
-                        <View style={styles.reportHeader}>
+                      <View key={group.leader12Name} style={styles.leader12GroupCard}>
+                        {/* Header del Grupo del Líder 12 */}
+                        <View style={styles.leader12GroupHeader}>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.reportLeaderName}>{rep.leaderName}</Text>
-                            <Text style={styles.reportMeta}>
-                              Servicio: {rep.serviceId} • {rep.serviceDate}
-                            </Text>
-                            <View style={styles.recipientRowMeta}>
-                              <Ionicons name="paper-plane-outline" size={11} color="#2563EB" />
-                              <Text style={styles.recipientRowText}>
-                                Enviado a: <Text style={{ fontWeight: '700' }}>{recipientDisplay}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Ionicons name="shield-checkmark" size={18} color="#1E3A8A" />
+                              <Text style={styles.leader12GroupTitle}>
+                                Líder 12: {group.leader12Name}
                               </Text>
                             </View>
+                            <Text style={styles.leader12GroupSubtitle}>
+                              {group.reports.length === 1
+                                ? '1 reporte recibido'
+                                : `${group.reports.length} reportes vinculados (Líder 12 y células 144)`}
+                            </Text>
                           </View>
-                          <View
-                            style={[
-                              styles.badgePill,
-                              { backgroundColor: rep.myAttendance ? '#DCFCE7' : '#FEE2E2' },
-                            ]}>
-                            <Text
-                              style={[
-                                styles.badgePillText,
-                                { color: rep.myAttendance ? '#15803D' : '#B91C1C' },
-                              ]}>
-                              {rep.myAttendance ? 'Líder Asistió' : 'Líder Ausente'}
+                          <View style={styles.leader12TotalBadge}>
+                            <Text style={styles.leader12TotalBadgeLabel}>Total Red</Text>
+                            <Text style={styles.leader12TotalBadgeNumber}>
+                              {group.groupSummary.total}
                             </Text>
                           </View>
                         </View>
 
-                        {/* Breakdown */}
-                        <View style={styles.reportBreakdownRow}>
-                          <View style={styles.miniStat}>
-                            <Text style={styles.miniStatVal}>{repSummary.hombres}</Text>
-                            <Text style={styles.miniStatLbl}>Hombres</Text>
+                        {/* Resumen Consolidado de la Red del Líder 12 */}
+                        <View style={styles.groupBreakdownRow}>
+                          <View style={styles.groupStatBox}>
+                            <Text style={[styles.groupStatVal, { color: '#2563EB' }]}>
+                              {group.groupSummary.hombres}
+                            </Text>
+                            <Text style={styles.groupStatLbl}>Hombres</Text>
                           </View>
-                          <View style={styles.miniStat}>
-                            <Text style={styles.miniStatVal}>{repSummary.mujeres}</Text>
-                            <Text style={styles.miniStatLbl}>Mujeres</Text>
+                          <View style={styles.groupStatBox}>
+                            <Text style={[styles.groupStatVal, { color: '#DB2777' }]}>
+                              {group.groupSummary.mujeres}
+                            </Text>
+                            <Text style={styles.groupStatLbl}>Mujeres</Text>
                           </View>
-                          <View style={styles.miniStat}>
-                            <Text style={styles.miniStatVal}>{repSummary.prejuvenil}</Text>
-                            <Text style={styles.miniStatLbl}>Prejuvenil</Text>
+                          <View style={styles.groupStatBox}>
+                            <Text style={[styles.groupStatVal, { color: '#7C3AED' }]}>
+                              {group.groupSummary.prejuvenil}
+                            </Text>
+                            <Text style={styles.groupStatLbl}>Prejuvenil</Text>
                           </View>
-                          <View style={styles.miniStat}>
-                            <Text style={styles.miniStatVal}>{repSummary.visitors}</Text>
-                            <Text style={styles.miniStatLbl}>Visitas</Text>
+                          <View style={styles.groupStatBox}>
+                            <Text style={[styles.groupStatVal, { color: '#D97706' }]}>
+                              {group.groupSummary.visitors}
+                            </Text>
+                            <Text style={styles.groupStatLbl}>Visitas</Text>
                           </View>
                         </View>
 
-                        {/* Disciples Breakdown */}
-                        <View style={{ marginTop: 10 }}>
-                          <Text style={styles.disciplesHeaderTitle}>Discípulos Reportados:</Text>
-                          {rep.disciples.map((d, i) => {
-                            const isPj = typeof d.age === 'number' && d.age < PREJUVENIL_MAX_AGE;
+                        {/* Desglose de Cada Reporte (Líder 12 y sus discípulos) */}
+                        <View style={styles.groupInnerReportsList}>
+                          {group.reports.map((rep) => {
+                            const repSummary = summarizeReports([rep], members);
+                            const isL12 = isReportFromLeader12(rep, group.leader12Name);
+                            const repAuthor = members.find(
+                              (m) =>
+                                m.id === rep.leaderId ||
+                                `${m.firstName} ${m.lastName}`.trim().toLowerCase() ===
+                                  rep.leaderName.trim().toLowerCase()
+                            );
+                            const repLeader = repAuthor?.leaderId
+                              ? members.find((m) => m.id === repAuthor.leaderId)
+                              : null;
+                            const recipientDisplay =
+                              rep.recipientLeaderName ||
+                              (repLeader
+                                ? `${repLeader.role === 'network_pastor' || repLeader.role === 'senior_pastor' ? (repLeader.gender === 'F' ? 'Pastora' : 'Pastor') : 'Líder'} ${repLeader.firstName} ${repLeader.lastName}`
+                                : repAuthor?.leaderName || leaderInCharge.name);
+
                             return (
-                              <View key={i} style={styles.discipleRepRow}>
-                                <Ionicons
-                                  name={d.attended ? 'checkmark-circle' : 'close-circle'}
-                                  size={15}
-                                  color={d.attended ? '#059669' : '#DC2626'}
-                                />
-                                <Text style={styles.discipleRepName}>{d.name}</Text>
-                                <Text style={styles.discipleRepTag}>
-                                  {isPj ? 'Prejuvenil (<14)' : d.gender === 'F' ? 'Mujer' : 'Hombre'}
-                                  {d.age ? ` (${d.age}a)` : ''}
-                                </Text>
+                              <View key={rep.id} style={styles.innerReportCard}>
+                                <View style={styles.reportHeader}>
+                                  <View style={{ flex: 1 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                      <Text style={styles.reportLeaderName}>{rep.leaderName}</Text>
+                                      <View
+                                        style={[
+                                          styles.roleTagPill,
+                                          isL12 ? styles.roleTagL12 : styles.roleTag144,
+                                        ]}>
+                                        <Text
+                                          style={[
+                                            styles.roleTagPillText,
+                                            isL12 ? { color: '#1D4ED8' } : { color: '#15803D' },
+                                          ]}>
+                                          {isL12 ? '👑 Líder 12 (Titular)' : '🌱 Discípulo (144)'}
+                                        </Text>
+                                      </View>
+                                    </View>
+
+                                    <Text style={styles.reportMeta}>
+                                      Servicio: {rep.serviceId} • {rep.serviceDate}
+                                    </Text>
+                                    <View style={styles.recipientRowMeta}>
+                                      <Ionicons name="paper-plane-outline" size={11} color="#2563EB" />
+                                      <Text style={styles.recipientRowText}>
+                                        Enviado a: <Text style={{ fontWeight: '700' }}>{recipientDisplay}</Text>
+                                      </Text>
+                                    </View>
+                                  </View>
+
+                                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                                    <View
+                                      style={[
+                                        styles.badgePill,
+                                        { backgroundColor: rep.myAttendance ? '#DCFCE7' : '#FEE2E2' },
+                                      ]}>
+                                      <Text
+                                        style={[
+                                          styles.badgePillText,
+                                          { color: rep.myAttendance ? '#15803D' : '#B91C1C' },
+                                        ]}>
+                                        {rep.myAttendance ? 'Líder Asistió' : 'Líder Ausente'}
+                                      </Text>
+                                    </View>
+                                    <View style={styles.individualContributionBadge}>
+                                      <Text style={styles.individualContributionText}>
+                                        Aporte: +{repSummary.total}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                </View>
+
+                                {/* Breakdown Individual */}
+                                <View style={styles.reportBreakdownRow}>
+                                  <View style={styles.miniStat}>
+                                    <Text style={styles.miniStatVal}>{repSummary.hombres}</Text>
+                                    <Text style={styles.miniStatLbl}>Hombres</Text>
+                                  </View>
+                                  <View style={styles.miniStat}>
+                                    <Text style={styles.miniStatVal}>{repSummary.mujeres}</Text>
+                                    <Text style={styles.miniStatLbl}>Mujeres</Text>
+                                  </View>
+                                  <View style={styles.miniStat}>
+                                    <Text style={styles.miniStatVal}>{repSummary.prejuvenil}</Text>
+                                    <Text style={styles.miniStatLbl}>Prejuvenil</Text>
+                                  </View>
+                                  <View style={styles.miniStat}>
+                                    <Text style={styles.miniStatVal}>{repSummary.visitors}</Text>
+                                    <Text style={styles.miniStatLbl}>Visitas</Text>
+                                  </View>
+                                </View>
+
+                                {/* Disciples Breakdown */}
+                                {rep.disciples.length > 0 && (
+                                  <View style={{ marginTop: 10 }}>
+                                    <Text style={styles.disciplesHeaderTitle}>
+                                      Discípulos Reportados ({rep.disciples.length}):
+                                    </Text>
+                                    {rep.disciples.map((d: DiscipleAttendanceItem, i: number) => {
+                                      const isPj = typeof d.age === 'number' && d.age < PREJUVENIL_MAX_AGE;
+                                      return (
+                                        <View key={i} style={styles.discipleRepRow}>
+                                          <Ionicons
+                                            name={d.attended ? 'checkmark-circle' : 'close-circle'}
+                                            size={15}
+                                            color={d.attended ? '#059669' : '#DC2626'}
+                                          />
+                                          <Text style={styles.discipleRepName}>{d.name}</Text>
+                                          <Text style={styles.discipleRepTag}>
+                                            {isPj ? 'Prejuvenil (<14)' : d.gender === 'F' ? 'Mujer' : 'Hombre'}
+                                            {d.age ? ` (${d.age}a)` : ''}
+                                          </Text>
+                                        </View>
+                                      );
+                                    })}
+                                  </View>
+                                )}
+
+                                {/* Visitor Names */}
+                                {rep.visitorNames && rep.visitorNames.length > 0 && (
+                                  <View style={styles.visitorsTagRow}>
+                                    <Ionicons name="people-circle" size={16} color="#D97706" />
+                                    <Text style={styles.visitorsTagText}>
+                                      Visitas ({rep.visitorNames.length}): {rep.visitorNames.join(', ')}
+                                    </Text>
+                                  </View>
+                                )}
+
+                                {rep.notes && (
+                                  <Text style={styles.reportNotes}>
+                                    &ldquo;{rep.notes}&rdquo;
+                                  </Text>
+                                )}
                               </View>
                             );
                           })}
                         </View>
 
-                        {/* Visitor Names */}
-                        {rep.visitorNames && rep.visitorNames.length > 0 && (
-                          <View style={styles.visitorsTagRow}>
-                            <Ionicons name="people-circle" size={16} color="#D97706" />
-                            <Text style={styles.visitorsTagText}>
-                              Visitas: {rep.visitorNames.join(', ')}
-                            </Text>
+                        {/* Footer con el Total Consolidado de la Red */}
+                        {group.reports.length > 1 && (
+                          <View style={styles.groupFooterBar}>
+                            <Ionicons name="people" size={16} color="#1E3A8A" />
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.groupFooterText}>
+                                Total Red {group.leader12Name}:{' '}
+                                <Text style={{ fontWeight: '800', color: '#1E3A8A' }}>
+                                  {group.groupSummary.total} personas únicas
+                                </Text>
+                              </Text>
+                              <Text style={styles.groupFooterSubtext}>
+                                Conteo consolidado exacto sin duplicar discípulos que también reportaron su célula.
+                              </Text>
+                            </View>
                           </View>
-                        )}
-
-                        {rep.notes && (
-                          <Text style={styles.reportNotes}>
-                            &ldquo;{rep.notes}&rdquo;
-                          </Text>
                         )}
                       </View>
                     );
@@ -2038,5 +2397,230 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 8,
     backgroundColor: '#F1F5F9',
+  },
+
+  // Selector de Modo Superior para Líderes 12
+  topModeSelector: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 6,
+  },
+  topModeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  topModeBtnActive: {
+    backgroundColor: '#1E3A8A',
+  },
+  topModeBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  topModeBtnTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Grupo en Tab Consolidado
+  consolidadoGroupContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  consolidadoGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#DBEAFE',
+  },
+  consolidadoGroupTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1E3A8A',
+  },
+  consolidadoGroupBadge: {
+    backgroundColor: '#1E3A8A',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  consolidadoGroupBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  // Role Tag Pills (Líder 12 vs 144)
+  roleTagPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  roleTagL12: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
+  roleTag144: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+  roleTagPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  // Contenedor Principal de Grupo por Líder 12 en Tab Reportes
+  leader12GroupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    marginBottom: 20,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  leader12GroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  leader12GroupTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  leader12GroupSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  leader12TotalBadge: {
+    backgroundColor: '#1E3A8A',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  leader12TotalBadgeLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#93C5FD',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  leader12TotalBadgeNumber: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+
+  // Barra de Conteo Consolidado del Grupo
+  groupBreakdownRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    gap: 8,
+  },
+  groupStatBox: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingVertical: 6,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  groupStatVal: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  groupStatLbl: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 1,
+  },
+
+  // Lista interna de reportes
+  groupInnerReportsList: {
+    padding: 12,
+    gap: 12,
+  },
+  innerReportCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  individualContributionBadge: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  individualContributionText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+
+  // Footer con el Total Consolidado
+  groupFooterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#BFDBFE',
+  },
+  groupFooterText: {
+    fontSize: 13,
+    color: '#1E3A8A',
+  },
+  groupFooterSubtext: {
+    fontSize: 11,
+    color: '#3B82F6',
+    marginTop: 2,
   },
 });

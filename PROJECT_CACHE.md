@@ -92,10 +92,15 @@
 - `domingo_adultos_2`: Domingo 1:00 PM – 3:00 PM (Red Adulta)
 - `viernes_adoracion`: Viernes 6:00 PM – 7:30 PM (Red General)
 
-### 3.4. Consolidación y Categorización de Asistencia (`src/lib/attendance.ts`)
+### 3.4. Consolidación y Categorización de Asistencia (`src/lib/attendance.ts` y `src/app/attendance.tsx`)
 - **Regla Prejuvenil:** Toda persona menor de 14 años (`age < 14`) se clasifica automáticamente como `prejuvenil`, sin importar el sexo.
 - **Categorías:** `hombres`, `mujeres`, `prejuvenil`, `sin_clasificar`.
-- **Deduplicación:** La función `summarizeReports(reports, members)` totaliza el reporte del líder, sus discípulos presentes e invitados. Si un discípulo envía su propio reporte y además es marcado por su líder, se cuenta exactamente una sola vez (deduplicación por ID de miembro).
+- **Deduplicación:** La función `summarizeReports(reports, members)` totaliza el reporte del líder, sus discípulos presentes e invitados. Si un discípulo envía su propio reporte y además es marcado por su líder (o viceversa), se cuenta exactamente una sola vez (deduplicación simultánea por ID de miembro y por nombre normalizado).
+- **Agrupación por Líder 12:** En la pantalla de Asistencia (`attendance.tsx`), los reportes ya no se muestran sueltos o inconexos:
+  - Se agrupan bajo su **Líder 12** titular (`leader12GroupCard`), mostrando el reporte del propio Líder 12 primero (`👑 Líder 12 (Titular)`) seguido de los reportes de sus discípulos (`🌱 Discípulo (144)`).
+  - Cada reporte individual muestra con claridad su aporte (`Aporte individual: +X personas`) y desglose específico de discípulos e invitados que trajo.
+  - La cabecera y el pie del grupo muestran el **Total Red** consolidado y deduplicado de todo el equipo del Líder 12 (ej. 16 personas únicas), evitando duplicar discípulos que también reportan su propia célula.
+  - Los Líderes de 12 cuentan con un selector superior para alternar entre "Enviar mi Reporte" y "Reportes de mi Red" para auditar a sus discípulos 144.
 
 ### 3.5. Grupos Celulares y Reportes de Reunión (`src/app/cells.tsx`)
 - Campos de célula: Líder que predica (`cell_leader_name`), Cobertura de 12 (`leader_name`), Anfitrión (`host_name`), Asistente (`assistant_name`), Día, Hora, Red.

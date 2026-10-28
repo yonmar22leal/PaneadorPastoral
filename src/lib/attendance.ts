@@ -77,11 +77,14 @@ export const emptySummary = (): AttendanceSummary => ({
 
 const isRealMemberId = (id?: string) => !!id && !id.startsWith('disc-') && !id.startsWith('lider-');
 
+const normalizePersonName = (name?: string) =>
+  name ? name.toLowerCase().trim().replace(/\s+/g, ' ') : '';
+
 /**
  * Suma la asistencia de varios reportes de líderes.
  * - Cuenta al líder (si asistió), a sus discípulos presentes y a sus invitados.
- * - Si una misma persona (por ID de miembro) aparece en dos reportes del mismo servicio,
- *   se cuenta una sola vez (ej: un discípulo que también envía su propio reporte).
+ * - Si una misma persona (por ID de miembro o por nombre normalizado) aparece en dos reportes del mismo servicio,
+ *   se cuenta una sola vez (ej: un discípulo que reportó su propio líder 12 y también envía su propio reporte).
  */
 export function summarizeReports(
   reports: LeaderAttendanceReport[],
@@ -106,10 +109,21 @@ export function summarizeReports(
 
     // 1. Líder
     if (rep.myAttendance) {
-      const key = isRealMemberId(rep.leaderId) ? `${scope}|${rep.leaderId}` : `${scope}|r${rep.id}`;
-      if (!counted.has(key)) {
-        counted.add(key);
-        const m = memberById.get(rep.leaderId);
+      const normLeader = normalizePersonName(rep.leaderName);
+      const keyId = isRealMemberId(rep.leaderId) ? `${scope}|id:${rep.leaderId}` : null;
+      const keyName = normLeader ? `${scope}|name:${normLeader}` : `${scope}|r${rep.id}`;
+
+      const alreadyCounted =
+        (keyId && counted.has(keyId)) || (normLeader && counted.has(keyName));
+
+      if (!alreadyCounted) {
+        if (keyId) counted.add(keyId);
+        if (normLeader) counted.add(keyName);
+        const m =
+          memberById.get(rep.leaderId) ||
+          members.find(
+            (mem) => normalizePersonName(`${mem.firstName} ${mem.lastName}`) === normLeader
+          );
         add(classifyPerson(rep.leaderGender ?? m?.gender, rep.leaderAge ?? calcAge(m?.birthDate)));
       }
     }
@@ -118,12 +132,21 @@ export function summarizeReports(
     rep.disciples
       .filter((d) => d.attended)
       .forEach((d, idx) => {
-        const key = isRealMemberId(d.memberId)
-          ? `${scope}|${d.memberId}`
-          : `${scope}|r${rep.id}|d${idx}`;
-        if (counted.has(key)) return;
-        counted.add(key);
-        const m = memberById.get(d.memberId);
+        const normDName = normalizePersonName(d.name);
+        const keyId = isRealMemberId(d.memberId) ? `${scope}|id:${d.memberId}` : null;
+        const keyName = normDName ? `${scope}|name:${normDName}` : `${scope}|r${rep.id}|d${idx}`;
+
+        const alreadyCounted =
+          (keyId && counted.has(keyId)) || (normDName && counted.has(keyName));
+        if (alreadyCounted) return;
+
+        if (keyId) counted.add(keyId);
+        if (normDName) counted.add(keyName);
+        const m =
+          memberById.get(d.memberId) ||
+          members.find(
+            (mem) => normalizePersonName(`${mem.firstName} ${mem.lastName}`) === normDName
+          );
         add(classifyPerson(d.gender ?? m?.gender, d.age ?? calcAge(m?.birthDate)));
       });
 
