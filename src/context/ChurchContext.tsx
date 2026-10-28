@@ -326,9 +326,53 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         console.warn('Supabase members fetch error:', mError.message);
       } else if (membersData) {
         const memberMap = new Map<string, any>(membersData.map((m) => [m.id, m]));
+
+        // Helper para resolver dinámicamente el nivel de generación G12 en cascada
+        const resolveMemberGenLevel = (item: any, visited = new Set<string>()): number => {
+          if (!item) return 2;
+          if (visited.has(item.id)) return 2;
+          visited.add(item.id);
+
+          if (item.role === 'senior_pastor') return 0;
+          if (item.role === 'network_pastor') return 1;
+
+          // Si tiene leader_id registrado
+          if (item.leader_id) {
+            const parent = memberMap.get(item.leader_id);
+            if (parent) {
+              if (parent.role === 'senior_pastor') return 1;
+              if (parent.role === 'network_pastor') return 2; // Discípulo de pastor de red = Líder 12
+              const parentLevel = resolveMemberGenLevel(parent, visited);
+              if (parentLevel === 2) return 3; // Discípulo de Líder 12 = Líder 144
+              if (parentLevel === 3) return 4; // Discípulo de 144 = Líder 1728
+              return parentLevel + 1;
+            }
+          }
+
+          // Si el nombre de cobertura apunta a un pastor de red
+          const lName = (item.leader_name || '').toLowerCase();
+          if (
+            lName.includes('josue') ||
+            lName.includes('josué') ||
+            lName.includes('norelis') ||
+            lName.includes('carlos diez') ||
+            lName.includes('neiyelis')
+          ) {
+            return 2; // Líder 12
+          }
+
+          // Si tiene generation_level explícito >= 2
+          if (item.generation_level && item.generation_level >= 2) {
+            return item.generation_level;
+          }
+
+          return item.role === 'g12_leader' || item.is_leader_of_12 ? 2 : 3;
+        };
+
         const mappedMembers: Member[] = membersData.map((item) => {
           const leader = item.leader_id ? memberMap.get(item.leader_id) : undefined;
-          const leaderName = leader ? `${leader.first_name} ${leader.last_name}` : undefined;
+          const leaderName = leader ? `${leader.first_name} ${leader.last_name}` : (item.leader_name || undefined);
+          const genLevel = resolveMemberGenLevel(item);
           return {
             id: item.id,
             firstName: item.first_name,
@@ -339,8 +383,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             network: item.network,
             leaderId: item.leader_id || undefined,
             leaderName,
-            isLeaderOf12: item.is_leader_of_12 ?? false,
-            generationLevel: item.generation_level ?? 1,
+            isLeaderOf12: genLevel === 2,
+            generationLevel: genLevel,
             familyName: item.family_name || undefined,
             gender: item.gender || undefined,
             birthDate: item.birth_date || undefined,
@@ -364,7 +408,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             prev.role === fresh.role &&
             prev.network === fresh.network &&
             prev.leaderId === fresh.leaderId &&
-            prev.leaderName === fresh.leaderName
+            prev.leaderName === fresh.leaderName &&
+            prev.generationLevel === fresh.generationLevel
           ) {
             return prev;
           }
@@ -634,6 +679,38 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
+    // Resolver nivel generacional G12 exacto
+    let resolvedGenLevel = found.generationLevel;
+    if (!resolvedGenLevel || resolvedGenLevel === 1) {
+      if (found.role === 'senior_pastor') {
+        resolvedGenLevel = 0;
+      } else if (found.role === 'network_pastor') {
+        resolvedGenLevel = 1;
+      } else {
+        const leader = found.leaderId ? members.find((m) => m.id === found.leaderId) : undefined;
+        if (leader) {
+          if (leader.role === 'senior_pastor') resolvedGenLevel = 1;
+          else if (leader.role === 'network_pastor') resolvedGenLevel = 2; // Líder 12
+          else resolvedGenLevel = 3; // Líder 144
+        } else if (found.leaderName) {
+          const lName = found.leaderName.toLowerCase();
+          if (
+            lName.includes('josue') ||
+            lName.includes('josué') ||
+            lName.includes('norelis') ||
+            lName.includes('carlos diez') ||
+            lName.includes('neiyelis')
+          ) {
+            resolvedGenLevel = 2;
+          } else {
+            resolvedGenLevel = 3;
+          }
+        } else {
+          resolvedGenLevel = found.role === 'g12_leader' ? 2 : 3;
+        }
+      }
+    }
+
     const user: AuthUser = {
       id: found.id,
       email: found.email || '',
@@ -647,7 +724,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       phone: found.phone,
       leaderId: found.leaderId,
       leaderName: found.leaderName,
-      generationLevel: found.generationLevel,
+      isLeaderOf12: resolvedGenLevel === 2,
+      generationLevel: resolvedGenLevel,
       familyName: found.familyName,
       preferredService: found.preferredService,
       notes: found.notes,
@@ -1536,13 +1614,60 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     if (currentUser.role === 'network_pastor') {
       return cellMeetingReports.filter((r) => r.network === currentUser.network);
     }
-    return cellMeetingReports.filter(
-      (r) =>
-        r.leaderId === currentUser.id ||
-        r.recipientLeaderId === currentUser.id ||
-        (r.cellLeaderName && r.cellLeaderName.toLowerCase().includes(currentUser.firstName.toLowerCase())) ||
-        (r.leaderName && r.leaderName.toLowerCase().includes(currentUser.firstName.toLowerCase()))
+
+    // Para Líderes 12: incluir sus propios reportes de célula Y los reportes de sus 144 discípulos
+    const myDisciplesList = members.filter((m) => m.leaderId === currentUser.id);
+    const myDiscipleIds = new Set(myDisciplesList.map((m) => m.id));
+    const myDiscipleNames = new Set(
+      myDisciplesList.map((m) => `${m.firstName} ${m.lastName}`.toLowerCase().trim())
     );
+    const myDiscipleFirstNames = new Set(
+      myDisciplesList.map((m) => m.firstName.toLowerCase().trim())
+    );
+
+    const myFirst = currentUser.firstName.toLowerCase().trim();
+    const myFull = `${currentUser.firstName} ${currentUser.lastName}`.toLowerCase().trim();
+
+    return cellMeetingReports.filter((r) => {
+      // 1. Reporte dirigido o reportado por el propio líder
+      if (r.leaderId === currentUser.id) return true;
+      if (
+        r.cellLeaderName &&
+        (r.cellLeaderName.toLowerCase().includes(myFirst) ||
+          r.cellLeaderName.toLowerCase().includes(myFull))
+      ) {
+        return true;
+      }
+
+      // 2. Reporte donde el usuario es el destinatario o cobertura
+      if (r.recipientLeaderId === currentUser.id) return true;
+      if (
+        r.recipientLeaderName &&
+        (r.recipientLeaderName.toLowerCase().includes(myFirst) ||
+          r.recipientLeaderName.toLowerCase().includes(myFull))
+      ) {
+        return true;
+      }
+      if (
+        r.leaderName &&
+        (r.leaderName.toLowerCase().includes(myFirst) ||
+          r.leaderName.toLowerCase().includes(myFull))
+      ) {
+        return true;
+      }
+
+      // 3. Reporte enviado por alguno de sus 144 discípulos directos
+      if (r.leaderId && myDiscipleIds.has(r.leaderId)) return true;
+      const cleanCellLeader = (r.cellLeaderName || '').toLowerCase().trim();
+      if (myDiscipleNames.has(cleanCellLeader) || myDiscipleFirstNames.has(cleanCellLeader)) {
+        return true;
+      }
+      for (const dName of myDiscipleNames) {
+        if (cleanCellLeader.includes(dName)) return true;
+      }
+
+      return false;
+    });
   };
 
   const getMyLeaderAttendanceReports = (): LeaderAttendanceReport[] => {
@@ -1576,12 +1701,51 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         return rep.leaderId === currentUser.id;
       });
     }
-    return leaderAttendanceReports.filter(
-      (rep) =>
-        rep.leaderId === currentUser.id ||
-        rep.recipientLeaderId === currentUser.id ||
-        (rep.leaderName && rep.leaderName.toLowerCase().includes(currentUser.firstName.toLowerCase()))
+
+    // Para Líderes 12: incluir sus propios reportes de asistencia dominical y los de sus 144 discípulos
+    const myDisciplesList = members.filter((m) => m.leaderId === currentUser.id);
+    const myDiscipleIds = new Set(myDisciplesList.map((m) => m.id));
+    const myDiscipleNames = new Set(
+      myDisciplesList.map((m) => `${m.firstName} ${m.lastName}`.toLowerCase().trim())
     );
+    const myDiscipleFirstNames = new Set(
+      myDisciplesList.map((m) => m.firstName.toLowerCase().trim())
+    );
+
+    const myFirst = currentUser.firstName.toLowerCase().trim();
+    const myFull = `${currentUser.firstName} ${currentUser.lastName}`.toLowerCase().trim();
+
+    return leaderAttendanceReports.filter((rep) => {
+      // 1. Reporte propio
+      if (rep.leaderId === currentUser.id) return true;
+
+      // 2. Reporte enviado al líder como destinatario/cobertura
+      if (rep.recipientLeaderId === currentUser.id) return true;
+      if (
+        rep.recipientLeaderName &&
+        (rep.recipientLeaderName.toLowerCase().includes(myFirst) ||
+          rep.recipientLeaderName.toLowerCase().includes(myFull))
+      ) {
+        return true;
+      }
+      if (
+        rep.leaderName &&
+        (rep.leaderName.toLowerCase().includes(myFirst) ||
+          rep.leaderName.toLowerCase().includes(myFull))
+      ) {
+        return true;
+      }
+
+      // 3. Reporte de sus 144 discípulos directos
+      if (rep.leaderId && myDiscipleIds.has(rep.leaderId)) return true;
+      const cleanLeader = (rep.leaderName || '').toLowerCase().trim();
+      if (myDiscipleNames.has(cleanLeader) || myDiscipleFirstNames.has(cleanLeader)) return true;
+      for (const dName of myDiscipleNames) {
+        if (cleanLeader.includes(dName)) return true;
+      }
+
+      return false;
+    });
   };
 
   const updateUserProfile = async (

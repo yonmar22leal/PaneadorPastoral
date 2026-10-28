@@ -1,6 +1,6 @@
 import { useChurch } from '@/context/ChurchContext';
 import { calcAge } from '@/lib/attendance';
-import { MemberRole } from '@/types/church';
+import { Member, MemberRole } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
@@ -56,8 +56,14 @@ export default function MembersScreen() {
         return false;
       }
 
-      if (selectedRole !== 'all' && m.role !== selectedRole) {
-        return false;
+      if (selectedRole !== 'all') {
+        if (selectedRole === 'lider_144') {
+          if (m.generationLevel !== 3) return false;
+        } else if (selectedRole === 'g12_leader') {
+          if (m.generationLevel !== 2 && m.role !== 'g12_leader') return false;
+        } else if (m.role !== selectedRole) {
+          return false;
+        }
       }
     }
 
@@ -116,21 +122,29 @@ export default function MembersScreen() {
     setNotes('');
   };
 
-  const getRoleBadgeStyle = (r: MemberRole) => {
-    switch (r) {
-      case 'senior_pastor':
-        return { bg: '#EDE9FE', text: '#6D28D9', label: 'Pastor Principal' };
-      case 'network_pastor':
-        return { bg: '#DBEAFE', text: '#1D4ED8', label: 'Pastor de Red' };
-      case 'g12_leader':
-        return { bg: '#DCFCE7', text: '#047857', label: 'Líder 12' };
-      case 'volunteer':
-        return { bg: '#E0E7FF', text: '#4338CA', label: 'Servidor' };
-      case 'visitor':
-        return { bg: '#FEF3C7', text: '#B45309', label: 'Visitante' };
-      default:
-        return { bg: '#F1F5F9', text: '#475569', label: 'Miembro' };
+  const getRoleBadgeStyle = (m: Member) => {
+    if (m.role === 'senior_pastor') {
+      return { bg: '#EDE9FE', text: '#6D28D9', label: 'Pastor Principal' };
     }
+    if (m.role === 'network_pastor') {
+      return { bg: '#DBEAFE', text: '#1D4ED8', label: 'Pastor de Red' };
+    }
+    if (m.generationLevel === 3) {
+      return { bg: '#EFF6FF', text: '#2563EB', label: 'Líder 144' };
+    }
+    if (m.generationLevel === 4) {
+      return { bg: '#F5F3FF', text: '#7C3AED', label: 'Líder 1728' };
+    }
+    if (m.generationLevel === 2 || m.role === 'g12_leader' || m.isLeaderOf12) {
+      return { bg: '#DCFCE7', text: '#047857', label: 'Líder 12' };
+    }
+    if (m.role === 'volunteer') {
+      return { bg: '#E0E7FF', text: '#4338CA', label: 'Servidor' };
+    }
+    if (m.role === 'visitor') {
+      return { bg: '#FEF3C7', text: '#B45309', label: 'Visitante' };
+    }
+    return { bg: '#F1F5F9', text: '#475569', label: 'Miembro' };
   };
 
   return (
@@ -257,6 +271,7 @@ export default function MembersScreen() {
                 { id: 'senior_pastor', label: 'Pastor Principal' },
                 { id: 'network_pastor', label: 'Pastores de Red' },
                 { id: 'g12_leader', label: 'Líderes 12' },
+                { id: 'lider_144', label: 'Líderes 144' },
                 { id: 'member', label: 'Miembros' },
               ].map((item) => (
                 <TouchableOpacity
@@ -302,7 +317,7 @@ export default function MembersScreen() {
           </View>
         ) : (
           filteredMembers.map((member) => {
-            const badge = getRoleBadgeStyle(member.role);
+            const badge = getRoleBadgeStyle(member);
 
             return (
               <View key={member.id} style={styles.memberCard}>

@@ -2,7 +2,7 @@ import { useChurch } from '@/context/ChurchContext';
 import { CellGroup, CellMeetingReport, CellPersonItem, ChurchNetwork } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -27,6 +27,7 @@ function getNextPersonId(prefix: string): string {
 export default function CellsScreen() {
   const {
     currentUser,
+    members,
     getMyCellGroups,
     addCellGroup,
     getMyDisciples,
@@ -321,22 +322,142 @@ export default function CellsScreen() {
     });
   }, [myCellReports, effectiveNetworkFilter, sheetSearchQuery]);
 
+  // Resuelve el nombre del Líder 12 del reporte para agrupar en la planilla
+  const resolveLeader12Name = useCallback(
+    (rep: CellMeetingReport): string => {
+      // 1. Buscar al miembro que es líder de la célula
+      const repCellLeader = (rep.cellLeaderName || '').trim();
+      const cleanCellLeader = repCellLeader
+        .toLowerCase()
+        .replace(/^(líder|lider|pastor|pastora)\s+/i, '')
+        .trim();
+
+      const cellLeaderMember = members.find((m) => {
+        const full = `${m.firstName} ${m.lastName}`.toLowerCase().trim();
+        return (
+          full === cleanCellLeader ||
+          m.firstName.toLowerCase().trim() === cleanCellLeader ||
+          (cleanCellLeader.includes(m.firstName.toLowerCase().trim()) &&
+            cleanCellLeader.includes(m.lastName.toLowerCase().trim()))
+        );
+      });
+
+      if (cellLeaderMember) {
+        // Si el líder de célula es pastor, su grupo es su propio nombre pastoral
+        if (
+          cellLeaderMember.role === 'senior_pastor' ||
+          cellLeaderMember.role === 'network_pastor'
+        ) {
+          const prefix = cellLeaderMember.gender === 'F' ? 'Pastora' : 'Pastor';
+          return `${prefix} ${cellLeaderMember.firstName} ${cellLeaderMember.lastName}`.trim();
+        }
+
+        const leaderOfMember = cellLeaderMember.leaderId
+          ? members.find((m) => m.id === cellLeaderMember.leaderId)
+          : undefined;
+
+        // Si el líder de célula es Líder 12 (nivel 2, su líder es pastor de red)
+        const isLider12 =
+          cellLeaderMember.generationLevel === 2 ||
+          cellLeaderMember.isLeaderOf12 ||
+          (leaderOfMember &&
+            (leaderOfMember.role === 'senior_pastor' ||
+              leaderOfMember.role === 'network_pastor'));
+
+        if (isLider12) {
+          return `${cellLeaderMember.firstName} ${cellLeaderMember.lastName}`.trim();
+        }
+
+        // Si es un 144 (nivel 3), su Líder 12 es su líder directo
+        if (leaderOfMember) {
+          return `${leaderOfMember.firstName} ${leaderOfMember.lastName}`.trim();
+        }
+      }
+
+      // 2. Revisar rep.leaderName (nombre de cobertura de la célula)
+      const covName = (rep.leaderName || '').trim();
+      const cleanCov = covName
+        .toLowerCase()
+        .replace(/^(líder|lider|pastor|pastora)\s+/i, '')
+        .trim();
+
+      const isCovPastor =
+        cleanCov.includes('josue') ||
+        cleanCov.includes('josué') ||
+        cleanCov.includes('norelis') ||
+        cleanCov.includes('carlos') ||
+        cleanCov.includes('neiyelis') ||
+        cleanCov.includes('peña');
+
+      if (isCovPastor) {
+        // La célula tiene cobertura de un pastor, por ende el que la dirige es el Líder 12
+        if (repCellLeader && !cleanCellLeader.includes('pastor') && !isCovPastor) {
+          return repCellLeader.replace(/^(líder|lider)\s+/i, '').trim();
+        }
+      }
+
+      if (covName && !isCovPastor) {
+        return covName.replace(/^(líder|lider)\s+/i, '').trim();
+      }
+
+      return repCellLeader || 'Sin Cobertura';
+    },
+    [members]
+  );
+
   const groupedSheetData = useMemo(() => {
     const leaderMap = new Map<string, CellMeetingReport[]>();
     for (const rep of filteredReportsForSheet) {
-      const leader = rep.leaderName || rep.cellLeaderName || 'Sin Cobertura';
+      const leader = resolveLeader12Name(rep);
       if (!leaderMap.has(leader)) {
         leaderMap.set(leader, []);
       }
       leaderMap.get(leader)!.push(rep);
     }
 
-    const leaderGroups = Array.from(leaderMap.entries()).map(([leaderName, reps], index) => ({
-      leaderName,
-      leaderIndex: index + 1,
-      cellsCount: reps.length,
-      reports: reps,
-    }));
+    const leaderGroups = Array.from(leaderMap.entries()).map(([leaderName, reps], index) => {
+      // Ordenar: primero la célula del propio Líder 12, luego las de sus discípulos 144
+      const cleanLeader = leaderName.toLowerCase().trim();
+      const sortedReps = [...reps].sort((a, b) => {
+        const aName = (a.cellLeaderName || '').toLowerCase().trim();
+        const bName = (b.cellLeaderName || '').toLowerCase().trim();
+        const aIsLeader = aName.includes(cleanLeader) || cleanLeader.includes(aName);
+        const bIsLeader = bName.includes(cleanLeader) || cleanLeader.includes(bName);
+        if (aIsLeader && !bIsLeader) return -1;
+        if (!aIsLeader && bIsLeader) return 1;
+        return 0;
+      });
+
+      // Calcular subtotales del grupo del Líder 12
+      const groupMembers = sortedReps.reduce((sum, r) => sum + (r.membersCount || 0), 0);
+      const groupVisitors = sortedReps.reduce((sum, r) => sum + (r.visitorsCount || 0), 0);
+      const groupConversions = sortedReps.reduce((sum, r) => sum + (r.conversionsCount || 0), 0);
+      const groupVes = sortedReps.reduce((sum, r) => sum + (r.offeringDetails?.vesCash || 0), 0);
+      const groupUsd = sortedReps.reduce(
+        (sum, r) =>
+          sum + (r.offeringDetails?.usdCash || (!r.offeringDetails ? r.offering || 0 : 0)),
+        0
+      );
+      const groupPm = sortedReps.reduce(
+        (sum, r) => sum + (r.offeringDetails?.pagoMovilAmount || 0),
+        0
+      );
+
+      return {
+        leaderName,
+        leaderIndex: index + 1,
+        cellsCount: sortedReps.length,
+        reports: sortedReps,
+        totals: {
+          members: groupMembers,
+          visitors: groupVisitors,
+          conversions: groupConversions,
+          offeringVes: groupVes,
+          offeringUsd: groupUsd,
+          offeringPm: groupPm,
+        },
+      };
+    });
 
     const totalCells = filteredReportsForSheet.length;
     const totalMembers = filteredReportsForSheet.reduce((sum, r) => sum + (r.membersCount || 0), 0);
@@ -371,7 +492,7 @@ export default function CellsScreen() {
       totalOfferingUsd,
       totalOfferingPm,
     };
-  }, [filteredReportsForSheet]);
+  }, [filteredReportsForSheet, resolveLeader12Name]);
 
   // Generador de Hoja de Cálculo HTML con estilos visuales completos idénticos al Excel (Colores, bordes, cabecera verde, recuadro amarillo)
   const generateStyledExcelHTML = () => {
@@ -460,6 +581,23 @@ export default function CellsScreen() {
           </tr>`;
         rowsHtml.push(row);
       });
+
+      if (group.reports.length > 1) {
+        const subtotalRow = `
+          <tr style="background-color: #F8FAFC; border-top: 1.5px solid #94A3B8; border-bottom: 2px solid #64748B;">
+            <td style="border: 1px solid #CBD5E1;"></td>
+            <td style="font-weight: 800; color: #1E3A8A; background-color: #EFF6FF; border: 1px solid #CBD5E1; padding: 6px;">Total ${group.leaderName}</td>
+            <td style="text-align: center; font-weight: 800; color: #1E3A8A; background-color: #EFF6FF; border: 1px solid #CBD5E1; padding: 6px;">${group.cellsCount} cél</td>
+            <td colspan="5" style="border: 1px solid #CBD5E1; text-align: right; font-weight: bold; color: #64748B; padding: 6px; font-size: 10pt;">Subtotal ${group.leaderName}:</td>
+            <td style="text-align: center; font-weight: 800; border: 1px solid #CBD5E1; padding: 6px;">${group.totals.members}</td>
+            <td style="text-align: center; font-weight: 800; background-color: #DCFCE7; color: #15803D; border: 1px solid #CBD5E1; padding: 6px;">${group.totals.visitors}</td>
+            <td style="text-align: center; font-weight: 800; color: #7C3AED; border: 1px solid #CBD5E1; padding: 6px;">${group.totals.conversions}</td>
+            <td style="text-align: right; font-weight: 800; border: 1px solid #CBD5E1; padding: 6px; color: ${group.totals.offeringVes > 0 ? '#0F172A' : '#EA580C'};">${group.totals.offeringVes > 0 ? `Bs. ${group.totals.offeringVes.toLocaleString()}` : '0'}</td>
+            <td style="text-align: right; font-weight: 800; border: 1px solid #CBD5E1; padding: 6px; color: ${group.totals.offeringUsd > 0 ? '#0F172A' : '#EA580C'};">${group.totals.offeringUsd > 0 ? `$${group.totals.offeringUsd.toLocaleString()}` : '0'}</td>
+            <td style="text-align: right; font-weight: 800; border: 1px solid #CBD5E1; padding: 6px; color: ${group.totals.offeringPm > 0 ? '#0F172A' : '#EA580C'};">${group.totals.offeringPm > 0 ? `Bs. ${group.totals.offeringPm.toLocaleString()}` : '0'}</td>
+          </tr>`;
+        rowsHtml.push(subtotalRow);
+      }
     });
 
     return `<!DOCTYPE html>
@@ -605,6 +743,26 @@ export default function CellsScreen() {
         ].join(';');
         rows.push(row);
       });
+
+      if (group.reports.length > 1) {
+        const subtotalRow = [
+          '',
+          escapeCsv(`Total ${group.leaderName}`),
+          `${group.cellsCount} cél`,
+          '',
+          '',
+          '',
+          escapeCsv(`Subtotal ${group.leaderName}`),
+          '',
+          group.totals.members,
+          group.totals.visitors,
+          group.totals.conversions,
+          group.totals.offeringVes,
+          group.totals.offeringUsd,
+          group.totals.offeringPm,
+        ].join(';');
+        rows.push(subtotalRow);
+      }
     });
 
     const totalsRow = [
@@ -853,8 +1011,19 @@ ${groupedSheetData.leaderGroups
               </View>
             )}
 
-            {/* List of Cells */}
-            {cellGroups.map((cell) => {
+            {/* List of Cells: Su propia célula primero, luego las de sus discípulos */}
+            {[...cellGroups]
+              .sort((a, b) => {
+                const cleanUser = myFullName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
+                const aClean = a.cellLeaderName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
+                const bClean = b.cellLeaderName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
+                const aMine = aClean === cleanUser || aClean.includes(cleanUser);
+                const bMine = bClean === cleanUser || bClean.includes(cleanUser);
+                if (aMine && !bMine) return -1;
+                if (!aMine && bMine) return 1;
+                return 0;
+              })
+              .map((cell) => {
               // 1. ¿Quién dirige la célula?
               // Comparamos el nombre del líder de la célula con el usuario logueado actualmente
               const cleanUser = myFullName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
@@ -1224,197 +1393,336 @@ ${groupedSheetData.leaderGroups
 
                         {/* Table Body: Grouped by Líder 12 */}
                         {groupedSheetData.leaderGroups.map((group) => {
-                          return group.reports.map((rep, rIndex) => {
-                            const isFirstOfLeader = rIndex === 0;
-                            const isNoAsistio =
-                              rep.status === 'no_asistio_nadie' ||
-                              (rep.topic && rep.topic.toUpperCase().includes('NO ASISTIÓ'));
-                            const isNoRealizo =
-                              rep.status === 'no_realizo' ||
-                              (rep.topic && rep.topic.toUpperCase().includes('NO REALIZÓ'));
+                          return (
+                            <Fragment key={group.leaderName}>
+                              {group.reports.map((rep, rIndex) => {
+                                const isFirstOfLeader = rIndex === 0;
+                                const isNoAsistio =
+                                  rep.status === 'no_asistio_nadie' ||
+                                  (rep.topic && rep.topic.toUpperCase().includes('NO ASISTIÓ'));
+                                const isNoRealizo =
+                                  rep.status === 'no_realizo' ||
+                                  (rep.topic && rep.topic.toUpperCase().includes('NO REALIZÓ'));
 
-                            return (
-                              <View
-                                key={rep.id}
-                                style={[
-                                  styles.tableDataRow,
-                                  isNoRealizo && styles.rowNoRealizo,
-                                ]}>
-                                {/* Columna #: Número del líder */}
-                                <View style={[styles.tdCell, { width: 38 }]}>
-                                  <Text style={styles.tdTextMuted}>
-                                    {isFirstOfLeader ? group.leaderIndex : ''}
-                                  </Text>
-                                </View>
-
-                                {/* Columna Líder 12 */}
-                                <View
-                                  style={[
-                                    styles.tdCell,
-                                    { width: 135 },
-                                    isFirstOfLeader && styles.leaderCellGrouped,
-                                  ]}>
-                                  <Text
+                                return (
+                                  <View
+                                    key={rep.id}
                                     style={[
-                                      styles.tdTextBold,
-                                      !isFirstOfLeader && { color: '#94A3B8', fontSize: 11 },
-                                    ]}
-                                    numberOfLines={1}>
-                                    {isFirstOfLeader ? group.leaderName : ''}
-                                  </Text>
-                                </View>
-
-                                {/* Columna Cant. de Células */}
-                                <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
-                                  <Text style={styles.tdTextCenterBold}>
-                                    {isFirstOfLeader ? group.cellsCount : ''}
-                                  </Text>
-                                </View>
-
-                                {/* Líder de Célula */}
-                                <View style={[styles.tdCell, { width: 140 }]}>
-                                  <Text style={styles.tdText} numberOfLines={1}>
-                                    {rep.cellLeaderName}
-                                  </Text>
-                                </View>
-
-                                {/* Asistente */}
-                                <View style={[styles.tdCell, { width: 130 }]}>
-                                  <Text
-                                    style={[
-                                      styles.tdText,
-                                      (!rep.assistantName ||
-                                        rep.assistantName.toLowerCase() === 'no tiene') &&
-                                        styles.tdTextMuted,
-                                    ]}
-                                    numberOfLines={1}>
-                                    {rep.assistantName || 'No tiene'}
-                                  </Text>
-                                </View>
-
-                                {/* Anfitrión (a) */}
-                                <View style={[styles.tdCell, { width: 130 }]}>
-                                  <Text style={styles.tdText} numberOfLines={1}>
-                                    {rep.hostName}
-                                  </Text>
-                                </View>
-
-                                {/* Palabra Predicada */}
-                                <View style={[styles.tdCell, { width: 180 }]}>
-                                  <Text
-                                    style={[
-                                      styles.tdText,
-                                      isNoAsistio && styles.tdTextDanger,
-                                      isNoRealizo && styles.tdTextWarning,
-                                    ]}
-                                    numberOfLines={1}>
-                                    {rep.topic || rep.notes || 'Sin registrar'}
-                                  </Text>
-                                </View>
-
-                                {/* Fecha */}
-                                <View style={[styles.tdCell, { width: 85, alignItems: 'center' }]}>
-                                  <Text style={styles.tdTextCenterMuted}>
-                                    {rep.date ? rep.date.split('-').reverse().join('/') : ''}
-                                  </Text>
-                                </View>
-
-                                {/* Miembros */}
-                                <View style={[styles.tdCell, { width: 70, alignItems: 'center' }]}>
-                                  <Text style={styles.tdTextCenter}>{rep.membersCount}</Text>
-                                </View>
-
-                                {/* Invitados (Verde si > 0, Rojo si 0) */}
-                                <View
-                                  style={[
-                                    styles.tdCell,
-                                    { width: 70, alignItems: 'center' },
-                                    rep.visitorsCount > 0 ? styles.cellGreen : styles.cellRed,
-                                  ]}>
-                                  <Text
-                                    style={[
-                                      styles.tdTextCenterBold,
-                                      rep.visitorsCount > 0 ? styles.textGreen : styles.textRed,
+                                      styles.tableDataRow,
+                                      isNoRealizo && styles.rowNoRealizo,
                                     ]}>
-                                    {rep.visitorsCount}
-                                  </Text>
-                                </View>
+                                    {/* Columna #: Número del líder */}
+                                    <View style={[styles.tdCell, { width: 38 }]}>
+                                      <Text style={styles.tdTextMuted}>
+                                        {isFirstOfLeader ? group.leaderIndex : ''}
+                                      </Text>
+                                    </View>
 
-                                {/* Aceptó a Cristo */}
-                                <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
-                                  <Text
-                                    style={[
-                                      styles.tdTextCenterBold,
-                                      (rep.conversionsCount || 0) > 0 && { color: '#7C3AED' },
-                                    ]}>
-                                    {rep.conversionsCount || 0}
-                                  </Text>
-                                </View>
+                                    {/* Columna Líder 12 */}
+                                    <View
+                                      style={[
+                                        styles.tdCell,
+                                        { width: 135 },
+                                        isFirstOfLeader && styles.leaderCellGrouped,
+                                      ]}>
+                                      <Text
+                                        style={[
+                                          styles.tdTextBold,
+                                          !isFirstOfLeader && { color: '#94A3B8', fontSize: 11 },
+                                        ]}
+                                        numberOfLines={1}>
+                                        {isFirstOfLeader ? group.leaderName : ''}
+                                      </Text>
+                                    </View>
 
-                                {/* Ofrenda Bs. */}
-                                <View
-                                  style={[
-                                    styles.tdCell,
-                                    { width: 85, alignItems: 'flex-end', paddingRight: 8 },
-                                    ((rep.offeringDetails?.vesCash || 0) === 0 || isNoRealizo) && styles.cellOrange,
-                                  ]}>
-                                  <Text
-                                    style={[
-                                      styles.tdTextBold,
-                                      (rep.offeringDetails?.vesCash || 0) === 0 || isNoRealizo
-                                        ? styles.textOrange
-                                        : { color: '#0F172A' },
-                                    ]}>
-                                    {rep.offeringDetails?.vesCash
-                                      ? `Bs. ${rep.offeringDetails.vesCash.toLocaleString()}`
-                                      : '0'}
-                                  </Text>
-                                </View>
+                                    {/* Columna Cant. de Células */}
+                                    <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
+                                      <Text style={styles.tdTextCenterBold}>
+                                        {isFirstOfLeader ? group.cellsCount : ''}
+                                      </Text>
+                                    </View>
 
-                                {/* Ofrenda $ */}
-                                <View
-                                  style={[
-                                    styles.tdCell,
-                                    { width: 75, alignItems: 'flex-end', paddingRight: 8 },
-                                    ((rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0)) === 0 || isNoRealizo) && styles.cellOrange,
-                                  ]}>
-                                  <Text
-                                    style={[
-                                      styles.tdTextBold,
-                                      (rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0)) === 0 || isNoRealizo
-                                        ? styles.textOrange
-                                        : { color: '#0F172A' },
-                                    ]}>
-                                    {(() => {
-                                      const usdVal =
-                                        rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0);
-                                      return usdVal > 0 ? `$${usdVal.toLocaleString()}` : '0';
-                                    })()}
-                                  </Text>
-                                </View>
+                                    {/* Líder de Célula */}
+                                    <View style={[styles.tdCell, { width: 140 }]}>
+                                      <Text style={styles.tdText} numberOfLines={1}>
+                                        {rep.cellLeaderName}
+                                      </Text>
+                                    </View>
 
-                                {/* Pago Móvil */}
-                                <View
-                                  style={[
-                                    styles.tdCell,
-                                    { width: 85, alignItems: 'flex-end', paddingRight: 8 },
-                                    ((rep.offeringDetails?.pagoMovilAmount || 0) === 0 || isNoRealizo) && styles.cellOrange,
-                                  ]}>
-                                  <Text
+                                    {/* Asistente */}
+                                    <View style={[styles.tdCell, { width: 130 }]}>
+                                      <Text
+                                        style={[
+                                          styles.tdText,
+                                          (!rep.assistantName ||
+                                            rep.assistantName.toLowerCase() === 'no tiene') &&
+                                            styles.tdTextMuted,
+                                        ]}
+                                        numberOfLines={1}>
+                                        {rep.assistantName || 'No tiene'}
+                                      </Text>
+                                    </View>
+
+                                    {/* Anfitrión (a) */}
+                                    <View style={[styles.tdCell, { width: 130 }]}>
+                                      <Text style={styles.tdText} numberOfLines={1}>
+                                        {rep.hostName}
+                                      </Text>
+                                    </View>
+
+                                    {/* Palabra Predicada */}
+                                    <View style={[styles.tdCell, { width: 180 }]}>
+                                      <Text
+                                        style={[
+                                          styles.tdText,
+                                          isNoAsistio && styles.tdTextDanger,
+                                          isNoRealizo && styles.tdTextWarning,
+                                        ]}
+                                        numberOfLines={1}>
+                                        {rep.topic || rep.notes || 'Sin registrar'}
+                                      </Text>
+                                    </View>
+
+                                    {/* Fecha */}
+                                    <View style={[styles.tdCell, { width: 85, alignItems: 'center' }]}>
+                                      <Text style={styles.tdTextCenterMuted}>
+                                        {rep.date ? rep.date.split('-').reverse().join('/') : ''}
+                                      </Text>
+                                    </View>
+
+                                    {/* Miembros */}
+                                    <View style={[styles.tdCell, { width: 70, alignItems: 'center' }]}>
+                                      <Text style={styles.tdTextCenter}>{rep.membersCount}</Text>
+                                    </View>
+
+                                    {/* Invitados (Verde si > 0, Rojo si 0) */}
+                                    <View
+                                      style={[
+                                        styles.tdCell,
+                                        { width: 70, alignItems: 'center' },
+                                        rep.visitorsCount > 0 ? styles.cellGreen : styles.cellRed,
+                                      ]}>
+                                      <Text
+                                        style={[
+                                          styles.tdTextCenterBold,
+                                          rep.visitorsCount > 0 ? styles.textGreen : styles.textRed,
+                                        ]}>
+                                        {rep.visitorsCount}
+                                      </Text>
+                                    </View>
+
+                                    {/* Aceptó a Cristo */}
+                                    <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
+                                      <Text
+                                        style={[
+                                          styles.tdTextCenterBold,
+                                          (rep.conversionsCount || 0) > 0 && { color: '#7C3AED' },
+                                        ]}>
+                                        {rep.conversionsCount || 0}
+                                      </Text>
+                                    </View>
+
+                                    {/* Ofrenda Bs. */}
+                                    <View
+                                      style={[
+                                        styles.tdCell,
+                                        { width: 85, alignItems: 'flex-end', paddingRight: 8 },
+                                        ((rep.offeringDetails?.vesCash || 0) === 0 || isNoRealizo) && styles.cellOrange,
+                                      ]}>
+                                      <Text
+                                        style={[
+                                          styles.tdTextBold,
+                                          (rep.offeringDetails?.vesCash || 0) === 0 || isNoRealizo
+                                            ? styles.textOrange
+                                            : { color: '#0F172A' },
+                                        ]}>
+                                        {rep.offeringDetails?.vesCash
+                                          ? `Bs. ${rep.offeringDetails.vesCash.toLocaleString()}`
+                                          : '0'}
+                                      </Text>
+                                    </View>
+
+                                    {/* Ofrenda $ */}
+                                    <View
+                                      style={[
+                                        styles.tdCell,
+                                        { width: 75, alignItems: 'flex-end', paddingRight: 8 },
+                                        ((rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0)) === 0 || isNoRealizo) && styles.cellOrange,
+                                      ]}>
+                                      <Text
+                                        style={[
+                                          styles.tdTextBold,
+                                          (rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0)) === 0 || isNoRealizo
+                                            ? styles.textOrange
+                                            : { color: '#0F172A' },
+                                        ]}>
+                                        {(() => {
+                                          const usdVal =
+                                            rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0);
+                                          return usdVal > 0 ? `$${usdVal.toLocaleString()}` : '0';
+                                        })()}
+                                      </Text>
+                                    </View>
+
+                                    {/* Pago Móvil */}
+                                    <View
+                                      style={[
+                                        styles.tdCell,
+                                        { width: 85, alignItems: 'flex-end', paddingRight: 8 },
+                                        ((rep.offeringDetails?.pagoMovilAmount || 0) === 0 || isNoRealizo) && styles.cellOrange,
+                                      ]}>
+                                      <Text
+                                        style={[
+                                          styles.tdTextBold,
+                                          (rep.offeringDetails?.pagoMovilAmount || 0) === 0 || isNoRealizo
+                                            ? styles.textOrange
+                                            : { color: '#0F172A' },
+                                        ]}>
+                                        {rep.offeringDetails?.pagoMovilAmount
+                                          ? `Bs. ${rep.offeringDetails.pagoMovilAmount.toLocaleString()}`
+                                          : '0'}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                );
+                              })}
+
+                              {/* Fila de Subtotal del Líder 12 si tiene más de 1 célula o discípulos */}
+                              {group.reports.length > 1 && (
+                                <View style={styles.tableGroupSubtotalRow}>
+                                  <View style={[styles.tdCell, { width: 38 }]} />
+                                  <View
                                     style={[
-                                      styles.tdTextBold,
-                                      (rep.offeringDetails?.pagoMovilAmount || 0) === 0 || isNoRealizo
-                                        ? styles.textOrange
-                                        : { color: '#0F172A' },
+                                      styles.tdCell,
+                                      { width: 135, backgroundColor: '#EFF6FF' },
                                     ]}>
-                                    {rep.offeringDetails?.pagoMovilAmount
-                                      ? `Bs. ${rep.offeringDetails.pagoMovilAmount.toLocaleString()}`
-                                      : '0'}
-                                  </Text>
+                                    <Text
+                                      style={[styles.tdTextBold, { color: '#1E3A8A' }]}
+                                      numberOfLines={1}>
+                                      Total {group.leaderName}
+                                    </Text>
+                                  </View>
+                                  <View
+                                    style={[
+                                      styles.tdCell,
+                                      { width: 75, alignItems: 'center', backgroundColor: '#EFF6FF' },
+                                    ]}>
+                                    <Text style={[styles.tdTextCenterBold, { color: '#1E3A8A' }]}>
+                                      {group.cellsCount} cél
+                                    </Text>
+                                  </View>
+                                  <View style={[styles.tdCell, { width: 140 }]} />
+                                  <View style={[styles.tdCell, { width: 130 }]} />
+                                  <View style={[styles.tdCell, { width: 130 }]} />
+                                  <View
+                                    style={[
+                                      styles.tdCell,
+                                      { width: 180, justifyContent: 'center', paddingRight: 8 },
+                                    ]}>
+                                    <Text
+                                      style={{
+                                        fontSize: 10,
+                                        fontWeight: '700',
+                                        color: '#64748B',
+                                        textAlign: 'right',
+                                      }}>
+                                      Subtotal {group.leaderName}:
+                                    </Text>
+                                  </View>
+                                  <View style={[styles.tdCell, { width: 85 }]} />
+
+                                  {/* Total Miembros del Grupo */}
+                                  <View
+                                    style={[
+                                      styles.tdCell,
+                                      { width: 70, alignItems: 'center', backgroundColor: '#F8FAFC' },
+                                    ]}>
+                                    <Text style={styles.tdTextCenterBold}>
+                                      {group.totals.members}
+                                    </Text>
+                                  </View>
+
+                                  {/* Total Invitados del Grupo */}
+                                  <View
+                                    style={[
+                                      styles.tdCell,
+                                      { width: 70, alignItems: 'center', backgroundColor: '#DCFCE7' },
+                                    ]}>
+                                    <Text
+                                      style={[styles.tdTextCenterBold, { color: '#15803D' }]}>
+                                      {group.totals.visitors}
+                                    </Text>
+                                  </View>
+
+                                  {/* Total Conversiones del Grupo */}
+                                  <View
+                                    style={[
+                                      styles.tdCell,
+                                      { width: 75, alignItems: 'center', backgroundColor: '#F3E8FF' },
+                                    ]}>
+                                    <Text
+                                      style={[styles.tdTextCenterBold, { color: '#7C3AED' }]}>
+                                      {group.totals.conversions}
+                                    </Text>
+                                  </View>
+
+                                  {/* Total Ofrenda Bs. del Grupo */}
+                                  <View
+                                    style={[
+                                      styles.tdCell,
+                                      {
+                                        width: 85,
+                                        alignItems: 'flex-end',
+                                        paddingRight: 8,
+                                        backgroundColor: '#F8FAFC',
+                                      },
+                                    ]}>
+                                    <Text style={[styles.tdTextBold, { color: '#0F172A' }]}>
+                                      {group.totals.offeringVes > 0
+                                        ? `Bs. ${group.totals.offeringVes.toLocaleString()}`
+                                        : '0'}
+                                    </Text>
+                                  </View>
+
+                                  {/* Total Ofrenda $ del Grupo */}
+                                  <View
+                                    style={[
+                                      styles.tdCell,
+                                      {
+                                        width: 75,
+                                        alignItems: 'flex-end',
+                                        paddingRight: 8,
+                                        backgroundColor: '#F8FAFC',
+                                      },
+                                    ]}>
+                                    <Text style={[styles.tdTextBold, { color: '#0F172A' }]}>
+                                      {group.totals.offeringUsd > 0
+                                        ? `$${group.totals.offeringUsd.toLocaleString()}`
+                                        : '0'}
+                                    </Text>
+                                  </View>
+
+                                  {/* Total Pago Móvil del Grupo */}
+                                  <View
+                                    style={[
+                                      styles.tdCell,
+                                      {
+                                        width: 85,
+                                        alignItems: 'flex-end',
+                                        paddingRight: 8,
+                                        backgroundColor: '#F8FAFC',
+                                      },
+                                    ]}>
+                                    <Text style={[styles.tdTextBold, { color: '#0F172A' }]}>
+                                      {group.totals.offeringPm > 0
+                                        ? `Bs. ${group.totals.offeringPm.toLocaleString()}`
+                                        : '0'}
+                                    </Text>
+                                  </View>
                                 </View>
-                              </View>
-                            );
-                          });
+                              )}
+                            </Fragment>
+                          );
                         })}
 
                         {/* Fila de Totales (Exacta a la fila 54 del Excel) */}
@@ -3430,6 +3738,17 @@ const styles = StyleSheet.create({
   },
   textOrange: {
     color: '#C2410C',
+  },
+
+  // Group Subtotal Row (Total Líder 12 y discípulos)
+  tableGroupSubtotalRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderTopWidth: 1.5,
+    borderTopColor: '#CBD5E1',
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#94A3B8',
+    minHeight: 30,
   },
 
   // Totals Row (Matching Excel row 54)

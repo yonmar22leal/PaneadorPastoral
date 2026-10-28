@@ -157,6 +157,7 @@ export interface AuthUser {
   phone?: string;
   leaderId?: string;
   leaderName?: string;
+  isLeaderOf12?: boolean;
   generationLevel?: number; // 0: Pastor Principal, 1: Pastor Red, 2: Líder 12, 3: 144, 4: 1728
   token?: string;
   familyName?: string;
