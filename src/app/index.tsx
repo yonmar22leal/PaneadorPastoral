@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoginScreen from './login';
+import RegisterScreen from './register';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -39,10 +40,9 @@ export default function DashboardScreen() {
     addPastoralPost,
     toggleLikePost,
     deletePastoralPost,
-    quickDemoLogin,
   } = useChurch();
 
-  const [showDemoSelector, setShowDemoSelector] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   // Modal para escribir nuevo mensaje pastoral
   const [modalVisible, setModalVisible] = useState(false);
@@ -109,7 +109,10 @@ export default function DashboardScreen() {
   }
 
   if (!currentUser) {
-    return <LoginScreen />;
+    if (authMode === 'register') {
+      return <RegisterScreen onGoLogin={() => setAuthMode('login')} />;
+    }
+    return <LoginScreen onGoRegister={() => setAuthMode('register')} />;
   }
 
   const handleLogout = () => {
@@ -208,9 +211,9 @@ export default function DashboardScreen() {
       return currentUser.network === 'juvenil' ? 'Pastor Juvenil' : 'Pastor Adultos';
     }
     if (currentUser.generationLevel === 2 || currentUser.role === 'g12_leader') {
-      return 'Líder de 12';
+      return 'Líder 12';
     }
-    return 'Líder G12';
+    return 'Líder 12';
   };
 
   const nextMeta = nextEvent ? EVENT_TYPE_META[normalizeEventType(nextEvent.type)] : null;
@@ -224,355 +227,326 @@ export default function DashboardScreen() {
         imageStyle={{ opacity: 0.15 }}
         resizeMode="repeat">
         <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* ========================================================= */}
-        {/* HEADER HERO                                               */}
-        {/* ========================================================= */}
-        <View style={styles.heroBanner}>
-          <View style={styles.headerTopRow}>
-            <View style={styles.churchBadge}>
-              <Ionicons name="business" size={13} color="#93C5FD" />
-              <Text style={styles.churchBadgeText}>Sede Central • Comunidad de Fe</Text>
-            </View>
+          {/* ========================================================= */}
+          {/* HEADER HERO                                               */}
+          {/* ========================================================= */}
+          <View style={styles.heroBanner}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.churchBadge}>
+                <Ionicons name="business" size={13} color="#93C5FD" />
+                <Text style={styles.churchBadgeText}>Sede Central • Comunidad de Fe</Text>
+              </View>
 
-            <TouchableOpacity style={styles.logoutPill} onPress={handleLogout} activeOpacity={0.8}>
-              <Ionicons name="log-out-outline" size={14} color="#FCA5A5" />
-              <Text style={styles.logoutPillText}>Salir</Text>
-            </TouchableOpacity>
-          </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <TouchableOpacity
+                  style={styles.profileTopPill}
+                  onPress={() => router.push('/profile' as any)}
+                  activeOpacity={0.8}>
+                  <Ionicons name="person-circle-outline" size={15} color="#93C5FD" />
+                  <Text style={styles.profileTopPillText}>Mi Perfil</Text>
+                </TouchableOpacity>
 
-          {/* User Profile Info */}
-          <View style={styles.userProfileBanner}>
-            <View style={styles.userAvatar}>
-              <Text style={styles.userAvatarText}>
-                {currentUser.firstName?.[0] || 'U'}
-                {currentUser.lastName?.[0] || ''}
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.userGreeting}>Palabra Pastoral & Comunidad</Text>
-              <Text style={styles.userFullName}>
-                {currentUser.firstName} {currentUser.lastName}
-              </Text>
-              <View style={styles.userBadgesRow}>
-                <View style={styles.roleBadge}>
-                  <Text style={styles.roleBadgeText}>{getRoleLabel()}</Text>
-                </View>
-                <View
-                  style={[
-                    styles.networkBadge,
-                    {
-                      backgroundColor:
-                        currentUser.network === 'juvenil'
-                          ? 'rgba(139, 92, 246, 0.35)'
-                          : 'rgba(59, 130, 246, 0.35)',
-                    },
-                  ]}>
-                  <Text style={styles.networkBadgeText}>
-                    {currentUser.role === 'senior_pastor'
-                      ? 'Todas las Redes'
-                      : currentUser.network === 'juvenil'
-                      ? 'Red Juvenil'
-                      : 'Red Adulta'}
-                  </Text>
-                </View>
+                <TouchableOpacity style={styles.logoutPill} onPress={handleLogout} activeOpacity={0.8}>
+                  <Ionicons name="log-out-outline" size={14} color="#FCA5A5" />
+                  <Text style={styles.logoutPillText}>Salir</Text>
+                </TouchableOpacity>
               </View>
             </View>
-          </View>
 
-          {/* Banner Próximo Culto (Compacto) */}
-          {nextEvent && (
+            {/* User Profile Info - Tapping navigates to profile */}
             <TouchableOpacity
-              style={styles.compactEventPill}
+              style={styles.userProfileBanner}
               activeOpacity={0.85}
-              onPress={() => router.push(`/planner/${nextEvent.id}` as any)}>
-              <View style={styles.compactEventLeft}>
-                <Ionicons
-                  name={(nextMeta?.icon as any) || 'calendar'}
-                  size={14}
-                  color="#60A5FA"
-                />
-                <Text style={styles.compactEventTitle} numberOfLines={1}>
-                  Próximo: {nextEvent.title}
+              onPress={() => router.push('/profile' as any)}>
+              <View style={styles.userAvatar}>
+                <Text style={styles.userAvatarText}>
+                  {currentUser.firstName?.[0] || 'U'}
+                  {currentUser.lastName?.[0] || ''}
                 </Text>
-              </View>
-              <View style={styles.compactEventRight}>
-                <Text style={styles.compactEventDate}>
-                  {formatEventDate(nextEvent.date, { short: true })} • {nextEvent.time}
-                </Text>
-                <Ionicons name="chevron-forward" size={14} color="#93C5FD" />
-              </View>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* ========================================================= */}
-        {/* BOTÓN DE CREAR MENSAJE PASTORAL (SOLO PASTORES)           */}
-        {/* ========================================================= */}
-        <View style={styles.sectionContainer}>
-          {isPastor && (
-            <TouchableOpacity
-              style={styles.createPostBtn}
-              activeOpacity={0.85}
-              onPress={handleOpenCreatePost}>
-              <View style={styles.createPostIconBox}>
-                <Ionicons name="create" size={20} color="#FFFFFF" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.createPostTitle}>Escribir Mensaje Pastoral</Text>
-                <Text style={styles.createPostSub}>
-                  Comparte una palabra de fe, reflexión y un versículo bíblico.
-                </Text>
-              </View>
-              <Ionicons name="add-circle" size={24} color="#1E3A8A" />
-            </TouchableOpacity>
-          )}
-
-          {/* ========================================================= */}
-          {/* FEED DE MENSAJES Y REFLEXIONES PASTORALES                 */}
-          {/* ========================================================= */}
-          <View style={styles.feedHeaderRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="chatbubbles" size={18} color="#1E3A8A" />
-              <Text style={styles.feedTitle}>Palabra de los Pastores</Text>
-            </View>
-            <Text style={styles.feedSubtitle}>{visiblePosts.length} mensajes</Text>
-          </View>
-
-          {visiblePosts.length === 0 ? (
-            <View style={styles.emptyFeedBox}>
-              <Ionicons name="book-outline" size={40} color="#94A3B8" />
-              <Text style={styles.emptyFeedTitle}>No hay mensajes publicados aún</Text>
-              <Text style={styles.emptyFeedDesc}>
-                {isPastor
-                  ? 'Sé el primero en compartir un versículo y una palabra de bendición.'
-                  : 'Pronto los pastores compartirán reflexiones y devocionales aquí.'}
-              </Text>
-            </View>
-          ) : (
-            visiblePosts.map((post) => {
-              const hasLiked = currentUser ? post.likes.includes(currentUser.id) : false;
-              const isAuthor = currentUser?.id === post.authorId || currentUser?.role === 'senior_pastor';
-
-              // Obtener la red ministerial real del autor (no la red de destino del mensaje)
-              const authorMember = members.find((m) => m.id === post.authorId);
-              const authorNet = post.authorNetwork || authorMember?.network;
-
-              let authorRoleLabel = 'Pastor';
-              if (post.authorRole === 'senior_pastor') {
-                authorRoleLabel = 'Pastor Principal';
-              } else if (post.authorRole === 'network_pastor') {
-                authorRoleLabel = authorNet === 'juvenil' ? 'Pastor Juvenil' : 'Pastor Adultos';
-              } else if (post.authorRole === 'g12_leader') {
-                authorRoleLabel = authorNet === 'juvenil' ? 'Líder Juvenil' : 'Líder G12';
-              } else {
-                authorRoleLabel = 'Líder';
-              }
-
-              return (
-                <View key={post.id} style={styles.postCard}>
-                  {/* Header del Post */}
-                  <View style={styles.postHeader}>
-                    <View style={styles.postAuthorAvatar}>
-                      <Text style={styles.postAuthorAvatarText}>
-                        {post.authorName?.[0] || 'P'}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.postAuthorName}>{post.authorName}</Text>
-                      <View style={styles.postAuthorMetaRow}>
-                        <Text style={styles.postRoleBadge}>{authorRoleLabel}</Text>
-                        <Text style={styles.postMetaDot}>•</Text>
-                        <Text style={styles.postNetworkTag}>
-                          {post.network === 'general'
-                            ? 'Toda la Iglesia'
-                            : post.network === 'juvenil'
-                            ? 'Para: Red Juvenil'
-                            : 'Para: Red Adulta'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {isAuthor && (
-                      <TouchableOpacity
-                        onPress={() => {
-                          if (Platform.OS === 'web') {
-                            const confirmed =
-                              typeof window !== 'undefined'
-                                ? window.confirm('¿Estás seguro de que deseas eliminar esta publicación?')
-                                : true;
-                            if (confirmed) {
-                              deletePastoralPost(post.id);
-                            }
-                            return;
-                          }
-                          Alert.alert(
-                            'Eliminar Mensaje',
-                            '¿Estás seguro de que deseas eliminar esta publicación?',
-                            [
-                              { text: 'Cancelar', style: 'cancel' },
-                              {
-                                text: 'Eliminar',
-                                style: 'destructive',
-                                onPress: () => deletePastoralPost(post.id),
-                              },
-                            ]
-                          );
-                        }}>
-                        <Ionicons name="trash-outline" size={17} color="#94A3B8" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {/* Título y Contenido */}
-                  <Text style={styles.postTitleText}>{post.title}</Text>
-
-                  {/* Versículo Bíblico Adjunto (si existe) */}
-                  {post.verse && (
-                    <View style={styles.verseBox}>
-                      <View style={styles.verseHeader}>
-                        <Ionicons name="book" size={15} color="#1E3A8A" />
-                        <Text style={styles.verseRefText}>{post.verse.reference}</Text>
-                        {post.verse.translation && (
-                          <View style={styles.verseTransBadge}>
-                            <Text style={styles.verseTransText}>{post.verse.translation}</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.verseBodyText}>
-                        &ldquo;{post.verse.text}&rdquo;
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Mensaje Pastoral */}
-                  <Text style={styles.postContentText}>{post.content}</Text>
-
-                  {/* Footer del Post: Botón de Me Gusta */}
-                  <View style={styles.postFooter}>
-                    <TouchableOpacity
-                      style={[styles.likeButton, hasLiked && styles.likeButtonActive]}
-                      activeOpacity={0.8}
-                      onPress={() => toggleLikePost(post.id)}>
-                      <Ionicons
-                        name={hasLiked ? 'heart' : 'heart-outline'}
-                        size={18}
-                        color={hasLiked ? '#DC2626' : '#64748B'}
-                      />
-                      <Text
-                        style={[styles.likeButtonText, hasLiked && styles.likeButtonTextActive]}>
-                        {post.likes.length}
-                      </Text>
-                    </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={styles.userGreeting}>Palabra Pastoral & Comunidad</Text>
+                  <View style={styles.manageProfileChip}>
+                    <Text style={styles.manageProfileChipText}>Configurar</Text>
+                    <Ionicons name="chevron-forward" size={11} color="#93C5FD" />
                   </View>
                 </View>
-              );
-            })
-          )}
-
-          {/* ========================================================= */}
-          {/* ACCESOS DIRECTOS RÁPIDOS A MÓDULOS                        */}
-          {/* ========================================================= */}
-          <Text style={[styles.feedTitle, { marginTop: 24, marginBottom: 12 }]}>
-            Gestión y Módulos
-          </Text>
-          <View style={styles.quickGrid}>
-            <TouchableOpacity
-              style={styles.quickItem}
-              activeOpacity={0.8}
-              onPress={() => router.push('/cells' as any)}>
-              <View style={[styles.quickItemIcon, { backgroundColor: '#EDE9FE' }]}>
-                <Ionicons name="git-network" size={20} color="#7C3AED" />
+                <Text style={styles.userFullName}>
+                  {currentUser.firstName} {currentUser.lastName}
+                </Text>
+                <View style={styles.userBadgesRow}>
+                  <View style={styles.roleBadge}>
+                    <Text style={styles.roleBadgeText}>{getRoleLabel()}</Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.networkBadge,
+                      {
+                        backgroundColor:
+                          currentUser.network === 'juvenil'
+                            ? 'rgba(139, 92, 246, 0.35)'
+                            : 'rgba(59, 130, 246, 0.35)',
+                      },
+                    ]}>
+                    <Text style={styles.networkBadgeText}>
+                      {currentUser.role === 'senior_pastor'
+                        ? 'Todas las Redes'
+                        : currentUser.network === 'juvenil'
+                          ? 'Red Juvenil'
+                          : 'Red Adulta'}
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <Text style={styles.quickItemTitle}>Células</Text>
-              <Text style={styles.quickItemDesc}>Grupos semanales</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.quickItem}
-              activeOpacity={0.8}
-              onPress={() => router.push('/attendance' as any)}>
-              <View style={[styles.quickItemIcon, { backgroundColor: '#DBEAFE' }]}>
-                <Ionicons name="analytics" size={20} color="#2563EB" />
-              </View>
-              <Text style={styles.quickItemTitle}>Asistencia</Text>
-              <Text style={styles.quickItemDesc}>Reporte de cultos</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickItem}
-              activeOpacity={0.8}
-              onPress={() => router.push('/members' as any)}>
-              <View style={[styles.quickItemIcon, { backgroundColor: '#D1FAE5' }]}>
-                <Ionicons name="people" size={20} color="#059669" />
-              </View>
-              <Text style={styles.quickItemTitle}>Directorio</Text>
-              <Text style={styles.quickItemDesc}>Equipo & G12</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickItem}
-              activeOpacity={0.8}
-              onPress={() => router.push('/planner' as any)}>
-              <View style={[styles.quickItemIcon, { backgroundColor: '#FEF3C7' }]}>
-                <Ionicons name="calendar" size={20} color="#D97706" />
-              </View>
-              <Text style={styles.quickItemTitle}>Eventos</Text>
-              <Text style={styles.quickItemDesc}>Órdenes de culto</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Selector de roles demo */}
-          <View style={styles.demoSection}>
-            <TouchableOpacity
-              style={styles.demoToggleHeader}
-              activeOpacity={0.8}
-              onPress={() => setShowDemoSelector((v) => !v)}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="flask-outline" size={15} color="#64748B" />
-                <Text style={styles.demoToggleText}>Probar otros roles (Demo rápido)</Text>
-              </View>
-              <Ionicons
-                name={showDemoSelector ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color="#64748B"
-              />
-            </TouchableOpacity>
-
-            {showDemoSelector && (
-              <View style={styles.demoRolesGrid}>
-                <TouchableOpacity
-                  style={styles.demoPill}
-                  onPress={() => quickDemoLogin('pastor_jose')}>
-                  <Text style={styles.demoPillText}>Pastor José (Principal)</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.demoPill}
-                  onPress={() => quickDemoLogin('pastora_neidy')}>
-                  <Text style={styles.demoPillText}>Pastora Neidy (Principal)</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.demoPill}
-                  onPress={() => quickDemoLogin('pastor_josue')}>
-                  <Text style={styles.demoPillText}>Pastor Josué (Juvenil)</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.demoPill}
-                  onPress={() => quickDemoLogin('pastor_carlos')}>
-                  <Text style={styles.demoPillText}>Pastor Carlos (Adultos)</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.demoPill}
-                  onPress={() => quickDemoLogin('lider_yonmar')}>
-                  <Text style={styles.demoPillText}>Líder Yonmar (G12)</Text>
-                </TouchableOpacity>
-              </View>
+            {/* Banner Próximo Servicio (Compacto) */}
+            {nextEvent && (
+              <TouchableOpacity
+                style={styles.compactEventPill}
+                activeOpacity={0.85}
+                onPress={() => router.push(`/planner/${nextEvent.id}` as any)}>
+                <View style={styles.compactEventLeft}>
+                  <Ionicons
+                    name={(nextMeta?.icon as any) || 'calendar'}
+                    size={14}
+                    color="#60A5FA"
+                  />
+                  <Text style={styles.compactEventTitle} numberOfLines={1}>
+                    Próximo: {nextEvent.title}
+                  </Text>
+                </View>
+                <View style={styles.compactEventRight}>
+                  <Text style={styles.compactEventDate}>
+                    {formatEventDate(nextEvent.date, { short: true })} • {nextEvent.time}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color="#93C5FD" />
+                </View>
+              </TouchableOpacity>
             )}
           </View>
-        </View>
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </ImageBackground>
+          {/* ========================================================= */}
+          {/* BOTÓN DE CREAR MENSAJE PASTORAL (SOLO PASTORES)           */}
+          {/* ========================================================= */}
+          <View style={styles.sectionContainer}>
+            {isPastor && (
+              <TouchableOpacity
+                style={styles.createPostBtn}
+                activeOpacity={0.85}
+                onPress={handleOpenCreatePost}>
+                <View style={styles.createPostIconBox}>
+                  <Ionicons name="create" size={20} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.createPostTitle}>Escribir Mensaje Pastoral</Text>
+                  <Text style={styles.createPostSub}>
+                    Comparte una palabra de fe, reflexión y un versículo bíblico.
+                  </Text>
+                </View>
+                <Ionicons name="add-circle" size={24} color="#1E3A8A" />
+              </TouchableOpacity>
+            )}
+
+            {/* ========================================================= */}
+            {/* FEED DE MENSAJES Y REFLEXIONES PASTORALES                 */}
+            {/* ========================================================= */}
+            <View style={styles.feedHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="chatbubbles" size={18} color="#1E3A8A" />
+                <Text style={styles.feedTitle}>Palabra de los Pastores</Text>
+              </View>
+              <Text style={styles.feedSubtitle}>{visiblePosts.length} mensajes</Text>
+            </View>
+
+            {visiblePosts.length === 0 ? (
+              <View style={styles.emptyFeedBox}>
+                <Ionicons name="book-outline" size={40} color="#94A3B8" />
+                <Text style={styles.emptyFeedTitle}>No hay mensajes publicados aún</Text>
+                <Text style={styles.emptyFeedDesc}>
+                  {isPastor
+                    ? 'Sé el primero en compartir un versículo y una palabra de bendición.'
+                    : 'Pronto los pastores compartirán reflexiones y devocionales aquí.'}
+                </Text>
+              </View>
+            ) : (
+              visiblePosts.map((post) => {
+                const hasLiked = currentUser ? post.likes.includes(currentUser.id) : false;
+                const isAuthor = currentUser?.id === post.authorId || currentUser?.role === 'senior_pastor';
+
+                // Obtener la red ministerial real del autor (no la red de destino del mensaje)
+                const authorMember = members.find((m) => m.id === post.authorId);
+                const authorNet = post.authorNetwork || authorMember?.network;
+
+                let authorRoleLabel = 'Pastor';
+                if (post.authorRole === 'senior_pastor') {
+                  authorRoleLabel = 'Pastor Principal';
+                } else if (post.authorRole === 'network_pastor') {
+                  authorRoleLabel = authorNet === 'juvenil' ? 'Pastor Juvenil' : 'Pastor Adultos';
+                } else if (post.authorRole === 'g12_leader') {
+                  authorRoleLabel = authorNet === 'juvenil' ? 'Líder Juvenil' : 'Líder G12';
+                } else {
+                  authorRoleLabel = 'Líder';
+                }
+
+                return (
+                  <View key={post.id} style={styles.postCard}>
+                    {/* Header del Post */}
+                    <View style={styles.postHeader}>
+                      <View style={styles.postAuthorAvatar}>
+                        <Text style={styles.postAuthorAvatarText}>
+                          {post.authorName?.[0] || 'P'}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.postAuthorName}>{post.authorName}</Text>
+                        <View style={styles.postAuthorMetaRow}>
+                          <Text style={styles.postRoleBadge}>{authorRoleLabel}</Text>
+                          <Text style={styles.postMetaDot}>•</Text>
+                          <Text style={styles.postNetworkTag}>
+                            {post.network === 'general'
+                              ? 'Toda la Iglesia'
+                              : post.network === 'juvenil'
+                                ? 'Para: Red Juvenil'
+                                : 'Para: Red Adulta'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {isAuthor && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (Platform.OS === 'web') {
+                              const confirmed =
+                                typeof window !== 'undefined'
+                                  ? window.confirm('¿Estás seguro de que deseas eliminar esta publicación?')
+                                  : true;
+                              if (confirmed) {
+                                deletePastoralPost(post.id);
+                              }
+                              return;
+                            }
+                            Alert.alert(
+                              'Eliminar Mensaje',
+                              '¿Estás seguro de que deseas eliminar esta publicación?',
+                              [
+                                { text: 'Cancelar', style: 'cancel' },
+                                {
+                                  text: 'Eliminar',
+                                  style: 'destructive',
+                                  onPress: () => deletePastoralPost(post.id),
+                                },
+                              ]
+                            );
+                          }}>
+                          <Ionicons name="trash-outline" size={17} color="#94A3B8" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {/* Título y Contenido */}
+                    <Text style={styles.postTitleText}>{post.title}</Text>
+
+                    {/* Versículo Bíblico Adjunto (si existe) */}
+                    {post.verse && (
+                      <View style={styles.verseBox}>
+                        <View style={styles.verseHeader}>
+                          <Ionicons name="book" size={15} color="#1E3A8A" />
+                          <Text style={styles.verseRefText}>{post.verse.reference}</Text>
+                          {post.verse.translation && (
+                            <View style={styles.verseTransBadge}>
+                              <Text style={styles.verseTransText}>{post.verse.translation}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.verseBodyText}>
+                          &ldquo;{post.verse.text}&rdquo;
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Mensaje Pastoral */}
+                    <Text style={styles.postContentText}>{post.content}</Text>
+
+                    {/* Footer del Post: Botón de Me Gusta */}
+                    <View style={styles.postFooter}>
+                      <TouchableOpacity
+                        style={[styles.likeButton, hasLiked && styles.likeButtonActive]}
+                        activeOpacity={0.8}
+                        onPress={() => toggleLikePost(post.id)}>
+                        <Ionicons
+                          name={hasLiked ? 'heart' : 'heart-outline'}
+                          size={18}
+                          color={hasLiked ? '#DC2626' : '#64748B'}
+                        />
+                        <Text
+                          style={[styles.likeButtonText, hasLiked && styles.likeButtonTextActive]}>
+                          {post.likes.length}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+
+            {/* ========================================================= */}
+            {/* ACCESOS DIRECTOS RÁPIDOS A MÓDULOS                        */}
+            {/* ========================================================= */}
+            <Text style={[styles.feedTitle, { marginTop: 24, marginBottom: 12 }]}>
+              Gestión y Módulos
+            </Text>
+            <View style={styles.quickGrid}>
+              <TouchableOpacity
+                style={styles.quickItem}
+                activeOpacity={0.8}
+                onPress={() => router.push('/cells' as any)}>
+                <View style={[styles.quickItemIcon, { backgroundColor: '#EDE9FE' }]}>
+                  <Ionicons name="git-network" size={20} color="#7C3AED" />
+                </View>
+                <Text style={styles.quickItemTitle}>Células</Text>
+                <Text style={styles.quickItemDesc}>Grupos semanales</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickItem}
+                activeOpacity={0.8}
+                onPress={() => router.push('/attendance' as any)}>
+                <View style={[styles.quickItemIcon, { backgroundColor: '#DBEAFE' }]}>
+                  <Ionicons name="analytics" size={20} color="#2563EB" />
+                </View>
+                <Text style={styles.quickItemTitle}>Asistencia</Text>
+                <Text style={styles.quickItemDesc}>Reporte de servicios</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickItem}
+                activeOpacity={0.8}
+                onPress={() => router.push('/members' as any)}>
+                <View style={[styles.quickItemIcon, { backgroundColor: '#D1FAE5' }]}>
+                  <Ionicons name="people" size={20} color="#059669" />
+                </View>
+                <Text style={styles.quickItemTitle}>Directorio</Text>
+                <Text style={styles.quickItemDesc}>Equipo & G12</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickItem}
+                activeOpacity={0.8}
+                onPress={() => router.push('/planner' as any)}>
+                <View style={[styles.quickItemIcon, { backgroundColor: '#FEF3C7' }]}>
+                  <Ionicons name="calendar" size={20} color="#D97706" />
+                </View>
+                <Text style={styles.quickItemTitle}>Eventos</Text>
+                <Text style={styles.quickItemDesc}>Órdenes de servicio</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </ImageBackground>
 
       {/* ========================================================= */}
       {/* MODAL: ESCRIBIR MENSAJE PASTORAL CON BIBLE API            */}
@@ -816,6 +790,36 @@ const styles = StyleSheet.create({
   logoutPillText: {
     color: '#FCA5A5',
     fontSize: 11,
+    fontWeight: '700',
+  },
+  profileTopPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(59, 130, 246, 0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(147, 197, 253, 0.3)',
+  },
+  profileTopPillText: {
+    color: '#BFDBFE',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  manageProfileChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  manageProfileChipText: {
+    color: '#E0E7FF',
+    fontSize: 10,
     fontWeight: '700',
   },
   userProfileBanner: {

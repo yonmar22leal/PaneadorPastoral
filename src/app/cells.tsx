@@ -1,12 +1,14 @@
 import { useChurch } from '@/context/ChurchContext';
-import { CellGroup, CellPersonItem, ChurchNetwork } from '@/types/church';
+import { CellGroup, CellMeetingReport, CellPersonItem, ChurchNetwork } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
+  Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -33,6 +35,9 @@ export default function CellsScreen() {
     getLeaderInCharge,
   } = useChurch();
 
+  const isPastor =
+    currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
+
   const leaderInCharge = getLeaderInCharge(currentUser);
   const cellGroups = getMyCellGroups();
   const myDisciples = getMyDisciples();
@@ -40,6 +45,15 @@ export default function CellsScreen() {
 
   // Tab State: Células vs Reportes de Reunión
   const [activeTab, setActiveTab] = useState<'cells' | 'reports'>('cells');
+
+  // Modo de visualización de reportes (Planilla Excel para Pastores por defecto)
+  const [reportsViewMode, setReportsViewMode] = useState<'sheet' | 'cards'>(
+    isPastor ? 'sheet' : 'cards'
+  );
+  const [sheetNetworkFilter, setSheetNetworkFilter] = useState<'all' | 'juvenil' | 'adulta'>(
+    (currentUser?.network as 'juvenil' | 'adulta') || 'juvenil'
+  );
+  const [sheetSearchQuery, setSheetSearchQuery] = useState('');
 
   // Modal 1: Crear Célula
   const [modalVisible, setModalVisible] = useState(false);
@@ -58,6 +72,11 @@ export default function CellsScreen() {
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [selectedCellForReport, setSelectedCellForReport] = useState<CellGroup | null>(null);
   const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
+  const [reportTopic, setReportTopic] = useState('El tiempo de la sequía a terminado');
+  const [reportConversions, setReportConversions] = useState('0');
+  const [reportStatus, setReportStatus] = useState<'realizada' | 'no_asistio_nadie' | 'no_realizo'>(
+    'realizada'
+  );
 
   // Lista detallada de miembros e invitados con Nombre y Edad
   const [membersList, setMembersList] = useState<CellPersonItem[]>([
@@ -157,6 +176,9 @@ export default function CellsScreen() {
     setPagoMovilReference('');
     setReportNotes('');
     setReportDate(new Date().toISOString().split('T')[0]);
+    setReportTopic('El tiempo de la sequía a terminado');
+    setReportConversions('0');
+    setReportStatus('realizada');
     setReportModalVisible(true);
   };
 
@@ -211,10 +233,10 @@ export default function CellsScreen() {
     const ves = parseFloat(vesCash.replace(',', '.')) || 0;
     const pm = parseFloat(pagoMovilAmount.replace(',', '.')) || 0;
 
-    if (validMembers.length === 0 && validVisitors.length === 0) {
+    if (reportStatus === 'realizada' && validMembers.length === 0 && validVisitors.length === 0) {
       Alert.alert(
         'Faltan Asistentes',
-        'Por favor ingresa al menos un miembro o invitado asistente con su nombre y edad.'
+        'Por favor ingresa al menos un miembro o invitado asistente con su nombre y edad, o selecciona "No asistió nadie" / "No realizó".'
       );
       return;
     }
@@ -228,6 +250,12 @@ export default function CellsScreen() {
     }
 
     const totalCalculated = usd + (ves > 0 ? ves : 0) + (pm > 0 ? pm : 0);
+    const finalTopic =
+      reportStatus === 'no_realizo'
+        ? 'NO REALIZÓ'
+        : reportStatus === 'no_asistio_nadie'
+        ? 'NO ASISTIÓ NADIE'
+        : reportTopic.trim() || 'El tiempo de la sequía a terminado';
 
     await addCellMeetingReport({
       cellId: selectedCellForReport.id,
@@ -240,10 +268,16 @@ export default function CellsScreen() {
       assistantName: selectedCellForReport.assistantName,
       network: selectedCellForReport.network,
       date: reportDate,
-      membersCount: validMembers.length,
-      membersList: validMembers,
-      visitorsCount: validVisitors.length,
-      visitorsList: validVisitors,
+      membersCount: reportStatus === 'no_realizo' || reportStatus === 'no_asistio_nadie' ? 0 : validMembers.length,
+      membersList: reportStatus === 'no_realizo' || reportStatus === 'no_asistio_nadie' ? [] : validMembers,
+      visitorsCount: reportStatus === 'no_realizo' || reportStatus === 'no_asistio_nadie' ? 0 : validVisitors.length,
+      visitorsList: reportStatus === 'no_realizo' || reportStatus === 'no_asistio_nadie' ? [] : validVisitors,
+      conversionsCount:
+        reportStatus === 'no_realizo' || reportStatus === 'no_asistio_nadie'
+          ? 0
+          : parseInt(reportConversions, 10) || 0,
+      topic: finalTopic,
+      status: reportStatus,
       offering: totalCalculated,
       offeringDetails: {
         usdCash: usd > 0 ? usd : undefined,
@@ -260,6 +294,431 @@ export default function CellsScreen() {
       '¡Reporte de Célula Enviado!',
       `Se registró la reunión de la Célula de ${selectedCellForReport.cellLeaderName} y fue enviado exitosamente a tu pastor/líder encargado: ${leaderInCharge.name}.`
     );
+  };
+
+  // Pastores de red y líderes ven exclusivamente su propia red; Pastores Principales pueden ver todas
+  const effectiveNetworkFilter: 'all' | 'juvenil' | 'adulta' =
+    currentUser?.role === 'senior_pastor'
+      ? sheetNetworkFilter
+      : (currentUser?.network as 'juvenil' | 'adulta') || 'juvenil';
+
+  // Filtrado y Agrupación de Planilla de Células (Formato Excel Pastoral)
+  const filteredReportsForSheet = useMemo(() => {
+    return myCellReports.filter((r) => {
+      if (effectiveNetworkFilter !== 'all' && r.network !== effectiveNetworkFilter) {
+        return false;
+      }
+      if (sheetSearchQuery.trim().length > 0) {
+        const q = sheetSearchQuery.toLowerCase();
+        const matchLeader = (r.leaderName || '').toLowerCase().includes(q);
+        const matchCellLeader = (r.cellLeaderName || '').toLowerCase().includes(q);
+        const matchHost = (r.hostName || '').toLowerCase().includes(q);
+        const matchAssistant = (r.assistantName || '').toLowerCase().includes(q);
+        const matchTopic = (r.topic || '').toLowerCase().includes(q);
+        return matchLeader || matchCellLeader || matchHost || matchAssistant || matchTopic;
+      }
+      return true;
+    });
+  }, [myCellReports, effectiveNetworkFilter, sheetSearchQuery]);
+
+  const groupedSheetData = useMemo(() => {
+    const leaderMap = new Map<string, CellMeetingReport[]>();
+    for (const rep of filteredReportsForSheet) {
+      const leader = rep.leaderName || rep.cellLeaderName || 'Sin Cobertura';
+      if (!leaderMap.has(leader)) {
+        leaderMap.set(leader, []);
+      }
+      leaderMap.get(leader)!.push(rep);
+    }
+
+    const leaderGroups = Array.from(leaderMap.entries()).map(([leaderName, reps], index) => ({
+      leaderName,
+      leaderIndex: index + 1,
+      cellsCount: reps.length,
+      reports: reps,
+    }));
+
+    const totalCells = filteredReportsForSheet.length;
+    const totalMembers = filteredReportsForSheet.reduce((sum, r) => sum + (r.membersCount || 0), 0);
+    const totalVisitors = filteredReportsForSheet.reduce((sum, r) => sum + (r.visitorsCount || 0), 0);
+    const totalConversions = filteredReportsForSheet.reduce(
+      (sum, r) => sum + (r.conversionsCount || 0),
+      0
+    );
+    const totalOfferingVes = filteredReportsForSheet.reduce(
+      (sum, r) => sum + (r.offeringDetails?.vesCash || 0),
+      0
+    );
+    const totalOfferingUsd = filteredReportsForSheet.reduce(
+      (sum, r) =>
+        sum +
+        (r.offeringDetails?.usdCash ||
+          (!r.offeringDetails ? r.offering || 0 : 0)),
+      0
+    );
+    const totalOfferingPm = filteredReportsForSheet.reduce(
+      (sum, r) => sum + (r.offeringDetails?.pagoMovilAmount || 0),
+      0
+    );
+
+    return {
+      leaderGroups,
+      totalCells,
+      totalMembers,
+      totalVisitors,
+      totalConversions,
+      totalOfferingVes,
+      totalOfferingUsd,
+      totalOfferingPm,
+    };
+  }, [filteredReportsForSheet]);
+
+  // Generador de Hoja de Cálculo HTML con estilos visuales completos idénticos al Excel (Colores, bordes, cabecera verde, recuadro amarillo)
+  const generateStyledExcelHTML = () => {
+    const netTitle =
+      effectiveNetworkFilter === 'juvenil'
+        ? 'Jóvenes - Reporte Semanal de Células'
+        : effectiveNetworkFilter === 'adulta'
+        ? 'Adultos - Reporte Semanal de Células'
+        : 'Planilla Consolidada de Células';
+
+    const rowsHtml: string[] = [];
+
+    groupedSheetData.leaderGroups.forEach((group) => {
+      group.reports.forEach((rep, rIndex) => {
+        const isFirst = rIndex === 0;
+        const isNoAsistio =
+          rep.status === 'no_asistio_nadie' ||
+          (rep.topic && rep.topic.toUpperCase().includes('NO ASISTIÓ'));
+        const isNoRealizo =
+          rep.status === 'no_realizo' ||
+          (rep.topic && rep.topic.toUpperCase().includes('NO REALIZÓ'));
+
+        const vesCash = rep.offeringDetails?.vesCash || 0;
+        const usdCash =
+          rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0);
+        const pmCash = rep.offeringDetails?.pagoMovilAmount || 0;
+
+        const rowBg = isNoRealizo ? 'background-color: #FFF7ED;' : '';
+        const topicStyle = isNoAsistio
+          ? 'color: #DC2626; font-weight: bold;'
+          : isNoRealizo
+          ? 'color: #EA580C; font-weight: bold;'
+          : 'color: #334155;';
+
+        const guestStyle =
+          (rep.visitorsCount || 0) > 0
+            ? 'background-color: #DCFCE7; color: #15803D; font-weight: bold;'
+            : 'background-color: #FEE2E2; color: #DC2626; font-weight: bold;';
+
+        const row = `
+          <tr style="${rowBg}">
+            <td style="text-align: center; color: #94A3B8; border: 1px solid #CBD5E1; padding: 6px;">${
+              isFirst ? group.leaderIndex : ''
+            }</td>
+            <td style="font-weight: bold; background-color: #F8FAFC; border: 1px solid #CBD5E1; padding: 6px;">${
+              isFirst ? group.leaderName : ''
+            }</td>
+            <td style="text-align: center; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px;">${
+              isFirst ? group.cellsCount : ''
+            }</td>
+            <td style="font-weight: 600; border: 1px solid #CBD5E1; padding: 6px;">${rep.cellLeaderName}</td>
+            <td style="border: 1px solid #CBD5E1; padding: 6px; color: ${
+              !rep.assistantName || rep.assistantName === 'No tiene' ? '#94A3B8' : '#0F172A'
+            };">${rep.assistantName || 'No tiene'}</td>
+            <td style="border: 1px solid #CBD5E1; padding: 6px;">${rep.hostName || ''}</td>
+            <td style="border: 1px solid #CBD5E1; padding: 6px; ${topicStyle}">${
+          rep.topic || rep.notes || 'Sin registrar'
+        }</td>
+            <td style="text-align: center; color: #64748B; border: 1px solid #CBD5E1; padding: 6px;">${
+              rep.date ? rep.date.split('-').reverse().join('/') : ''
+            }</td>
+            <td style="text-align: center; border: 1px solid #CBD5E1; padding: 6px;">${
+              rep.membersCount || 0
+            }</td>
+            <td style="text-align: center; border: 1px solid #CBD5E1; padding: 6px; ${guestStyle}">${
+          rep.visitorsCount || 0
+        }</td>
+            <td style="text-align: center; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${
+              (rep.conversionsCount || 0) > 0 ? '#7C3AED' : '#0F172A'
+            };">${rep.conversionsCount || 0}</td>
+            <td style="text-align: right; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${
+              vesCash > 0 ? '#0F172A' : '#EA580C'
+            }; background-color: ${vesCash === 0 ? '#FFEDD5' : 'transparent'};">${
+          vesCash > 0 ? `Bs. ${vesCash.toLocaleString()}` : '0'
+        }</td>
+            <td style="text-align: right; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${
+              usdCash > 0 ? '#0F172A' : '#EA580C'
+            }; background-color: ${usdCash === 0 ? '#FFEDD5' : 'transparent'};">${
+          usdCash > 0 ? `$${usdCash.toLocaleString()}` : '0'
+        }</td>
+            <td style="text-align: right; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${
+              pmCash > 0 ? '#0F172A' : '#EA580C'
+            }; background-color: ${pmCash === 0 ? '#FFEDD5' : 'transparent'};">${
+          pmCash > 0 ? `Bs. ${pmCash.toLocaleString()}` : '0'
+        }</td>
+          </tr>`;
+        rowsHtml.push(row);
+      });
+    });
+
+    return `<!DOCTYPE html>
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+      <!--[if gte mso 9]>
+      <xml>
+        <x:ExcelWorkbook>
+          <x:ExcelWorksheets>
+            <x:ExcelWorksheet>
+              <x:Name>Planilla Celular</x:Name>
+              <x:WorksheetOptions>
+                <x:DisplayGridlines/>
+              </x:WorksheetOptions>
+            </x:ExcelWorksheet>
+          </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+      </xml>
+      <![endif]-->
+      <style>
+        body { font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-size: 11pt; padding: 12px; }
+        .sheet-title { font-size: 18pt; font-weight: 800; color: #15803D; margin-bottom: 2px; }
+        .sheet-sub { font-size: 11pt; color: #475569; margin-bottom: 12px; }
+        table { border-collapse: collapse; width: 100%; border: 1px solid #94A3B8; font-size: 10.5pt; }
+        th { background-color: #15803D; color: #FFFFFF; font-weight: bold; border: 1px solid #047857; padding: 8px 10px; text-align: center; }
+        td { border: 1px solid #CBD5E1; padding: 6px 8px; vertical-align: middle; }
+        .totals-row td { background-color: #F1F5F9; font-weight: bold; border-top: 2.5px solid #0F172A; }
+        .yellow-total { background-color: #FEF08A; color: #854D0E; font-weight: 900; border: 2px solid #CA8A04; text-align: center; font-size: 12pt; }
+      </style>
+      </head>
+      <body>
+        <div class="sheet-title">${netTitle}</div>
+        <div class="sheet-sub">Iglesia Emmanuel de Caja de Agua • Planilla Semanal de Células</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 35px;">#</th>
+              <th style="width: 140px;">Líder 12</th>
+              <th style="width: 80px;">Cant. Células</th>
+              <th style="width: 140px;">Líder de Célula</th>
+              <th style="width: 130px;">Asistente</th>
+              <th style="width: 130px;">Anfitrión (a)</th>
+              <th style="width: 190px;">Palabra Predicada</th>
+              <th style="width: 85px;">Fecha</th>
+              <th style="width: 70px;">Miembros</th>
+              <th style="width: 70px;">Invitados</th>
+              <th style="width: 75px;">Aceptó Cristo</th>
+              <th style="width: 90px;">Ofrenda Bs.</th>
+              <th style="width: 80px;">Ofrenda $</th>
+              <th style="width: 90px;">Pago Móvil</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml.join('')}
+          </tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td style="border: 1px solid #CBD5E1;"></td>
+              <td style="text-align: center; font-weight: 900; border: 1px solid #CBD5E1;">TOTALES</td>
+              <td class="yellow-total">${groupedSheetData.totalCells}</td>
+              <td style="border: 1px solid #CBD5E1;"></td>
+              <td style="border: 1px solid #CBD5E1;"></td>
+              <td style="border: 1px solid #CBD5E1;"></td>
+              <td style="border: 1px solid #CBD5E1;"></td>
+              <td style="border: 1px solid #CBD5E1;"></td>
+              <td style="text-align: center; font-weight: bold; border: 1px solid #CBD5E1;">${
+                groupedSheetData.totalMembers
+              }</td>
+              <td style="text-align: center; font-weight: bold; background-color: #DCFCE7; color: #15803D; border: 1px solid #CBD5E1;">${
+                groupedSheetData.totalVisitors
+              }</td>
+              <td style="text-align: center; font-weight: bold; color: #7C3AED; border: 1px solid #CBD5E1;">${
+                groupedSheetData.totalConversions
+              }</td>
+              <td style="text-align: right; font-weight: bold; color: #047857; border: 1px solid #CBD5E1;">${
+                groupedSheetData.totalOfferingVes > 0
+                  ? `Bs. ${groupedSheetData.totalOfferingVes.toLocaleString()}`
+                  : 'Bs. 0'
+              }</td>
+              <td style="text-align: right; font-weight: bold; color: #047857; border: 1px solid #CBD5E1;">$${groupedSheetData.totalOfferingUsd.toLocaleString()}</td>
+              <td style="text-align: right; font-weight: bold; color: #047857; border: 1px solid #CBD5E1;">${
+                groupedSheetData.totalOfferingPm > 0
+                  ? `Bs. ${groupedSheetData.totalOfferingPm.toLocaleString()}`
+                  : 'Bs. 0'
+              }</td>
+            </tr>
+          </tfoot>
+        </table>
+      </body>
+      </html>`;
+  };
+
+  const generateExcelCSV = () => {
+    const escapeCsv = (val: any) => {
+      if (val === undefined || val === null) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const header = [
+      'N°',
+      'Líder 12',
+      'Cant. Células',
+      'Líder de Célula',
+      'Asistente',
+      'Anfitrión (a)',
+      'Palabra Predicada',
+      'Fecha',
+      'Miembros',
+      'Invitados',
+      'Aceptó a Cristo',
+      'Ofrenda Bs.',
+      'Ofrenda $',
+      'Pago Móvil (Bs.)',
+    ].join(';');
+
+    const rows: string[] = [];
+
+    groupedSheetData.leaderGroups.forEach((group) => {
+      group.reports.forEach((rep, rIndex) => {
+        const isFirst = rIndex === 0;
+        const vesCash = rep.offeringDetails?.vesCash || 0;
+        const usdCash =
+          rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0);
+        const pmCash = rep.offeringDetails?.pagoMovilAmount || 0;
+
+        const row = [
+          isFirst ? group.leaderIndex : '',
+          escapeCsv(isFirst ? group.leaderName : ''),
+          isFirst ? group.cellsCount : '',
+          escapeCsv(rep.cellLeaderName || ''),
+          escapeCsv(rep.assistantName || 'No tiene'),
+          escapeCsv(rep.hostName || ''),
+          escapeCsv(rep.topic || rep.notes || 'Sin registrar'),
+          escapeCsv(rep.date ? rep.date.split('-').reverse().join('/') : ''),
+          rep.membersCount || 0,
+          rep.visitorsCount || 0,
+          rep.conversionsCount || 0,
+          vesCash,
+          usdCash,
+          pmCash,
+        ].join(';');
+        rows.push(row);
+      });
+    });
+
+    const totalsRow = [
+      '',
+      '"TOTALES"',
+      groupedSheetData.totalCells,
+      '',
+      '',
+      '',
+      '',
+      '',
+      groupedSheetData.totalMembers,
+      groupedSheetData.totalVisitors,
+      groupedSheetData.totalConversions,
+      groupedSheetData.totalOfferingVes,
+      groupedSheetData.totalOfferingUsd,
+      groupedSheetData.totalOfferingPm,
+    ].join(';');
+
+    // \uFEFF is UTF-8 Byte Order Mark for Microsoft Excel compatibility
+    return `\uFEFF${header}\n${rows.join('\n')}\n${totalsRow}`;
+  };
+
+  const handleExportExcel = async () => {
+    const htmlExcelContent = generateStyledExcelHTML();
+    const netTitle =
+      effectiveNetworkFilter === 'juvenil'
+        ? 'Red_Juvenil'
+        : effectiveNetworkFilter === 'adulta'
+        ? 'Red_Adulta'
+        : 'General';
+    const filename = `Planilla_Celulas_${netTitle}_${new Date().toISOString().slice(0, 10)}.xls`;
+
+    if (Platform.OS === 'web') {
+      try {
+        const blob = new Blob([htmlExcelContent], {
+          type: 'application/vnd.ms-excel;charset=utf-8;',
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        Alert.alert(
+          'Excel Descargado',
+          `Se descargó la planilla en formato Excel (${filename}) con los colores, recuadro amarillo y formato idéntico a la plantilla.`
+        );
+      } catch (e) {
+        console.warn('Error downloading Excel on web:', e);
+      }
+    } else {
+      try {
+        await Share.share({
+          message: generateExcelCSV(),
+          title: `Planilla de Células (Excel) - ${netTitle}`,
+        });
+      } catch {
+        Alert.alert('Compartir', 'No se pudo abrir el menú de compartir.');
+      }
+    }
+  };
+
+  const handleShareSheetSummary = async () => {
+    const netTitle =
+      sheetNetworkFilter === 'juvenil'
+        ? 'RED JUVENIL'
+        : sheetNetworkFilter === 'adulta'
+        ? 'RED ADULTA'
+        : 'GENERAL';
+
+    const text = `📊 *PLANILLA SEMANAL DE CÉLULAS - ${netTitle}*
+🏛️ *Iglesia Emmanuel de Caja de Agua*
+
+Total Células Reportadas: ${groupedSheetData.totalCells}
+👥 Miembros Asistentes: ${groupedSheetData.totalMembers}
+✨ Invitados Nuevos: ${groupedSheetData.totalVisitors}
+✝️ Aceptó a Cristo / Decisiones: ${groupedSheetData.totalConversions}
+💵 Ofrenda Efectivo $: $${groupedSheetData.totalOfferingUsd.toLocaleString()}
+🇻🇪 Ofrenda Efectivo Bs.: Bs. ${groupedSheetData.totalOfferingVes.toLocaleString()}
+📲 Ofrenda Pago Móvil: Bs. ${groupedSheetData.totalOfferingPm.toLocaleString()}
+
+📋 *Líderes 12 y Células:*
+${groupedSheetData.leaderGroups
+  .map(
+    (g) =>
+      `• *${g.leaderName}* (${g.cellsCount} cél): ${g.reports
+        .map((r) => {
+          const usd = r.offeringDetails?.usdCash || (!r.offeringDetails ? r.offering || 0 : 0);
+          const ves = r.offeringDetails?.vesCash || 0;
+          const pm = r.offeringDetails?.pagoMovilAmount || 0;
+          const offParts = [];
+          if (usd > 0) offParts.push(`$${usd}`);
+          if (ves > 0) offParts.push(`Bs.${ves}`);
+          if (pm > 0) offParts.push(`PM:${pm}`);
+          const offStr = offParts.length > 0 ? ` | Ofrenda: ${offParts.join(', ')}` : '';
+          return `${r.cellLeaderName} [${r.membersCount}M / ${r.visitorsCount}I / ${
+            r.conversionsCount || 0
+          }A${offStr}]`;
+        })
+        .join(', ')}`
+  )
+  .join('\n')}`;
+
+    try {
+      await Share.share({
+        message: text,
+        title: `Planilla de Células - ${netTitle}`,
+      });
+    } catch {
+      Alert.alert('Compartir', 'No se pudo abrir el menú de compartir.');
+    }
   };
 
   // Calculations for Reports Summary
@@ -567,7 +1026,480 @@ export default function CellsScreen() {
               </Text>
             </View>
 
-            {myCellReports.length === 0 ? (
+            {/* View Mode Toggle: Planilla Consolidada vs Fichas Detalladas */}
+            <View style={styles.viewModeToggleRow}>
+              <TouchableOpacity
+                style={[
+                  styles.viewModeBtn,
+                  reportsViewMode === 'sheet' && styles.viewModeBtnActiveGreen,
+                ]}
+                onPress={() => setReportsViewMode('sheet')}
+                activeOpacity={0.8}>
+                <Ionicons
+                  name="grid"
+                  size={15}
+                  color={reportsViewMode === 'sheet' ? '#FFFFFF' : '#15803D'}
+                />
+                <Text
+                  style={[
+                    styles.viewModeBtnText,
+                    reportsViewMode === 'sheet' && styles.viewModeBtnTextActive,
+                  ]}>
+                  Planilla Excel (Consolidado)
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.viewModeBtn,
+                  reportsViewMode === 'cards' && styles.viewModeBtnActiveBlue,
+                ]}
+                onPress={() => setReportsViewMode('cards')}
+                activeOpacity={0.8}>
+                <Ionicons
+                  name="albums-outline"
+                  size={15}
+                  color={reportsViewMode === 'cards' ? '#FFFFFF' : '#2563EB'}
+                />
+                <Text
+                  style={[
+                    styles.viewModeBtnText,
+                    reportsViewMode === 'cards' && styles.viewModeBtnTextActive,
+                  ]}>
+                  Fichas Individuales
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {reportsViewMode === 'sheet' ? (
+              <View>
+                {/* Control Panel: Header, Redes y Buscador */}
+                <View style={styles.sheetControlsCard}>
+                  <View style={styles.sheetHeaderBanner}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetHeaderTitle}>
+                        {effectiveNetworkFilter === 'juvenil'
+                          ? 'Jóvenes - Reporte Semanal de Células'
+                          : effectiveNetworkFilter === 'adulta'
+                          ? 'Adultos - Reporte Semanal de Células'
+                          : 'Planilla Consolidada de Células'}
+                      </Text>
+                      <Text style={styles.sheetHeaderSubtitle}>
+                        {groupedSheetData.totalCells} Células • {groupedSheetData.leaderGroups.length} Líderes de 12
+                      </Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <TouchableOpacity
+                        style={[styles.sheetShareBtn, { backgroundColor: '#15803D' }]}
+                        onPress={handleExportExcel}
+                        activeOpacity={0.8}>
+                        <Ionicons name="download-outline" size={14} color="#FFFFFF" />
+                        <Text style={styles.sheetShareBtnText}>Descargar Excel</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.sheetShareBtn, { backgroundColor: '#2563EB' }]}
+                        onPress={handleShareSheetSummary}
+                        activeOpacity={0.8}>
+                        <Ionicons name="share-social-outline" size={14} color="#FFFFFF" />
+                        <Text style={styles.sheetShareBtnText}>Compartir</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Selector de Red: Solo para Pastores Principales. Pastores de red y líderes ven exclusivamente su red */}
+                  {currentUser?.role === 'senior_pastor' ? (
+                    <View style={styles.sheetNetworkRow}>
+                      {(['juvenil', 'adulta', 'all'] as const).map((net) => (
+                        <TouchableOpacity
+                          key={net}
+                          style={[
+                            styles.sheetNetworkChip,
+                            sheetNetworkFilter === net && styles.sheetNetworkChipActive,
+                          ]}
+                          onPress={() => setSheetNetworkFilter(net)}>
+                          <Text
+                            style={[
+                              styles.sheetNetworkChipText,
+                              sheetNetworkFilter === net && styles.sheetNetworkChipTextActive,
+                            ]}>
+                            {net === 'juvenil'
+                              ? 'Red Juvenil'
+                              : net === 'adulta'
+                              ? 'Red Adulta'
+                              : 'Todas las Redes'}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : (
+                    <View style={styles.sheetNetworkRow}>
+                      <View style={[styles.sheetNetworkChip, styles.sheetNetworkChipActive]}>
+                        <Text style={[styles.sheetNetworkChipText, styles.sheetNetworkChipTextActive]}>
+                          {effectiveNetworkFilter === 'juvenil' ? 'Red Juvenil' : 'Red Adulta'}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Buscador dentro de la planilla */}
+                  <View style={styles.sheetSearchBox}>
+                    <Ionicons name="search" size={16} color="#94A3B8" />
+                    <TextInput
+                      style={styles.sheetSearchInput}
+                      placeholder="Buscar por líder 12, célula, anfitrión o palabra..."
+                      placeholderTextColor="#94A3B8"
+                      value={sheetSearchQuery}
+                      onChangeText={setSheetSearchQuery}
+                    />
+                    {sheetSearchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => setSheetSearchQuery('')}>
+                        <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+
+                {/* Tabla Planilla estilo Excel */}
+                {filteredReportsForSheet.length === 0 ? (
+                  <View style={styles.emptyContainer}>
+                    <View style={[styles.emptyIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                      <Ionicons name="receipt-outline" size={38} color="#D97706" />
+                    </View>
+                    <Text style={styles.emptyTitle}>Sin reportes en esta selección</Text>
+                    <Text style={styles.emptySubtitle}>
+                      No se encontraron reportes celulares para los filtros o búsqueda especificada.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.sheetTableWrapper}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                      <View style={styles.sheetTable}>
+                        {/* Table Header Row */}
+                        <View style={styles.tableHeaderRow}>
+                          <View style={[styles.thCell, { width: 38 }]}>
+                            <Text style={styles.thText}>#</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 135 }]}>
+                            <Text style={styles.thText}>Líder 12</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 75 }]}>
+                            <Text style={styles.thText}>Cant. Células</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 140 }]}>
+                            <Text style={styles.thText}>Líder de Célula</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 130 }]}>
+                            <Text style={styles.thText}>Asistente</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 130 }]}>
+                            <Text style={styles.thText}>Anfitrión (a)</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 180 }]}>
+                            <Text style={styles.thText}>Palabra Predicada</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 85 }]}>
+                            <Text style={styles.thText}>Fecha</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 70 }]}>
+                            <Text style={styles.thText}>Miembros</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 70 }]}>
+                            <Text style={styles.thText}>Invitados</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 75 }]}>
+                            <Text style={styles.thText}>Aceptó Cristo</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 85 }]}>
+                            <Text style={styles.thText}>Ofrenda Bs.</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 75 }]}>
+                            <Text style={styles.thText}>Ofrenda $</Text>
+                          </View>
+                          <View style={[styles.thCell, { width: 85 }]}>
+                            <Text style={styles.thText}>Pago Móvil</Text>
+                          </View>
+                        </View>
+
+                        {/* Table Body: Grouped by Líder 12 */}
+                        {groupedSheetData.leaderGroups.map((group) => {
+                          return group.reports.map((rep, rIndex) => {
+                            const isFirstOfLeader = rIndex === 0;
+                            const isNoAsistio =
+                              rep.status === 'no_asistio_nadie' ||
+                              (rep.topic && rep.topic.toUpperCase().includes('NO ASISTIÓ'));
+                            const isNoRealizo =
+                              rep.status === 'no_realizo' ||
+                              (rep.topic && rep.topic.toUpperCase().includes('NO REALIZÓ'));
+
+                            return (
+                              <View
+                                key={rep.id}
+                                style={[
+                                  styles.tableDataRow,
+                                  isNoRealizo && styles.rowNoRealizo,
+                                ]}>
+                                {/* Columna #: Número del líder */}
+                                <View style={[styles.tdCell, { width: 38 }]}>
+                                  <Text style={styles.tdTextMuted}>
+                                    {isFirstOfLeader ? group.leaderIndex : ''}
+                                  </Text>
+                                </View>
+
+                                {/* Columna Líder 12 */}
+                                <View
+                                  style={[
+                                    styles.tdCell,
+                                    { width: 135 },
+                                    isFirstOfLeader && styles.leaderCellGrouped,
+                                  ]}>
+                                  <Text
+                                    style={[
+                                      styles.tdTextBold,
+                                      !isFirstOfLeader && { color: '#94A3B8', fontSize: 11 },
+                                    ]}
+                                    numberOfLines={1}>
+                                    {isFirstOfLeader ? group.leaderName : ''}
+                                  </Text>
+                                </View>
+
+                                {/* Columna Cant. de Células */}
+                                <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
+                                  <Text style={styles.tdTextCenterBold}>
+                                    {isFirstOfLeader ? group.cellsCount : ''}
+                                  </Text>
+                                </View>
+
+                                {/* Líder de Célula */}
+                                <View style={[styles.tdCell, { width: 140 }]}>
+                                  <Text style={styles.tdText} numberOfLines={1}>
+                                    {rep.cellLeaderName}
+                                  </Text>
+                                </View>
+
+                                {/* Asistente */}
+                                <View style={[styles.tdCell, { width: 130 }]}>
+                                  <Text
+                                    style={[
+                                      styles.tdText,
+                                      (!rep.assistantName ||
+                                        rep.assistantName.toLowerCase() === 'no tiene') &&
+                                        styles.tdTextMuted,
+                                    ]}
+                                    numberOfLines={1}>
+                                    {rep.assistantName || 'No tiene'}
+                                  </Text>
+                                </View>
+
+                                {/* Anfitrión (a) */}
+                                <View style={[styles.tdCell, { width: 130 }]}>
+                                  <Text style={styles.tdText} numberOfLines={1}>
+                                    {rep.hostName}
+                                  </Text>
+                                </View>
+
+                                {/* Palabra Predicada */}
+                                <View style={[styles.tdCell, { width: 180 }]}>
+                                  <Text
+                                    style={[
+                                      styles.tdText,
+                                      isNoAsistio && styles.tdTextDanger,
+                                      isNoRealizo && styles.tdTextWarning,
+                                    ]}
+                                    numberOfLines={1}>
+                                    {rep.topic || rep.notes || 'Sin registrar'}
+                                  </Text>
+                                </View>
+
+                                {/* Fecha */}
+                                <View style={[styles.tdCell, { width: 85, alignItems: 'center' }]}>
+                                  <Text style={styles.tdTextCenterMuted}>
+                                    {rep.date ? rep.date.split('-').reverse().join('/') : ''}
+                                  </Text>
+                                </View>
+
+                                {/* Miembros */}
+                                <View style={[styles.tdCell, { width: 70, alignItems: 'center' }]}>
+                                  <Text style={styles.tdTextCenter}>{rep.membersCount}</Text>
+                                </View>
+
+                                {/* Invitados (Verde si > 0, Rojo si 0) */}
+                                <View
+                                  style={[
+                                    styles.tdCell,
+                                    { width: 70, alignItems: 'center' },
+                                    rep.visitorsCount > 0 ? styles.cellGreen : styles.cellRed,
+                                  ]}>
+                                  <Text
+                                    style={[
+                                      styles.tdTextCenterBold,
+                                      rep.visitorsCount > 0 ? styles.textGreen : styles.textRed,
+                                    ]}>
+                                    {rep.visitorsCount}
+                                  </Text>
+                                </View>
+
+                                {/* Aceptó a Cristo */}
+                                <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
+                                  <Text
+                                    style={[
+                                      styles.tdTextCenterBold,
+                                      (rep.conversionsCount || 0) > 0 && { color: '#7C3AED' },
+                                    ]}>
+                                    {rep.conversionsCount || 0}
+                                  </Text>
+                                </View>
+
+                                {/* Ofrenda Bs. */}
+                                <View
+                                  style={[
+                                    styles.tdCell,
+                                    { width: 85, alignItems: 'flex-end', paddingRight: 8 },
+                                    ((rep.offeringDetails?.vesCash || 0) === 0 || isNoRealizo) && styles.cellOrange,
+                                  ]}>
+                                  <Text
+                                    style={[
+                                      styles.tdTextBold,
+                                      (rep.offeringDetails?.vesCash || 0) === 0 || isNoRealizo
+                                        ? styles.textOrange
+                                        : { color: '#0F172A' },
+                                    ]}>
+                                    {rep.offeringDetails?.vesCash
+                                      ? `Bs. ${rep.offeringDetails.vesCash.toLocaleString()}`
+                                      : '0'}
+                                  </Text>
+                                </View>
+
+                                {/* Ofrenda $ */}
+                                <View
+                                  style={[
+                                    styles.tdCell,
+                                    { width: 75, alignItems: 'flex-end', paddingRight: 8 },
+                                    ((rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0)) === 0 || isNoRealizo) && styles.cellOrange,
+                                  ]}>
+                                  <Text
+                                    style={[
+                                      styles.tdTextBold,
+                                      (rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0)) === 0 || isNoRealizo
+                                        ? styles.textOrange
+                                        : { color: '#0F172A' },
+                                    ]}>
+                                    {(() => {
+                                      const usdVal =
+                                        rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0);
+                                      return usdVal > 0 ? `$${usdVal.toLocaleString()}` : '0';
+                                    })()}
+                                  </Text>
+                                </View>
+
+                                {/* Pago Móvil */}
+                                <View
+                                  style={[
+                                    styles.tdCell,
+                                    { width: 85, alignItems: 'flex-end', paddingRight: 8 },
+                                    ((rep.offeringDetails?.pagoMovilAmount || 0) === 0 || isNoRealizo) && styles.cellOrange,
+                                  ]}>
+                                  <Text
+                                    style={[
+                                      styles.tdTextBold,
+                                      (rep.offeringDetails?.pagoMovilAmount || 0) === 0 || isNoRealizo
+                                        ? styles.textOrange
+                                        : { color: '#0F172A' },
+                                    ]}>
+                                    {rep.offeringDetails?.pagoMovilAmount
+                                      ? `Bs. ${rep.offeringDetails.pagoMovilAmount.toLocaleString()}`
+                                      : '0'}
+                                  </Text>
+                                </View>
+                              </View>
+                            );
+                          });
+                        })}
+
+                        {/* Fila de Totales (Exacta a la fila 54 del Excel) */}
+                        <View style={styles.tableTotalsRow}>
+                          <View style={[styles.tdCell, { width: 38 }]} />
+                          <View style={[styles.tdCell, { width: 135, alignItems: 'center' }]}>
+                            <Text style={styles.totalsLabel}>TOTALES</Text>
+                          </View>
+                          {/* Total Células: Recuadro Amarillo */}
+                          <View
+                            style={[
+                              styles.tdCell,
+                              styles.totalYellowCell,
+                              { width: 75, alignItems: 'center' },
+                            ]}>
+                            <Text style={styles.totalYellowText}>
+                              {groupedSheetData.totalCells}
+                            </Text>
+                          </View>
+                          <View style={[styles.tdCell, { width: 140 }]} />
+                          <View style={[styles.tdCell, { width: 130 }]} />
+                          <View style={[styles.tdCell, { width: 130 }]} />
+                          <View style={[styles.tdCell, { width: 180 }]} />
+                          <View style={[styles.tdCell, { width: 85 }]} />
+
+                          {/* Total Miembros */}
+                          <View style={[styles.tdCell, { width: 70, alignItems: 'center' }]}>
+                            <Text style={styles.totalsNum}>{groupedSheetData.totalMembers}</Text>
+                          </View>
+
+                          {/* Total Invitados */}
+                          <View style={[styles.tdCell, { width: 70, alignItems: 'center' }]}>
+                            <Text style={styles.totalsNum}>{groupedSheetData.totalVisitors}</Text>
+                          </View>
+
+                          {/* Total Aceptó a Cristo */}
+                          <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
+                            <Text style={[styles.totalsNum, { color: '#7C3AED' }]}>
+                              {groupedSheetData.totalConversions}
+                            </Text>
+                          </View>
+
+                          {/* Total Ofrenda Bs. */}
+                          <View
+                            style={[
+                              styles.tdCell,
+                              { width: 85, alignItems: 'flex-end', paddingRight: 8 },
+                            ]}>
+                            <Text style={[styles.totalsNum, { color: '#047857' }]}>
+                              {groupedSheetData.totalOfferingVes > 0
+                                ? `Bs. ${groupedSheetData.totalOfferingVes.toLocaleString()}`
+                                : 'Bs. 0'}
+                            </Text>
+                          </View>
+
+                          {/* Total Ofrenda $ */}
+                          <View
+                            style={[
+                              styles.tdCell,
+                              { width: 75, alignItems: 'flex-end', paddingRight: 8 },
+                            ]}>
+                            <Text style={[styles.totalsNum, { color: '#047857' }]}>
+                              {`$${groupedSheetData.totalOfferingUsd.toLocaleString()}`}
+                            </Text>
+                          </View>
+
+                          {/* Total Pago Móvil */}
+                          <View
+                            style={[
+                              styles.tdCell,
+                              { width: 85, alignItems: 'flex-end', paddingRight: 8 },
+                            ]}>
+                            <Text style={[styles.totalsNum, { color: '#047857' }]}>
+                              {groupedSheetData.totalOfferingPm > 0
+                                ? `Bs. ${groupedSheetData.totalOfferingPm.toLocaleString()}`
+                                : 'Bs. 0'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            ) : myCellReports.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <View style={[styles.emptyIconCircle, { backgroundColor: '#FEF3C7' }]}>
                   <Ionicons name="receipt-outline" size={38} color="#D97706" />
@@ -1012,6 +1944,126 @@ export default function CellsScreen() {
                 placeholder="2026-10-21"
                 placeholderTextColor="#94A3B8"
               />
+
+              {/* Estado de la Célula */}
+              <Text style={styles.inputLabel}>Estado de la Célula</Text>
+              <View style={styles.statusOptionRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.statusOptionBtn,
+                    reportStatus === 'realizada' && styles.statusOptionBtnActiveGreen,
+                  ]}
+                  onPress={() => setReportStatus('realizada')}>
+                  <Text
+                    style={[
+                      styles.statusOptionText,
+                      reportStatus === 'realizada' && styles.statusOptionTextActive,
+                    ]}>
+                    ✅ Realizada
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.statusOptionBtn,
+                    reportStatus === 'no_asistio_nadie' && styles.statusOptionBtnActiveRed,
+                  ]}
+                  onPress={() => {
+                    setReportStatus('no_asistio_nadie');
+                    setReportTopic('NO ASISTIÓ NADIE');
+                  }}>
+                  <Text
+                    style={[
+                      styles.statusOptionText,
+                      reportStatus === 'no_asistio_nadie' && styles.statusOptionTextActive,
+                    ]}>
+                    ⚠️ No asistió nadie
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.statusOptionBtn,
+                    reportStatus === 'no_realizo' && styles.statusOptionBtnActiveOrange,
+                  ]}
+                  onPress={() => {
+                    setReportStatus('no_realizo');
+                    setReportTopic('NO REALIZÓ');
+                  }}>
+                  <Text
+                    style={[
+                      styles.statusOptionText,
+                      reportStatus === 'no_realizo' && styles.statusOptionTextActive,
+                    ]}>
+                    ⛔ No realizó
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Palabra Predicada (Tema) */}
+              {reportStatus === 'realizada' && (
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.inputLabel}>Palabra Predicada (Tema semanal) *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={reportTopic}
+                    onChangeText={setReportTopic}
+                    placeholder="Ej: El tiempo de la sequía a terminado"
+                    placeholderTextColor="#94A3B8"
+                  />
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
+                    {[
+                      'El tiempo de la sequía a terminado',
+                      'Hoy es día de buenas nuevas',
+                      'Nuevo Linaje',
+                      'Un camino hacia la bendición',
+                    ].map((tema) => (
+                      <TouchableOpacity
+                        key={tema}
+                        style={styles.topicChip}
+                        onPress={() => setReportTopic(tema)}>
+                        <Text style={styles.topicChipText}>+ {tema}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Aceptó a Cristo / Decisiones */}
+              {reportStatus === 'realizada' && (
+                <View style={styles.conversionsBox}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.conversionsTitle}>✝️ Aceptó a Cristo / Nuevas Decisiones</Text>
+                    <Text style={styles.miniHint}>
+                      Personas que recibieron o reconciliaron con Jesús:
+                    </Text>
+                  </View>
+                  <View style={styles.conversionsCounterRow}>
+                    <TouchableOpacity
+                      style={styles.counterBtn}
+                      onPress={() => {
+                        const current = parseInt(reportConversions, 10) || 0;
+                        if (current > 0) setReportConversions(String(current - 1));
+                      }}>
+                      <Ionicons name="remove" size={16} color="#475569" />
+                    </TouchableOpacity>
+                    <TextInput
+                      style={styles.counterInput}
+                      keyboardType="numeric"
+                      value={reportConversions}
+                      onChangeText={setReportConversions}
+                    />
+                    <TouchableOpacity
+                      style={[styles.counterBtn, { backgroundColor: '#7C3AED' }]}
+                      onPress={() => {
+                        const current = parseInt(reportConversions, 10) || 0;
+                        setReportConversions(String(current + 1));
+                      }}>
+                      <Ionicons name="add" size={16} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               {/* -------------------------------------------------- */}
               {/* SECCIÓN 1: MIEMBROS ASISTENTES CON NOMBRE Y EDAD   */}
@@ -2143,5 +3195,364 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#15803D',
+  },
+
+  // View Mode Switcher
+  viewModeToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  viewModeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  viewModeBtnActiveGreen: {
+    backgroundColor: '#15803D',
+    borderColor: '#15803D',
+  },
+  viewModeBtnActiveBlue: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  viewModeBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  viewModeBtnTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Sheet Controls Card
+  sheetControlsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  sheetHeaderBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sheetHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  sheetHeaderSubtitle: {
+    fontSize: 12,
+    color: '#15803D',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  sheetShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#15803D',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  sheetShareBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  sheetNetworkRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 10,
+  },
+  sheetNetworkChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  sheetNetworkChipActive: {
+    backgroundColor: '#1E3A8A',
+    borderColor: '#1E3A8A',
+  },
+  sheetNetworkChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  sheetNetworkChipTextActive: {
+    color: '#FFFFFF',
+  },
+  sheetSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  sheetSearchInput: {
+    flex: 1,
+    fontSize: 12,
+    color: '#0F172A',
+    padding: 0,
+  },
+
+  // Spreadsheet Table
+  sheetTableWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#94A3B8',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 20,
+  },
+  sheetTable: {
+    flexDirection: 'column',
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#15803D', // Excel Forest Green
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#047857',
+  },
+  thCell: {
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRightWidth: 1,
+    borderRightColor: '#166534',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  thText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  tableDataRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    minHeight: 30,
+  },
+  rowNoRealizo: {
+    backgroundColor: '#FFF7ED',
+  },
+  tdCell: {
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    borderRightWidth: 1,
+    borderRightColor: '#E2E8F0',
+    justifyContent: 'center',
+  },
+  tdText: {
+    fontSize: 11,
+    color: '#334155',
+  },
+  tdTextBold: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  tdTextMuted: {
+    fontSize: 11,
+    color: '#94A3B8',
+    textAlign: 'center',
+  },
+  tdTextCenter: {
+    fontSize: 11,
+    color: '#334155',
+    textAlign: 'center',
+  },
+  tdTextCenterBold: {
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  tdTextCenterMuted: {
+    fontSize: 10,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  tdTextDanger: {
+    color: '#DC2626',
+    fontWeight: '800',
+  },
+  tdTextWarning: {
+    color: '#EA580C',
+    fontWeight: '800',
+  },
+  leaderCellGrouped: {
+    backgroundColor: '#F8FAFC',
+  },
+  cellGreen: {
+    backgroundColor: '#DCFCE7',
+  },
+  textGreen: {
+    color: '#15803D',
+  },
+  cellRed: {
+    backgroundColor: '#FEE2E2',
+  },
+  textRed: {
+    color: '#B91C1C',
+  },
+  cellOrange: {
+    backgroundColor: '#FFEDD5',
+  },
+  textOrange: {
+    color: '#C2410C',
+  },
+
+  // Totals Row (Matching Excel row 54)
+  tableTotalsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderTopWidth: 2,
+    borderTopColor: '#334155',
+    minHeight: 32,
+  },
+  totalsLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  totalsNum: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  totalYellowCell: {
+    backgroundColor: '#FEF08A', // Yellow box from Excel C54
+    borderRightWidth: 1,
+    borderRightColor: '#CA8A04',
+  },
+  totalYellowText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#854D0E',
+    textAlign: 'center',
+  },
+
+  // Modal Status and Topic Selector
+  statusOptionRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 12,
+  },
+  statusOptionBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusOptionBtnActiveGreen: {
+    backgroundColor: '#15803D',
+    borderColor: '#15803D',
+  },
+  statusOptionBtnActiveRed: {
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
+  },
+  statusOptionBtnActiveOrange: {
+    backgroundColor: '#EA580C',
+    borderColor: '#EA580C',
+  },
+  statusOptionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    textAlign: 'center',
+  },
+  statusOptionTextActive: {
+    color: '#FFFFFF',
+  },
+  topicChip: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    marginRight: 6,
+  },
+  topicChipText: {
+    fontSize: 11,
+    color: '#1D4ED8',
+    fontWeight: '600',
+  },
+  conversionsBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F3FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    padding: 10,
+    marginBottom: 12,
+  },
+  conversionsTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6D28D9',
+  },
+  conversionsCounterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    padding: 2,
+  },
+  counterBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  counterInput: {
+    width: 32,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    padding: 0,
   },
 });

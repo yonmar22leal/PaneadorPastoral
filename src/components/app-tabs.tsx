@@ -1,9 +1,9 @@
-import { Tabs } from 'expo-router';
-import { useColorScheme } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useMemo } from 'react';
 import { Colors } from '@/constants/theme';
 import { useChurch } from '@/context/ChurchContext';
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+import { useMemo } from 'react';
+import { useColorScheme } from 'react-native';
 
 type TabBarIconProps = {
   focused: boolean;
@@ -43,7 +43,10 @@ const renderKidsIcon = ({ color, size }: TabBarIconProps) => (
   <Ionicons name="happy" size={size} color={typeof color === 'string' ? color : '#1E3A8A'} />
 );
 
-const HIDDEN_BAR_OPTIONS = { href: null, tabBarStyle: { display: 'none' as const } };
+const HIDDEN_BAR_OPTIONS = {
+  tabBarItemStyle: { display: 'none' as const },
+  tabBarStyle: { display: 'none' as const },
+};
 const HIDDEN_OPTIONS = { href: null };
 const CELLS_OPTIONS = { title: 'Células', tabBarIcon: renderCellsIcon };
 const KIDS_OPTIONS = { title: 'Niños', href: null, tabBarIcon: renderKidsIcon };
@@ -64,9 +67,9 @@ export default function AppTabs() {
       tabBarStyle: !currentUser
         ? { display: 'none' as const }
         : {
-            backgroundColor: colors.background,
-            borderTopColor: colors.backgroundElement,
-          },
+          backgroundColor: colors.background,
+          borderTopColor: colors.backgroundElement,
+        },
     }),
     [currentUser, colors.background, colors.backgroundElement]
   );
@@ -89,7 +92,7 @@ export default function AppTabs() {
 
   const membersOptions = useMemo(
     () => ({
-      title: isPastor ? 'Directorio' : 'Mis 12',
+      title: isPastor ? 'Directorio' : 'Mi equipo',
       tabBarIcon: renderPastorMembersIcon,
     }),
     [isPastor]
@@ -113,6 +116,7 @@ export default function AppTabs() {
       <Tabs.Screen name="kids" options={KIDS_OPTIONS} />
       <Tabs.Screen name="login" options={HIDDEN_BAR_OPTIONS} />
       <Tabs.Screen name="register" options={HIDDEN_BAR_OPTIONS} />
+      <Tabs.Screen name="profile" options={HIDDEN_BAR_OPTIONS} />
       <Tabs.Screen name="ministries" options={HIDDEN_OPTIONS} />
     </Tabs>
   );

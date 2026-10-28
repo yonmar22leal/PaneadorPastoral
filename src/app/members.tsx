@@ -42,23 +42,30 @@ export default function MembersScreen() {
   const [network, setNetwork] = useState<'adulta' | 'juvenil'>(userNetwork);
   const [networkFilter, setNetworkFilter] = useState<'my_network' | 'all'>('my_network');
 
+  const isLeaderDisciplesMode = !isPastor && filterMode === 'disciples';
+
   const filteredMembers = members.filter((m) => {
-    // Filtrar por red por defecto (a menos que se active ver todas / apoyo)
-    if (networkFilter === 'my_network' && m.network !== userNetwork) {
-      return false;
-    }
-
-    // If leader mode and filtered to disciples
-    if (!isPastor && filterMode === 'disciples') {
+    // Si es modo líder viendo únicamente su equipo de 12 (discípulos directos)
+    if (isLeaderDisciplesMode) {
       if (m.leaderId !== currentUser?.id) return false;
+    } else {
+      // Modo Toda la Red / Directorio:
+      // Los Pastores Principales pertenecen a la iglesia completa, no se excluyen por red
+      const isSeniorPastor = m.role === 'senior_pastor';
+      if (!isSeniorPastor && networkFilter === 'my_network' && m.network !== userNetwork) {
+        return false;
+      }
+
+      if (selectedRole !== 'all' && m.role !== selectedRole) {
+        return false;
+      }
     }
 
-    const matchesRole = selectedRole === 'all' || m.role === selectedRole;
     const fullName = `${m.firstName} ${m.lastName}`.toLowerCase();
     const family = (m.familyName || '').toLowerCase();
     const q = searchQuery.toLowerCase();
     const matchesSearch = fullName.includes(q) || family.includes(q) || m.phone.includes(q);
-    return matchesRole && matchesSearch;
+    return matchesSearch;
   });
 
   const handleCall = (phoneNumber: string) => {
@@ -157,7 +164,10 @@ export default function MembersScreen() {
               styles.leaderToggleBtn,
               filterMode === 'disciples' && styles.leaderToggleBtnActive,
             ]}
-            onPress={() => setFilterMode('disciples')}>
+            onPress={() => {
+              setFilterMode('disciples');
+              setSelectedRole('all');
+            }}>
             <Text
               style={[
                 styles.leaderToggleText,
@@ -201,168 +211,191 @@ export default function MembersScreen() {
         )}
       </View>
 
-      {/* SELECTOR DE RED (PREDETERMINADO: MI RED) */}
-      <View style={styles.networkSelectorBar}>
-        <TouchableOpacity
-          style={[styles.networkTabBtn, networkFilter === 'my_network' && styles.networkTabBtnActive]}
-          onPress={() => setNetworkFilter('my_network')}>
-          <Ionicons
-            name="people"
-            size={14}
-            color={networkFilter === 'my_network' ? '#FFFFFF' : '#1E3A8A'}
-          />
-          <Text
-            style={[styles.networkTabText, networkFilter === 'my_network' && styles.networkTabTextActive]}>
-            {userNetwork === 'juvenil' ? 'Red Juvenil (Mi Red)' : 'Red Adulta (Mi Red)'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.networkTabBtn, networkFilter === 'all' && styles.networkTabBtnSupportActive]}
-          onPress={() => setNetworkFilter('all')}>
-          <Ionicons
-            name={networkFilter === 'all' ? 'checkmark-circle' : 'hand-left-outline'}
-            size={14}
-            color={networkFilter === 'all' ? '#FFFFFF' : '#7C3AED'}
-          />
-          <Text
-            style={[
-              styles.networkTabText,
-              networkFilter === 'all' && styles.networkTabTextActive,
-              networkFilter !== 'all' && { color: '#7C3AED' },
-            ]}>
-            + Ver Apoyo de Otra Red
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Role Filter Chips */}
-      <View style={styles.roleFilters}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roleChipsContent}>
-          {[
-            { id: 'all', label: 'Todos' },
-            { id: 'senior_pastor', label: 'Pastor Principal' },
-            { id: 'network_pastor', label: 'Pastores de Red' },
-            { id: 'g12_leader', label: 'Líderes 12' },
-            { id: 'volunteer', label: 'Servidores' },
-            { id: 'member', label: 'Miembros' },
-            { id: 'visitor', label: 'Visitas Nuevas' },
-          ].map((item) => (
+      {/* SELECTOR DE RED Y FILTROS DE ROL: Solo visibles en modo Toda la Red o si es Pastor */}
+      {!isLeaderDisciplesMode && (
+        <>
+          {/* SELECTOR DE RED (PREDETERMINADO: MI RED) */}
+          <View style={styles.networkSelectorBar}>
             <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.roleChip,
-                selectedRole === item.id && styles.roleChipActive,
-              ]}
-              onPress={() => setSelectedRole(item.id)}>
+              style={[styles.networkTabBtn, networkFilter === 'my_network' && styles.networkTabBtnActive]}
+              onPress={() => setNetworkFilter('my_network')}>
+              <Ionicons
+                name="people"
+                size={14}
+                color={networkFilter === 'my_network' ? '#FFFFFF' : '#1E3A8A'}
+              />
               <Text
-                style={[
-                  styles.roleChipText,
-                  selectedRole === item.id && styles.roleChipTextActive,
-                ]}>
-                {item.label}
+                style={[styles.networkTabText, networkFilter === 'my_network' && styles.networkTabTextActive]}>
+                {userNetwork === 'juvenil' ? 'Red Juvenil (Mi Red)' : 'Red Adulta (Mi Red)'}
               </Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+
+            <TouchableOpacity
+              style={[styles.networkTabBtn, networkFilter === 'all' && styles.networkTabBtnSupportActive]}
+              onPress={() => setNetworkFilter('all')}>
+              <Ionicons
+                name={networkFilter === 'all' ? 'checkmark-circle' : 'hand-left-outline'}
+                size={14}
+                color={networkFilter === 'all' ? '#FFFFFF' : '#7C3AED'}
+              />
+              <Text
+                style={[
+                  styles.networkTabText,
+                  networkFilter === 'all' && styles.networkTabTextActive,
+                  networkFilter !== 'all' && { color: '#7C3AED' },
+                ]}>
+                + Ver Apoyo de Otra Red
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Role Filter Chips (Pastores Principales, de Red, Líderes 12 y Miembros) */}
+          <View style={styles.roleFilters}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roleChipsContent}>
+              {[
+                { id: 'all', label: 'Todos' },
+                { id: 'senior_pastor', label: 'Pastor Principal' },
+                { id: 'network_pastor', label: 'Pastores de Red' },
+                { id: 'g12_leader', label: 'Líderes 12' },
+                { id: 'member', label: 'Miembros' },
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.roleChip,
+                    selectedRole === item.id && styles.roleChipActive,
+                  ]}
+                  onPress={() => setSelectedRole(item.id)}>
+                  <Text
+                    style={[
+                      styles.roleChipText,
+                      selectedRole === item.id && styles.roleChipTextActive,
+                    ]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </>
+      )}
 
       {/* Members List */}
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-        {filteredMembers.map((member) => {
-          const badge = getRoleBadgeStyle(member.role);
+        {filteredMembers.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons
+              name={isLeaderDisciplesMode ? 'people-outline' : 'search-outline'}
+              size={48}
+              color="#94A3B8"
+            />
+            <Text style={styles.emptyTitle}>
+              {isLeaderDisciplesMode
+                ? 'Aún no tienes discípulos directos en tu equipo'
+                : 'No se encontraron personas'}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {isLeaderDisciplesMode
+                ? 'Usa el botón "Añadir" en la esquina superior para registrar a los miembros de tus 12.'
+                : 'Prueba ajustando el término de búsqueda o seleccionando otro rol.'}
+            </Text>
+          </View>
+        ) : (
+          filteredMembers.map((member) => {
+            const badge = getRoleBadgeStyle(member.role);
 
-          return (
-            <View key={member.id} style={styles.memberCard}>
-              <View style={styles.cardTop}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {member.firstName[0]}
-                    {member.lastName[0]}
-                  </Text>
-                </View>
-
-                <View style={styles.memberDetails}>
-                  <View style={styles.nameBadgeRow}>
-                    <Text style={styles.memberName}>
-                      {member.firstName} {member.lastName}
+            return (
+              <View key={member.id} style={styles.memberCard}>
+                <View style={styles.cardTop}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {member.firstName[0]}
+                      {member.lastName[0]}
                     </Text>
-                    <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-                      {member.network !== userNetwork && (
-                        <View style={styles.supportBadge}>
-                          <Text style={styles.supportBadgeText}>
-                            🤝 Apoyo · {member.network === 'juvenil' ? 'Juvenil' : 'Adulta'}
+                  </View>
+
+                  <View style={styles.memberDetails}>
+                    <View style={styles.nameBadgeRow}>
+                      <Text style={styles.memberName}>
+                        {member.firstName} {member.lastName}
+                      </Text>
+                      <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {member.network !== userNetwork && member.role !== 'senior_pastor' && (
+                          <View style={styles.supportBadge}>
+                            <Text style={styles.supportBadgeText}>
+                              🤝 Apoyo · {member.network === 'juvenil' ? 'Juvenil' : 'Adulta'}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
+                          <Text style={[styles.roleBadgeText, { color: badge.text }]}>
+                            {badge.label}
                           </Text>
                         </View>
-                      )}
-                      <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
-                        <Text style={[styles.roleBadgeText, { color: badge.text }]}>
-                          {badge.label}
-                        </Text>
                       </View>
                     </View>
-                  </View>
 
-                  {member.familyName && (
-                    <Text style={styles.familyNameText}>🏡 {member.familyName}</Text>
-                  )}
+                    {member.familyName && (
+                      <Text style={styles.familyNameText}>🏡 {member.familyName}</Text>
+                    )}
 
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: member.gender === 'F' ? '#BE185D' : '#1D4ED8' }}>
-                      {member.gender === 'F' ? '👩 Mujer' : '👨 Hombre'}
-                    </Text>
-                    {calcAge(member.birthDate) !== undefined && (
-                      <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600' }}>
-                        • {calcAge(member.birthDate)} años {calcAge(member.birthDate)! < 14 ? '(Prejuvenil)' : ''}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: member.gender === 'F' ? '#BE185D' : '#1D4ED8' }}>
+                        {member.gender === 'F' ? '👩 Mujer' : '👨 Hombre'}
                       </Text>
+                      {calcAge(member.birthDate) !== undefined && (
+                        <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '600' }}>
+                          • {calcAge(member.birthDate)} años {calcAge(member.birthDate)! < 14 ? '(Prejuvenil)' : ''}
+                        </Text>
+                      )}
+                    </View>
+
+                    {member.ministries && member.ministries.length > 0 && (
+                      <View style={styles.ministryPillRow}>
+                        {member.ministries.map((m, idx) => (
+                          <View key={idx} style={styles.ministryPill}>
+                            <Text style={styles.ministryPillText}>{m}</Text>
+                          </View>
+                        ))}
+                      </View>
                     )}
                   </View>
+                </View>
 
-                  {member.ministries && member.ministries.length > 0 && (
-                    <View style={styles.ministryPillRow}>
-                      {member.ministries.map((m, idx) => (
-                        <View key={idx} style={styles.ministryPill}>
-                          <Text style={styles.ministryPillText}>{m}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
+                {member.notes && (
+                  <View style={styles.notesContainer}>
+                    <Ionicons name="chatbox-ellipses-outline" size={14} color="#64748B" />
+                    <Text style={styles.notesText}>{member.notes}</Text>
+                  </View>
+                )}
+
+                {/* Contact Actions Footer */}
+                <View style={styles.cardFooter}>
+                  <View style={styles.phoneLabelRow}>
+                    <Ionicons name="call-outline" size={14} color="#64748B" />
+                    <Text style={styles.phoneText}>{member.phone}</Text>
+                  </View>
+
+                  <View style={styles.contactActions}>
+                    <TouchableOpacity
+                      style={styles.iconActionBtn}
+                      onPress={() => handleCall(member.phone)}>
+                      <Ionicons name="call" size={16} color="#2563EB" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.iconActionBtn, { backgroundColor: '#DCFCE7' }]}
+                      onPress={() =>
+                        handleWhatsApp(member.phone, `${member.firstName} ${member.lastName}`)
+                      }>
+                      <Ionicons name="logo-whatsapp" size={17} color="#16A34A" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
-
-              {member.notes && (
-                <View style={styles.notesContainer}>
-                  <Ionicons name="chatbox-ellipses-outline" size={14} color="#64748B" />
-                  <Text style={styles.notesText}>{member.notes}</Text>
-                </View>
-              )}
-
-              {/* Contact Actions Footer */}
-              <View style={styles.cardFooter}>
-                <View style={styles.phoneLabelRow}>
-                  <Ionicons name="call-outline" size={14} color="#64748B" />
-                  <Text style={styles.phoneText}>{member.phone}</Text>
-                </View>
-
-                <View style={styles.contactActions}>
-                  <TouchableOpacity
-                    style={styles.iconActionBtn}
-                    onPress={() => handleCall(member.phone)}>
-                    <Ionicons name="call" size={16} color="#2563EB" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.iconActionBtn, { backgroundColor: '#DCFCE7' }]}
-                    onPress={() =>
-                      handleWhatsApp(member.phone, `${member.firstName} ${member.lastName}`)
-                    }>
-                    <Ionicons name="logo-whatsapp" size={17} color="#16A34A" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          );
-        })}
+            );
+          })
+        )}
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -874,5 +907,30 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#7C3AED',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 12,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#334155',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 6,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

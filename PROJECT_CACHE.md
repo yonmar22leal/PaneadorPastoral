@@ -1,7 +1,7 @@
 # CACHE DE ARQUITECTURA Y ESTADO DEL PROYECTO
 **Proyecto:** Planeador Pastoral (IEC - Iglesia Emmanuel de Caja de Agua)  
 **Versión:** 1.0.0 | **Expo SDK:** 58.0.19 | **React Native:** 0.88.0 | **React:** 19.3.0  
-**Última actualización de caché:** 2026-10-26 (Doodle wallpapers universales, fix cierre de sesión web y CI/CD Vercel)  
+**Última actualización de caché:** 2026-10-27 (Módulo de Perfil y Configuración Personal completa: datos personales, culto habitual, red y cobertura G12, cambio de contraseña y sincronización Supabase)  
 **Estado de TypeScript:** 100% libre de errores (`tsc --noEmit` exitoso) | **Expo Doctor:** 20/20 pasados | **Expo Lint:** 0 errores, 0 advertencias
 
 > **PROPÓSITO DE ESTE ARCHIVO:**  
@@ -98,7 +98,8 @@
 
 ### 3.5. Grupos Celulares y Reportes de Reunión (`src/app/cells.tsx`)
 - Campos de célula: Líder que predica (`cell_leader_name`), Cobertura de 12 (`leader_name`), Anfitrión (`host_name`), Asistente (`assistant_name`), Día, Hora, Red.
-- Reporte semanal de reunión: Asistencia de miembros y de invitados (con nombre y edad), observaciones, y desglose de ofrendas multi-moneda (`usdCash`, `vesCash`, `pagoMovilAmount` + referencia bancaria).
+- Reporte semanal de reunión: Asistencia de miembros y de invitados (con nombre y edad), Palabra Predicada (`topic`), Aceptó a Cristo / Decisiones (`conversionsCount`), Estado (`status`: `realizada`, `no_asistio_nadie`, `no_realizo`), observaciones, y desglose de ofrendas multi-moneda (`usdCash`, `vesCash`, `pagoMovilAmount` + referencia bancaria).
+- **Vista Planilla Consolidada Pastoral (Excel Sheet):** Vista en formato tabla interactiva idéntica a la planilla semanal de células de la iglesia (`#`, `Líder 12`, `Cant. de Células`, `Líder de Célula`, `Asistente`, `Anfitrión (a)`, `Palabra Predicada`, `Fecha`, `Miembros`, `Invitados`, `Aceptó a Cristo`, `Ofrenda Bs.`, `Ofrenda $`, `Pago Móvil (Bs.)`), con agrupación por Líder 12, formato condicional (verde para invitados > 0, rojo para 0, naranja para ofrenda en 0 / no realizó), fila inferior de totales con caja amarilla de Total Células y totales desglosados de cada moneda. Exporta directamente en formato Microsoft Excel `.xls` estilizado idéntico a la hoja física (colores, bordes y recuadros) y formato `.csv` descargable. Pastores de red ven únicamente su red, mientras que Pastores Principales pueden auditar todas las redes. Alternable entre vista Planilla y Fichas Individuales.
 
 ### 3.6. Sistema de Ministerios y Permisos de Evento (`src/context/ChurchContext.tsx`)
 - **Ministerios Predeterminados:** Alabanza, Audiovisual, Protocolo, etc. Cada uno con coordinador permanente y roles sugeridos (`defaultRoles`).
@@ -114,7 +115,7 @@
   - **Red Adulta (`adulta`):** Ven únicamente eventos de la **Red Adulta** y eventos marcados como **General**. Los eventos de jóvenes **nunca** les salen a los de la red adulta.
 - **Implementación Centralizada:** Helper `getVisibleEvents(currentUser)` en `ChurchContext.tsx` consumido directamente por [planner/index.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/planner/index.tsx) y [index.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/index.tsx).
 
-### 3.8. Autenticación y Flujo de Navegación de Sesión
+### 3.8. Autenticación, Registro de Cuentas y Flujo de Sesión
 - `login(email, password)` devuelve `LoginResult { success: boolean; error?: string }`.
 - Si el usuario no existe en la BD: retorna mensaje explícito de cuenta no encontrada.
 - Si el usuario tiene contraseña configurada y se ingresa una errónea: retorna error claro de contraseña incorrecta.
@@ -122,12 +123,27 @@
   - Banner de error visible en rojo (`errorAlertCard`) para evitar que el usuario se quede sin feedback visual si la alerta nativa es bloqueada o ignorada.
   - Resaltado en rojo del campo de contraseña (`inputWrapperError`).
   - Limpieza automática del error al comenzar a escribir.
-- **Patrón de Sesión en [index.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/index.tsx):**
+- **Registro de Cuentas y Alta de Miembros (`registerMember` en [ChurchContext.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/context/ChurchContext.tsx)):**
+  - Validación previa de unicidad de correo electrónico (comprueba tanto en caché local en memoria como en Supabase para evitar colisiones 23505).
+  - Cálculo automático de rol y nivel G12 según cobertura pastoral/liderazgo.
+  - Inserción segura en Supabase con manejo de errores explícito (devuelve `RegisterMemberResult { success, error, member }`).
+  - **Auto-Login:** Al registrarse desde [register.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/register.tsx) (`autoLogin: true`), la sesión se crea e inicializa de inmediato en `currentUser` y se guarda en `AsyncStorage`, permitiendo ingresar directamente al panel de inicio (`/`) sin requerir reingresar credenciales.
+- **Formulario de Registro [register.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/register.tsx):**
+  - **Auto-selección de Líder de 12:** `currentLeaderId` deriva dinámicamente el primer líder disponible de la red seleccionada si el usuario no ha tocado una tarjeta, previniendo estados vacíos y el fallo silencioso por validación de líder.
+  - **Feedback Visual en Pantalla:** Banner de error visible en rojo (`errorAlertCard`) en caso de campos faltantes, correo inválido o contraseña menor a 6 caracteres, evitando bloqueos por `Alert.alert` en Web.
+  - **Estado de Envío:** Botón protegido con `isSubmitting` y spinner `ActivityIndicator` ("Creando cuenta e ingresando..."), impidiendo doble pulsación o parpadeos sin respuesta.
+  - **Navegación Cross-Platform:** En Web redirige directamente con `router.replace('/')` tras iniciar sesión; en móvil muestra confirmación con redirección al presionar continuar.
+  - Enlace rápido inferior a "Iniciar Sesión" y botón de retroceso seguro (`handleBack`).
+- **Patrón de Sesión y Alternancia Auth en [index.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/index.tsx):**
   - Para evitar ciclos infinitos de navegación (`RoutingQueueDrainer` / `Maximum update depth exceeded`) causados por `router.replace('/login')` mientras la pestaña de inicio permanece montada en segundo plano:
   - Si `isLoading === true`: Renderiza pantalla de carga centrada.
-  - Si `!currentUser`: Renderiza `<LoginScreen />` directamente en la ruta raíz (`/`).
+  - Si `!currentUser`: Maneja estado `authMode ('login' | 'register')` local en la raíz (`/`).
+    - Al presionar *"Inscribirme aquí"*, cambia instantáneamente a `<RegisterScreen onGoLogin={() => setAuthMode('login')} />` sin depender del sistema de tabs ni sufrir bloqueos de navegación.
+    - Al presionar *"Iniciar Sesión"* o volver atrás, regresa inmediatamente a `<LoginScreen onGoRegister={() => setAuthMode('register')} />`.
   - Si `currentUser`: Renderiza el panel pastoral completo.
   - Al cerrar sesión (`handleLogout`), `logout()` limpia `currentUser` y el login se muestra de inmediato sin transiciones o llamadas a `router.replace`.
+- **Configuración de Pestañas Ocultas en [app-tabs.tsx](file:///d:/asdasd/iglesia/PaneadorPastoral/src/components/app-tabs.tsx):**
+  - Se eliminó `href: null` (el cual deshabilitaba el deep linking y la navegación interna hacia `/register` y `/login`), reemplazándolo por `tabBarItemStyle: { display: 'none' }` y `tabBarStyle: { display: 'none' }`. Esto permite que las rutas sigan siendo navegables mientras permanecen invisibles en la barra inferior.
 
 ### 3.9. Muro Pastoral con Spanish Bible API (Reina Valera 1960) y Sistema de "Me Gusta"
 - **Objetivo:** Convertir el Inicio (`src/app/index.tsx`) en un feed espiritual donde los pastores publican mensajes y reflexiones devocionales y los miembros pueden leerlos y reaccionar con un "Me gusta" (❤️).
@@ -168,6 +184,7 @@
 - `src/app/kids.tsx`: Ministerio Infantil. Check-in con asignación de código aleatorio (`KID-XXXX`), aulas por edad, alertas de alergias y confirmación de retiro seguro.
 - `src/app/ministries.tsx`: Configuración de ministerios permanentes, colores distintivos, iconos y asignación de coordinadores y roles.
 - `src/app/login.tsx` & `src/app/register.tsx`: Autenticación con email/contraseña con validación estricta, feedback visual en pantalla e indicador de carga.
+- `src/app/profile.tsx`: **Perfil y Configuración Personal**. Gestión completa del perfil del usuario (nombre, apellido, teléfono WhatsApp, sexo, fecha de nacimiento con cálculo de edad, apellido familiar, culto habitual preferido, red y cobertura G12, cambio de contraseña con validación de seguridad, notas/petición de oración y cierre de sesión).
 
 ### 4.2. Componentes y Capa Lógica
 - `src/components/app-tabs.tsx`: Configuración de las pestañas inferiores del Tab Navigator con iconos y permisos de visualización.
@@ -242,8 +259,29 @@ cmd /c npx eas-cli build --profile preview --platform android       # Genera APK
 
 - **Pastor José Peña (`senior_pastor` / Adulta):** `jose.pena@iglesia.org` — Acceso total como Pastor Principal.
 - **Pastora Neidy de Peña (`senior_pastor` / Adulta):** `neidy.pena@iglesia.org` — Pastora Principal.
-- **Pastor Josué Rodríguez (`network_pastor` / Juvenil):** `josue.rodriguez@iglesia.org` — Culto Juvenil 11 AM.
+- **Pastor Josué Rodríguez (`network_pastor` / Juvenil):** `josue.rodriguez@iglesia.org` — Servicio Juvenil 11 AM.
 - **Pastora Norelis de Rodríguez (`network_pastor` / Juvenil):** `norelis.rodriguez@iglesia.org`.
-- **Pastor Carlos Diez (`network_pastor` / Adulta):** `carlos.diez@iglesia.org` — Cultos Adultos 9 AM y 1 PM.
+- **Pastor Carlos Diez (`network_pastor` / Adulta):** `carlos.diez@iglesia.org` — Servicios Adultos 9 AM y 1 PM.
 - **Pastora Neiyelis de Diez (`network_pastor` / Adulta):** `neiyelis.diez@iglesia.org`.
 - **Líder Yonmar (`g12_leader` / Juvenil):** `yonmar22@gmail.com`.
+
+---
+
+## 8. REGLAS DE NEGOCIO, TERMINOLOGÍA Y SEGURIDAD RECIENTES
+
+1. **Terminología Estandarizada ("Servicio" en lugar de "Culto")**:
+   - Se ha reemplazado la palabra "culto" por "servicio" en toda la interfaz de usuario, títulos, botones, badges, modales y placeholders (ej. *Órdenes de servicio*, *Reporte de servicios*, *Próximo servicio*, *Puestos de servicio en servicios*).
+   - Ninguna pantalla visible ni componente usa ya la palabra "culto".
+
+2. **Diferenciación de Servicios Dominicales vs. Servicio de Adoración**:
+   - En las pantallas de consulta de congregación habitual (`register.tsx` y `profile.tsx`), **solo se muestran los servicios dominicales habituales** (`domingo_adultos_1`, `domingo_juvenil`, `domingo_adultos_2`).
+   - El **Servicio de Adoración** (viernes) **no aparece** en la pregunta *"¿A qué servicio asistes habitualmente?"*, quedando reservado exclusivamente para la creación, coordinación y programación de actividades en el planeador de servicios (`planner/` y `ChurchServicesSchedule`).
+
+3. **Eliminación de Peticiones de Oración en Formularios Personales**:
+   - Se ha removido el campo y la sección de "Petición de Oración" tanto en el registro de miembros (`register.tsx`) como en la configuración del perfil (`profile.tsx`), manteniendo los flujos limpios y enfocados en datos personales, cobertura G12 y credenciales.
+
+4. **Flujo Seguro de Cambio de Contraseña en Perfil (`profile.tsx`)**:
+   - Para cambiar la contraseña personal, el usuario debe ingresar obligatoriamente su **Contraseña Actual** en primer lugar.
+   - La aplicación valida que la contraseña actual coincida exactamente con la guardada en `currentUser.password` o en `members`. Si no coincide, bloquea la acción con alerta: *"La contraseña actual no es correcta."*
+   - Solo al verificar la clave actual se aplican las validaciones de longitud mínima (6 caracteres) y coincidencia con *Confirmar Nueva Contraseña*, guardando en AsyncStorage y Supabase.
+

@@ -42,12 +42,13 @@ export default function AttendanceScreen() {
   const myLeaderAttendanceReports = getMyLeaderAttendanceReports();
   const isPastor = currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
 
-  // Filtrar servicios permitidos según la red del usuario (evita mezclar redes a pastores de red)
+  // Filtrar servicios permitidos según la red del usuario: solo su red y el servicio de adoración
   const allowedServices = servicesSchedule.filter((srv) => {
     if (currentUser?.role === 'senior_pastor') return true;
+    if (srv.id === 'viernes_adoracion' || srv.network === 'general') return true;
     if (currentUser?.network === 'juvenil') return srv.network === 'juvenil';
     if (currentUser?.network === 'adulta') return srv.network === 'adulta';
-    return true;
+    return false;
   });
 
   const defaultServiceId =
@@ -61,7 +62,7 @@ export default function AttendanceScreen() {
   const [pastorTab, setPastorTab] = useState<'consolidado' | 'reportes'>('consolidado');
   const [selectedServiceId, setSelectedServiceId] = useState(defaultServiceId);
 
-  // Filtrar los reportes según la red: pastores de red SOLO ven reportes de su red
+  // Filtrar los reportes según la red: pastores de red SOLO ven reportes de su red y adoración
   const networkReports = useMemo(() => {
     if (currentUser?.role === 'senior_pastor') {
       return leaderAttendanceReports;
@@ -77,10 +78,14 @@ export default function AttendanceScreen() {
           return true;
         }
         if (pastorNet === 'juvenil') {
-          return rep.serviceId === 'domingo_juvenil';
+          return rep.serviceId === 'domingo_juvenil' || rep.serviceId === 'viernes_adoracion';
         }
         if (pastorNet === 'adulta') {
-          return rep.serviceId === 'domingo_adultos_1' || rep.serviceId === 'domingo_adultos_2';
+          return (
+            rep.serviceId === 'domingo_adultos_1' ||
+            rep.serviceId === 'domingo_adultos_2' ||
+            rep.serviceId === 'viernes_adoracion'
+          );
         }
         const author = members.find((m) => m.id === rep.leaderId);
         return author?.network === pastorNet;
@@ -909,7 +914,7 @@ export default function AttendanceScreen() {
 
             {/* Selector de Servicio */}
             <View style={styles.serviceSelectorContainer}>
-              {servicesSchedule.map((srv) => (
+              {allowedServices.map((srv) => (
                 <TouchableOpacity
                   key={srv.id}
                   style={[

@@ -321,7 +321,7 @@ export default function MinistriesScreen() {
 
         <Text style={styles.heroSubtitle}>
           Asigna y delega coordinadores para Alabanza, Audiovisual, Protocolo y más. Cada
-          coordinador podrá armar sus servidores y su cronograma en cada culto.
+          coordinador podrá armar sus servidores y su cronograma en cada servicio.
         </Text>
       </View>
 
@@ -335,7 +335,7 @@ export default function MinistriesScreen() {
             <Ionicons name="ribbon-outline" size={48} color="#94A3B8" />
             <Text style={styles.emptyTitle}>No hay ministerios registrados</Text>
             <Text style={styles.emptySubtitle}>
-              Crea ministerios como Alabanza, Audiovisual o Protocolo para delegar la coordinación de los cultos.
+              Crea ministerios como Alabanza, Audiovisual o Protocolo para delegar la coordinación de los servicios.
             </Text>
             {isPastor && (
               <TouchableOpacity style={styles.emptyBtn} onPress={openCreateModal}>
@@ -406,7 +406,7 @@ export default function MinistriesScreen() {
                 {/* Puestos y Roles de Servicio */}
                 {min.defaultRoles && min.defaultRoles.length > 0 && (
                   <View style={styles.rolesSection}>
-                    <Text style={styles.rolesSectionTitle}>Puestos de Servicio en Cultos:</Text>
+                    <Text style={styles.rolesSectionTitle}>Puestos de Servicio en Servicios:</Text>
                     <View style={styles.rolesChipsWrap}>
                       {min.defaultRoles.map((roleName, rIdx) => (
                         <View
@@ -492,7 +492,7 @@ export default function MinistriesScreen() {
               <Text style={styles.inputLabel}>Descripción o Función</Text>
               <TextInput
                 style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
-                placeholder="Explica de qué se encarga este ministerio durante los cultos..."
+                placeholder="Explica de qué se encarga este ministerio durante los servicios..."
                 placeholderTextColor="#94A3B8"
                 multiline
                 value={description}
@@ -591,7 +591,7 @@ export default function MinistriesScreen() {
             {/* 5. Puestos y Roles de Servicio Habituales */}
             <View style={styles.formGroup}>
               <View style={styles.roleHeaderRow}>
-                <Text style={styles.inputLabel}>Puestos de Servicio en Cultos</Text>
+                <Text style={styles.inputLabel}>Puestos de Servicio en Servicios</Text>
                 <TouchableOpacity onPress={handleLoadSuggestedRoles} style={styles.suggestBtn}>
                   <Ionicons name="sparkles" size={13} color="#2563EB" />
                   <Text style={styles.suggestBtnText}>Sugerir Puestos</Text>
@@ -637,7 +637,7 @@ export default function MinistriesScreen() {
               <Ionicons name="information-circle" size={18} color="#2563EB" />
               <Text style={styles.noticeBoxText}>
                 El coordinador permanente tendrá permisos para delegar y asignar los servidores
-                a cada puesto en los cultos, y editar los bloques correspondientes en el cronograma.
+                a cada puesto en los servicios, y editar los bloques correspondientes en el cronograma.
               </Text>
             </View>
           </ScrollView>

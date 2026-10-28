@@ -135,6 +135,9 @@ export interface CellMeetingReport {
   membersList?: CellPersonItem[]; // Lista de miembros con nombre y edad
   visitorsCount: number;  // Invitados
   visitorsList?: CellPersonItem[]; // Lista de invitados con nombre y edad
+  conversionsCount?: number; // Aceptó a Cristo / Decisiones
+  topic?: string;         // Palabra Predicada (Tema de la semana)
+  status?: 'realizada' | 'no_asistio_nadie' | 'no_realizo'; // Estado de la célula
   offering: number;       // Ofrenda (monto numérico referencial)
   offeringDetails?: CellOfferingDetails; // Detalle de Dólares, Bs y Pago Móvil
   notes?: string;         // Observaciones
@@ -144,6 +147,7 @@ export interface CellMeetingReport {
 export interface AuthUser {
   id: string;
   email: string;
+  password?: string;
   firstName: string;
   lastName: string;
   role: MemberRole;
@@ -155,6 +159,9 @@ export interface AuthUser {
   leaderName?: string;
   generationLevel?: number; // 0: Pastor Principal, 1: Pastor Red, 2: Líder 12, 3: 144, 4: 1728
   token?: string;
+  familyName?: string;
+  preferredService?: ChurchServiceSlotId;
+  notes?: string;
 }
 
 export interface KidClassroom {

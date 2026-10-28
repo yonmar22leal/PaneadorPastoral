@@ -720,7 +720,7 @@ export default function EventEditorScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>Ministerios & Coordinación</Text>
                 <Text style={styles.cardSub}>
-                  Asigna al coordinador responsable de Alabanza, Audiovisual y Protocolo para este culto.
+                  Asigna al coordinador responsable de Alabanza, Audiovisual y Protocolo para este servicio.
                 </Text>
               </View>
               <TouchableOpacity
@@ -1309,7 +1309,7 @@ export default function EventEditorScreen() {
                 <Text style={styles.myselfTitle}>
                   {currentUser.firstName} {currentUser.lastName} (Tú mismo)
                 </Text>
-                <Text style={styles.myselfSubtitle}>Asignarme como coordinador de este culto</Text>
+                <Text style={styles.myselfSubtitle}>Asignarme como coordinador de este servicio</Text>
               </View>
               <Ionicons name="arrow-forward" size={16} color="#2563EB" />
             </TouchableOpacity>

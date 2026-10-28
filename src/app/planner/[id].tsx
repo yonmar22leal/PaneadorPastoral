@@ -668,7 +668,7 @@ export default function EventDetailScreen() {
             </Text>
 
             {groupedVolunteers.length === 0 ? (
-              <Text style={styles.emptyText}>No hay servidores asignados para este culto.</Text>
+              <Text style={styles.emptyText}>No hay servidores asignados para este servicio.</Text>
             ) : (
               groupedVolunteers.map((grp) => (
                 <View

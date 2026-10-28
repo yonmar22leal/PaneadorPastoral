@@ -139,7 +139,7 @@ export default function EventsListScreen() {
           <Text style={styles.heroTitle}>Servicios & Eventos</Text>
           <Text style={styles.heroSubtitle}>
             {canManageEvents
-              ? 'Organiza el orden del culto dominical y el cronograma de actividades.'
+              ? 'Organiza el orden del servicio dominical y el cronograma de actividades.'
               : 'Consulta el orden y los horarios de cada servicio y evento.'}
           </Text>
 
@@ -155,7 +155,7 @@ export default function EventsListScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.createPrimaryTitle}>+ Servicio</Text>
-                  <Text style={styles.createPrimarySub}>Orden de culto</Text>
+                  <Text style={styles.createPrimarySub}>Orden de servicio</Text>
                 </View>
                 <Ionicons name="add-circle" size={22} color="#1E3A8A" />
               </TouchableOpacity>
@@ -201,7 +201,7 @@ export default function EventsListScreen() {
               <View style={styles.coordPlannerDot} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.coordPlannerTitle}>
-                  ¡Tienes cultos asignados para coordinar!
+                  ¡Tienes servicios asignados para coordinar!
                 </Text>
                 <Text style={styles.coordPlannerSub}>
                   {myCoordinatedUpcoming[0].title} · {formatEventDate(myCoordinatedUpcoming[0].date)}

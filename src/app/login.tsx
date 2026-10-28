@@ -15,9 +15,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function LoginScreen() {
+interface LoginScreenProps {
+  onGoRegister?: () => void;
+}
+
+export default function LoginScreen({ onGoRegister }: LoginScreenProps = {}) {
   const router = useRouter();
-  const { login, quickDemoLogin } = useChurch();
+  const { login } = useChurch();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,7 +49,7 @@ export default function LoginScreen() {
       } else {
         const msg =
           result.error ||
-          'Correo o contraseña incorrectos. Verifica tus datos o usa el acceso rápido de prueba.';
+          'Correo o contraseña incorrectos. Verifica que tus credenciales estén bien escritas.';
         setErrorMessage(msg);
         if (msg.toLowerCase().includes('contraseña')) {
           setHasPasswordError(true);
@@ -59,13 +63,6 @@ export default function LoginScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleQuickDemo = async (role: Parameters<typeof quickDemoLogin>[0]) => {
-    setErrorMessage(null);
-    setHasPasswordError(false);
-    await quickDemoLogin(role);
-    router.replace('/');
   };
 
   return (
@@ -180,112 +177,15 @@ export default function LoginScreen() {
           {/* Register Link */}
           <View style={styles.registerRow}>
             <Text style={styles.registerPrompt}>¿Eres nuevo o no tienes cuenta? </Text>
-            <TouchableOpacity onPress={() => router.push('/register')}>
+            <TouchableOpacity
+              onPress={() => {
+                if (onGoRegister) {
+                  onGoRegister();
+                } else {
+                  router.push('/register');
+                }
+              }}>
               <Text style={styles.registerLink}>Inscribirme aquí</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Quick Demo Access Section */}
-        <View style={styles.demoSection}>
-          <View style={styles.demoHeader}>
-            <Ionicons name="flash" size={18} color="#F59E0B" />
-            <Text style={styles.demoTitle}>Acceso Rápido de Prueba (1 Toque)</Text>
-          </View>
-          <Text style={styles.demoSubtitle}>
-            Prueba la app de inmediato con los diferentes roles de la iglesia:
-          </Text>
-
-          <View style={styles.demoButtonsGrid}>
-            {/* Pastor Principal Varones */}
-            <TouchableOpacity
-              style={[styles.demoRoleCard, { borderLeftColor: '#1E3A8A' }]}
-              onPress={() => handleQuickDemo('pastor_jose')}>
-              <View style={[styles.roleIconBox, { backgroundColor: '#DBEAFE' }]}>
-                <Ionicons name="ribbon" size={20} color="#1E3A8A" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.demoRoleTitle}>Pastor José Peña</Text>
-                <Text style={styles.demoRoleDesc}>Pastor Principal • 12 Discípulos Varones</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Pastora Principal Mujeres */}
-            <TouchableOpacity
-              style={[styles.demoRoleCard, { borderLeftColor: '#DB2777' }]}
-              onPress={() => handleQuickDemo('pastora_neidy')}>
-              <View style={[styles.roleIconBox, { backgroundColor: '#FCE7F3' }]}>
-                <Ionicons name="ribbon" size={20} color="#DB2777" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.demoRoleTitle}>Pastora Neidy de Peña</Text>
-                <Text style={styles.demoRoleDesc}>Pastora Principal • 12 Discípulas Mujeres</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Pastor Juvenil */}
-            <TouchableOpacity
-              style={[styles.demoRoleCard, { borderLeftColor: '#8B5CF6' }]}
-              onPress={() => handleQuickDemo('pastor_josue')}>
-              <View style={[styles.roleIconBox, { backgroundColor: '#EDE9FE' }]}>
-                <Ionicons name="sparkles" size={20} color="#8B5CF6" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.demoRoleTitle}>Pastor Josué Rodríguez</Text>
-                <Text style={styles.demoRoleDesc}>Pastor Red Juvenil (11 AM) • Discípulo de Pr. José</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Pastora Juvenil */}
-            <TouchableOpacity
-              style={[styles.demoRoleCard, { borderLeftColor: '#A855F7' }]}
-              onPress={() => handleQuickDemo('pastora_norelis')}>
-              <View style={[styles.roleIconBox, { backgroundColor: '#F3E8FF' }]}>
-                <Ionicons name="sparkles" size={20} color="#A855F7" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.demoRoleTitle}>Pastora Norelis de Rodríguez</Text>
-                <Text style={styles.demoRoleDesc}>Pastora Red Juvenil (11 AM) • Discípula de Pra. Neidy</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Pastor Adultos */}
-            <TouchableOpacity
-              style={[styles.demoRoleCard, { borderLeftColor: '#2563EB' }]}
-              onPress={() => handleQuickDemo('pastor_carlos')}>
-              <View style={[styles.roleIconBox, { backgroundColor: '#EFF6FF' }]}>
-                <Ionicons name="people" size={20} color="#2563EB" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.demoRoleTitle}>Pastor Carlos Diez</Text>
-                <Text style={styles.demoRoleDesc}>Pastor Red Adulta (9 AM y 1 PM) • Discípulo de Pr. José</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Pastora Adultos */}
-            <TouchableOpacity
-              style={[styles.demoRoleCard, { borderLeftColor: '#0EA5E9' }]}
-              onPress={() => handleQuickDemo('pastora_neiyelis')}>
-              <View style={[styles.roleIconBox, { backgroundColor: '#E0F2FE' }]}>
-                <Ionicons name="people" size={20} color="#0EA5E9" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.demoRoleTitle}>Pastora Neiyelis de Diez</Text>
-                <Text style={styles.demoRoleDesc}>Pastora Red Adulta (9 AM y 1 PM) • Discípula de Pra. Neidy</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Líder G12 Juvenil - Yonmar Leal */}
-            <TouchableOpacity
-              style={[styles.demoRoleCard, { borderLeftColor: '#10B981' }]}
-              onPress={() => handleQuickDemo('lider_yonmar')}>
-              <View style={[styles.roleIconBox, { backgroundColor: '#D1FAE5' }]}>
-                <Ionicons name="person" size={20} color="#10B981" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.demoRoleTitle}>Yonmar Leal</Text>
-                <Text style={styles.demoRoleDesc}>Líder 12 • Red Juvenil • Cobertura: Pr. Josué</Text>
-              </View>
             </TouchableOpacity>
           </View>
         </View>

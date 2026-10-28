@@ -8,6 +8,7 @@ import {
   ChurchEvent,
   AuthUser,
   ChurchNetwork,
+  ChurchServiceSlotId,
   ChurchServiceSchedule,
   CellGroup,
   LeaderAttendanceReport,
@@ -79,6 +80,27 @@ const defaultPastoralPosts: PastoralPost[] = [
 ];
 
 export type ChurchEventInput = Omit<ChurchEvent, 'id' | 'createdAt'> & { id?: string };
+
+export type RegisterMemberResult = {
+  success: boolean;
+  error?: string;
+  member?: Member;
+};
+
+export type UpdateProfileData = {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  gender?: 'M' | 'F';
+  birthDate?: string;
+  familyName?: string;
+  preferredService?: ChurchServiceSlotId;
+  notes?: string;
+  password?: string;
+  network?: ChurchNetwork;
+  leaderId?: string;
+  leaderName?: string;
+};
 
 function eventFromRow(item: any): ChurchEvent {
   return {
@@ -201,6 +223,9 @@ interface ChurchContextType {
   checkOutKid: (kidId: string) => boolean;
   addKid: (kid: Omit<Kid, 'id' | 'isCheckedIn'>) => Promise<void>;
   addMember: (member: Omit<Member, 'id'>) => Promise<void>;
+  registerMember: (
+    member: Omit<Member, 'id'> & { autoLogin?: boolean }
+  ) => Promise<RegisterMemberResult>;
   saveAttendance: (record: Omit<AttendanceRecord, 'id'>) => Promise<void>;
   toggleVolunteerConfirmation: (eventId: string, volunteerId: string) => Promise<void>;
   saveEvent: (event: ChurchEventInput) => Promise<string>;
@@ -209,8 +234,8 @@ interface ChurchContextType {
   submitLeaderReport: (report: Omit<LeaderAttendanceReport, 'id' | 'createdAt'>) => Promise<void>;
   addCellMeetingReport: (report: Omit<CellMeetingReport, 'id' | 'createdAt'>) => Promise<void>;
   updateUserProfile: (
-    data: Partial<Pick<AuthUser, 'firstName' | 'lastName' | 'phone' | 'gender' | 'birthDate'>>
-  ) => Promise<void>;
+    data: UpdateProfileData
+  ) => Promise<{ success: boolean; error?: string }>;
   updateMember: (memberId: string, data: Partial<Member>) => Promise<void>;
 }
 
@@ -319,6 +344,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             familyName: item.family_name || undefined,
             gender: item.gender || undefined,
             birthDate: item.birth_date || undefined,
+            preferredService: item.preferred_service_id || undefined,
             notes: item.notes || undefined,
             password: item.password || undefined,
             isActive: item.is_active ?? true,
@@ -372,7 +398,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       const { data: cellRepsData, error: crError } = await supabase.from('cell_meeting_reports').select('*');
       if (crError) {
         console.warn('Supabase cell_meeting_reports fetch error:', crError.message);
-      } else if (cellRepsData) {
+      } else if (cellRepsData && cellRepsData.length > 0) {
         const mappedReps: CellMeetingReport[] = cellRepsData.map((item) => ({
           id: item.id,
           cellId: item.cell_id,
@@ -389,6 +415,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           membersList: Array.isArray(item.members_list) ? item.members_list : [],
           visitorsCount: item.visitors_count || 0,
           visitorsList: Array.isArray(item.visitors_list) ? item.visitors_list : [],
+          conversionsCount: item.conversions_count ?? item.offering_details?.conversionsCount ?? 0,
+          topic: item.topic || item.offering_details?.topic || undefined,
+          status: item.status || item.offering_details?.status || 'realizada',
           offering: Number(item.offering || 0),
           offeringDetails: item.offering_details || undefined,
           notes: item.notes || undefined,
@@ -456,7 +485,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         setKids(mappedKids);
       }
 
-      // G. Registros de conteo de asistencia de cultos
+      // G. Registros de conteo de asistencia de servicios
       const { data: attData, error: aError } = await supabase.from('attendance_records').select('*');
       if (aError) {
         console.warn('Supabase attendance_records fetch error:', aError.message);
@@ -466,7 +495,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           return {
             id: a.id,
             serviceId: a.service_id || 'domingo_adultos_1',
-            serviceName: service ? service.name : (a.service_name || 'Servicio de Culto'),
+            serviceName: service ? service.name : (a.service_name || 'Servicio'),
             date: a.service_date,
             network: a.network,
             menCount: a.men_count || 0,
@@ -608,6 +637,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     const user: AuthUser = {
       id: found.id,
       email: found.email || '',
+      password: found.password,
       firstName: found.firstName,
       lastName: found.lastName,
       role: found.role,
@@ -618,6 +648,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       leaderId: found.leaderId,
       leaderName: found.leaderName,
       generationLevel: found.generationLevel,
+      familyName: found.familyName,
+      preferredService: found.preferredService,
+      notes: found.notes,
     };
     setCurrentUser(user);
     try {
@@ -746,7 +779,43 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const addMember = async (newMemberData: Omit<Member, 'id'>) => {
+  const registerMember = async (
+    newMemberData: Omit<Member, 'id'> & { autoLogin?: boolean }
+  ): Promise<RegisterMemberResult> => {
+    const cleanEmail = newMemberData.email?.trim().toLowerCase();
+
+    // 1. Validar si ya existe una cuenta con este correo
+    if (cleanEmail) {
+      const existsInLocal = members.some(
+        (m) => m.email && m.email.trim().toLowerCase() === cleanEmail
+      );
+      if (existsInLocal) {
+        return {
+          success: false,
+          error: 'Ya existe una cuenta registrada con este correo electrónico. Por favor inicia sesión.',
+        };
+      }
+
+      if (isSupabaseConfigured) {
+        try {
+          const { data: existingData, error: checkError } = await supabase
+            .from('members')
+            .select('id')
+            .ilike('email', cleanEmail)
+            .limit(1);
+
+          if (!checkError && existingData && existingData.length > 0) {
+            return {
+              success: false,
+              error: 'Ya existe una cuenta registrada con este correo electrónico en el sistema. Por favor inicia sesión.',
+            };
+          }
+        } catch (e) {
+          console.warn('Error verificando correo en Supabase:', e);
+        }
+      }
+    }
+
     const newId = generateUUID();
     const leader = members.find((m) => m.id === newMemberData.leaderId);
     let calculatedLevel = 2;
@@ -765,41 +834,95 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
+    const leaderName =
+      newMemberData.leaderName || (leader ? `${leader.firstName} ${leader.lastName}` : undefined);
+
     const newMember: Member = {
       ...newMemberData,
       id: newId,
+      email: cleanEmail || undefined,
+      leaderName,
       role: calculatedRole,
       generationLevel: calculatedLevel,
       isLeaderOf12: calculatedLevel === 2,
     };
 
-    setMembers((prev) => [newMember, ...prev]);
-
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('members').insert({
+        const { error: insertError } = await supabase.from('members').insert({
           id: newId,
           church_id: CHURCH_ID,
-          first_name: newMemberData.firstName,
-          last_name: newMemberData.lastName,
-          email: newMemberData.email || null,
-          phone: newMemberData.phone,
-          network: newMemberData.network,
+          first_name: newMember.firstName,
+          last_name: newMember.lastName,
+          email: newMember.email || null,
+          phone: newMember.phone,
+          network: newMember.network,
           role: calculatedRole,
-          leader_id: newMemberData.leaderId || null,
+          gender: newMember.gender || null,
+          leader_id: newMember.leaderId || null,
           is_leader_of_12: calculatedLevel === 2,
           generation_level: calculatedLevel,
-          family_name: newMemberData.familyName || null,
-          notes: newMemberData.notes || null,
-          password: newMemberData.password || null,
+          family_name: newMember.familyName || null,
+          preferred_service_id: newMember.preferredService || null,
+          notes: newMember.notes || null,
+          password: newMember.password || null,
         });
-        if (error) {
-          console.warn('Supabase member insert error:', error.message);
+
+        if (insertError) {
+          console.error('Supabase member insert error:', insertError.message);
+          return {
+            success: false,
+            error:
+              insertError.message.includes('unique') || insertError.code === '23505'
+                ? 'Ya existe una cuenta con este correo electrónico.'
+                : `Error al registrar en la base de datos: ${insertError.message}`,
+          };
         }
-      } catch (err) {
-        console.warn('Error adding member to Supabase:', err);
+      } catch (err: any) {
+        console.error('Error adding member to Supabase:', err);
+        return {
+          success: false,
+          error: err?.message || 'Error de conexión con la base de datos al crear la cuenta.',
+        };
       }
     }
+
+    // Actualizar miembros en memoria local
+    setMembers((prev) => [newMember, ...prev]);
+
+    // Iniciar sesión automáticamente si autoLogin está activo (por defecto true)
+    if (newMemberData.autoLogin !== false) {
+      const authUser: AuthUser = {
+        id: newMember.id,
+        email: newMember.email || '',
+        password: newMember.password,
+        firstName: newMember.firstName,
+        lastName: newMember.lastName,
+        role: newMember.role,
+        network: newMember.network,
+        gender: newMember.gender,
+        birthDate: newMember.birthDate,
+        phone: newMember.phone,
+        leaderId: newMember.leaderId,
+        leaderName: newMember.leaderName,
+        generationLevel: newMember.generationLevel,
+        familyName: newMember.familyName,
+        preferredService: newMember.preferredService,
+        notes: newMember.notes,
+      };
+      setCurrentUser(authUser);
+      try {
+        await AsyncStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(authUser));
+      } catch (e) {
+        console.warn('Error guardando usuario en AsyncStorage:', e);
+      }
+    }
+
+    return { success: true, member: newMember };
+  };
+
+  const addMember = async (newMemberData: Omit<Member, 'id'>) => {
+    await registerMember({ ...newMemberData, autoLogin: false });
   };
 
   const addCellGroup = async (cellData: Omit<CellGroup, 'id'>) => {
@@ -934,23 +1057,41 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
 
   const getMyCellGroups = (): CellGroup[] => {
     if (!currentUser) return [];
-    if (currentUser.role === 'senior_pastor') {
-      return cellGroups;
-    }
-    if (currentUser.role === 'network_pastor') {
-      return cellGroups.filter(
-        (c) =>
-          c.network === currentUser.network ||
-          c.leaderId === currentUser.id ||
-          (c.leaderName && c.leaderName.toLowerCase().includes(currentUser.firstName.toLowerCase()))
-      );
-    }
-    return cellGroups.filter(
-      (c) =>
-        (c.cellLeaderName && c.cellLeaderName.toLowerCase().includes(currentUser.firstName.toLowerCase())) ||
-        c.leaderId === currentUser.id ||
-        (c.leaderName && c.leaderName.toLowerCase().includes(currentUser.firstName.toLowerCase()))
+
+    const myDisciplesList = members.filter((m) => m.leaderId === currentUser.id);
+    const myDiscipleIds = new Set(myDisciplesList.map((m) => m.id));
+    const myDiscipleNames = new Set(
+      myDisciplesList.map((m) => `${m.firstName} ${m.lastName}`.toLowerCase().trim())
     );
+
+    return cellGroups.filter((c) => {
+      // 1. Célula dirigida por mí personalmente
+      if (
+        c.cellLeaderName &&
+        c.cellLeaderName.toLowerCase().includes(currentUser.firstName.toLowerCase())
+      ) {
+        return true;
+      }
+
+      // 2. Célula donde yo soy explícitamente la cobertura de 12
+      if (c.leaderId === currentUser.id) return true;
+      if (
+        c.leaderName &&
+        c.leaderName.toLowerCase().includes(currentUser.firstName.toLowerCase())
+      ) {
+        return true;
+      }
+
+      // 3. Célula dirigida o cubierta por alguno de mis 12 discípulos directos
+      if (c.leaderId && myDiscipleIds.has(c.leaderId)) return true;
+      const cleanLeader = (c.leaderName || '').toLowerCase().trim();
+      const cleanCellLeader = (c.cellLeaderName || '').toLowerCase().trim();
+      if (myDiscipleNames.has(cleanLeader) || myDiscipleNames.has(cleanCellLeader)) {
+        return true;
+      }
+
+      return false;
+    });
   };
 
   const getMyDisciples = (): Member[] => {
@@ -1370,7 +1511,12 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           visitors_count: reportData.visitorsCount,
           visitors_list: reportData.visitorsList || [],
           offering: reportData.offering,
-          offering_details: reportData.offeringDetails || {},
+          offering_details: {
+            ...(reportData.offeringDetails || {}),
+            topic: reportData.topic,
+            conversionsCount: reportData.conversionsCount,
+            status: reportData.status,
+          },
           notes: reportData.notes || null,
         });
         if (error) {
@@ -1388,18 +1534,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       return cellMeetingReports;
     }
     if (currentUser.role === 'network_pastor') {
-      return cellMeetingReports.filter((r) => {
-        if (r.recipientLeaderId === currentUser.id) return true;
-        if (
-          r.recipientLeaderName &&
-          r.recipientLeaderName.toLowerCase().includes(currentUser.firstName.toLowerCase())
-        ) {
-          return true;
-        }
-        if (r.network === currentUser.network) return true;
-        if (r.leaderId === currentUser.id) return true;
-        return false;
-      });
+      return cellMeetingReports.filter((r) => r.network === currentUser.network);
     }
     return cellMeetingReports.filter(
       (r) =>
@@ -1424,10 +1559,17 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         ) {
           return true;
         }
-        if (currentUser.network === 'juvenil' && rep.serviceId === 'domingo_juvenil') return true;
+        if (
+          currentUser.network === 'juvenil' &&
+          (rep.serviceId === 'domingo_juvenil' || rep.serviceId === 'viernes_adoracion')
+        ) {
+          return true;
+        }
         if (
           currentUser.network === 'adulta' &&
-          (rep.serviceId === 'domingo_adultos_1' || rep.serviceId === 'domingo_adultos_2')
+          (rep.serviceId === 'domingo_adultos_1' ||
+            rep.serviceId === 'domingo_adultos_2' ||
+            rep.serviceId === 'viernes_adoracion')
         ) {
           return true;
         }
@@ -1443,12 +1585,20 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateUserProfile = async (
-    data: Partial<Pick<AuthUser, 'firstName' | 'lastName' | 'phone' | 'gender' | 'birthDate'>>
-  ): Promise<void> => {
-    if (!currentUser) return;
+    data: UpdateProfileData
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) return { success: false, error: 'No hay sesión de usuario activa' };
+
+    let calculatedLeaderName = data.leaderName;
+    if (data.leaderId && !calculatedLeaderName) {
+      const lead = members.find((m) => m.id === data.leaderId);
+      if (lead) calculatedLeaderName = `${lead.firstName} ${lead.lastName}`;
+    }
+
     const updatedUser: AuthUser = {
       ...currentUser,
       ...data,
+      leaderName: calculatedLeaderName !== undefined ? calculatedLeaderName : currentUser.leaderName,
     };
     setCurrentUser(updatedUser);
     try {
@@ -1467,6 +1617,13 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
               phone: data.phone !== undefined ? data.phone : m.phone,
               gender: data.gender !== undefined ? data.gender : m.gender,
               birthDate: data.birthDate !== undefined ? data.birthDate : m.birthDate,
+              familyName: data.familyName !== undefined ? data.familyName : m.familyName,
+              preferredService: data.preferredService !== undefined ? data.preferredService : m.preferredService,
+              notes: data.notes !== undefined ? data.notes : m.notes,
+              password: data.password !== undefined && data.password.trim() !== '' ? data.password.trim() : m.password,
+              network: data.network !== undefined ? data.network : m.network,
+              leaderId: data.leaderId !== undefined ? data.leaderId : m.leaderId,
+              leaderName: calculatedLeaderName !== undefined ? calculatedLeaderName : m.leaderName,
             }
           : m
       )
@@ -1479,12 +1636,25 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         if (data.lastName !== undefined) payload.last_name = data.lastName;
         if (data.phone !== undefined) payload.phone = data.phone;
         if (data.gender !== undefined) payload.gender = data.gender;
-        if (data.birthDate !== undefined) payload.birth_date = data.birthDate;
-        await supabase.from('members').update(payload).eq('id', currentUser.id);
-      } catch (e) {
+        if (data.familyName !== undefined) payload.family_name = data.familyName;
+        if (data.preferredService !== undefined) payload.preferred_service_id = data.preferredService;
+        if (data.notes !== undefined) payload.notes = data.notes;
+        if (data.password !== undefined && data.password.trim() !== '') payload.password = data.password.trim();
+        if (data.network !== undefined) payload.network = data.network;
+        if (data.leaderId !== undefined) payload.leader_id = data.leaderId;
+
+        const { error: sbError } = await supabase.from('members').update(payload).eq('id', currentUser.id);
+        if (sbError) {
+          console.warn('Error actualizando perfil en Supabase:', sbError.message);
+          return { success: false, error: sbError.message };
+        }
+      } catch (e: any) {
         console.warn('Error actualizando perfil en Supabase:', e);
+        return { success: false, error: e?.message || 'Error de conexión al actualizar en la nube' };
       }
     }
+
+    return { success: true };
   };
 
   const updateMember = async (memberId: string, data: Partial<Member>): Promise<void> => {
@@ -1591,6 +1761,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         checkOutKid,
         addKid,
         addMember,
+        registerMember,
         saveAttendance,
         toggleVolunteerConfirmation,
         saveEvent,
