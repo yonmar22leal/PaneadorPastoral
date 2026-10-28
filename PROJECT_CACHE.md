@@ -82,8 +82,9 @@
   - **Nivel 0:** Pastores Principales (`senior_pastor`) — Pastor José Peña y Pastora Neidy de Peña.
   - **Nivel 1:** Pastores de Red (`network_pastor`) — Carlos Diez, Neiyelis de Diez, Josué Rodríguez, Norelis de Rodríguez.
   - **Nivel 2:** Líderes de 12 (`g12_leader` o `isLeaderOf12 = true`).
-  - **Niveles 3 y 4:** 144 y 1728 discípulos sucesivos.
-- **Relación Jerárquica:** Cada miembro tiene `leaderId` y `leaderName`. La función `getLeaderInCharge(currentUser)` calcula dinámicamente quién recibe sus reportes de célula y asistencia.
+  - **Nivel 3:** Líderes de 144 (discípulos directos de un Líder de 12, ej. discípulos de Yonmar).
+  - **Nivel 4:** Líderes de 1728 (discípulos de un Líder de 144).
+- **Relación Jerárquica:** Cada miembro tiene `leaderId` y `leaderName`. La función `getLeaderInCharge(currentUser)` calcula dinámicamente quién recibe sus reportes de célula y asistencia: los reportes de los 144 llegan directamente a su Líder 12, y los del Líder 12 a su Pastor de Red.
 
 ### 3.3. Servicios Oficiales Regulares (`churchServicesSchedule`)
 - `domingo_adultos_1`: Domingo 9:00 AM – 11:00 AM (Red Adulta)
@@ -99,7 +100,7 @@
 ### 3.5. Grupos Celulares y Reportes de Reunión (`src/app/cells.tsx`)
 - Campos de célula: Líder que predica (`cell_leader_name`), Cobertura de 12 (`leader_name`), Anfitrión (`host_name`), Asistente (`assistant_name`), Día, Hora, Red.
 - Reporte semanal de reunión: Asistencia de miembros y de invitados (con nombre y edad), Palabra Predicada (`topic`), Aceptó a Cristo / Decisiones (`conversionsCount`), Estado (`status`: `realizada`, `no_asistio_nadie`, `no_realizo`), observaciones, y desglose de ofrendas multi-moneda (`usdCash`, `vesCash`, `pagoMovilAmount` + referencia bancaria).
-- **Vista Planilla Consolidada Pastoral (Excel Sheet):** Vista en formato tabla interactiva idéntica a la planilla semanal de células de la iglesia (`#`, `Líder 12`, `Cant. de Células`, `Líder de Célula`, `Asistente`, `Anfitrión (a)`, `Palabra Predicada`, `Fecha`, `Miembros`, `Invitados`, `Aceptó a Cristo`, `Ofrenda Bs.`, `Ofrenda $`, `Pago Móvil (Bs.)`), con agrupación por Líder 12, formato condicional (verde para invitados > 0, rojo para 0, naranja para ofrenda en 0 / no realizó), fila inferior de totales con caja amarilla de Total Células y totales desglosados de cada moneda. Exporta directamente en formato Microsoft Excel `.xls` estilizado idéntico a la hoja física (colores, bordes y recuadros) y formato `.csv` descargable. Pastores de red ven únicamente su red, mientras que Pastores Principales pueden auditar todas las redes. Alternable entre vista Planilla y Fichas Individuales.
+- **Vista Planilla Consolidada Pastoral (Excel Sheet):** Vista en formato tabla interactiva idéntica a la planilla semanal de células de la iglesia (`#`, `Líder 12`, `Cant. de Células`, `Líder de Célula`, `Asistente`, `Anfitrión (a)`, `Palabra Predicada`, `Fecha`, `Miembros`, `Invitados`, `Aceptó a Cristo`, `Ofrenda Bs.`, `Ofrenda $`, `Pago Móvil (Bs.)`), con agrupación por Líder 12 (consolidando la célula principal del Líder 12 junto con las células de sus discípulos 144 y una fila de subtotal de grupo `Total [Líder 12]`), formato condicional (verde para invitados > 0, rojo para 0, naranja para ofrenda en 0 / no realizó), fila inferior de totales con caja amarilla de Total Células y totales desglosados de cada moneda. Exporta directamente en formato Microsoft Excel `.xls` estilizado idéntico a la hoja física (colores, bordes y recuadros) y formato `.csv` descargable. Pastores de red ven únicamente su red, mientras que Pastores Principales pueden auditar todas las redes. Alternable entre vista Planilla y Fichas Individuales.
 
 ### 3.6. Sistema de Ministerios y Permisos de Evento (`src/context/ChurchContext.tsx`)
 - **Ministerios Predeterminados:** Alabanza, Audiovisual, Protocolo, etc. Cada uno con coordinador permanente y roles sugeridos (`defaultRoles`).
