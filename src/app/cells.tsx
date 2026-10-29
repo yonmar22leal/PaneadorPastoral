@@ -36,8 +36,7 @@ export default function CellsScreen() {
     getLeaderInCharge,
   } = useChurch();
 
-  const isPastor =
-    currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
+  const isPastor = currentUser?.role === 'senior_pastor';
 
   const leaderInCharge = getLeaderInCharge(currentUser);
   const cellGroups = getMyCellGroups();
@@ -51,9 +50,7 @@ export default function CellsScreen() {
   const [reportsViewMode, setReportsViewMode] = useState<'sheet' | 'cards'>(
     isPastor ? 'sheet' : 'cards'
   );
-  const [sheetNetworkFilter, setSheetNetworkFilter] = useState<'all' | 'juvenil' | 'adulta'>(
-    (currentUser?.network as 'juvenil' | 'adulta') || 'juvenil'
-  );
+  const [sheetNetworkFilter, setSheetNetworkFilter] = useState<'all' | 'juvenil' | 'adulta'>('all');
   const [sheetSearchQuery, setSheetSearchQuery] = useState('');
 
   // Modal 1: Crear Célula
@@ -65,8 +62,8 @@ export default function CellsScreen() {
   const [address, setAddress] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState<CellGroup['dayOfWeek']>('Miércoles');
   const [time, setTime] = useState('7:00 PM');
-  const userNetwork: ChurchNetwork = currentUser?.network || 'juvenil';
-  const [network, setNetwork] = useState<ChurchNetwork>(userNetwork);
+  const userNetwork: ChurchNetwork = 'general';
+  const [network, setNetwork] = useState<ChurchNetwork>('general');
   const [notes, setNotes] = useState('');
 
   // Modal 2: Reporte Semanal de Célula
@@ -297,18 +294,9 @@ export default function CellsScreen() {
     );
   };
 
-  // Pastores de red y líderes ven exclusivamente su propia red; Pastores Principales pueden ver todas
-  const effectiveNetworkFilter: 'all' | 'juvenil' | 'adulta' =
-    currentUser?.role === 'senior_pastor'
-      ? sheetNetworkFilter
-      : (currentUser?.network as 'juvenil' | 'adulta') || 'juvenil';
-
   // Filtrado y Agrupación de Planilla de Células (Formato Excel Pastoral)
   const filteredReportsForSheet = useMemo(() => {
     return myCellReports.filter((r) => {
-      if (effectiveNetworkFilter !== 'all' && r.network !== effectiveNetworkFilter) {
-        return false;
-      }
       if (sheetSearchQuery.trim().length > 0) {
         const q = sheetSearchQuery.toLowerCase();
         const matchLeader = (r.leaderName || '').toLowerCase().includes(q);
@@ -320,7 +308,7 @@ export default function CellsScreen() {
       }
       return true;
     });
-  }, [myCellReports, effectiveNetworkFilter, sheetSearchQuery]);
+  }, [myCellReports, sheetSearchQuery]);
 
   // Resuelve el nombre del Líder 12 del reporte para agrupar en la planilla
   const resolveLeader12Name = useCallback(
@@ -384,10 +372,7 @@ export default function CellsScreen() {
       const isCovPastor =
         cleanCov.includes('josue') ||
         cleanCov.includes('josué') ||
-        cleanCov.includes('norelis') ||
-        cleanCov.includes('carlos') ||
-        cleanCov.includes('neiyelis') ||
-        cleanCov.includes('peña');
+        cleanCov.includes('norelis');
 
       if (isCovPastor) {
         // La célula tiene cobertura de un pastor, por ende el que la dirige es el Líder 12
@@ -496,12 +481,7 @@ export default function CellsScreen() {
 
   // Generador de Hoja de Cálculo HTML con estilos visuales completos idénticos al Excel (Colores, bordes, cabecera verde, recuadro amarillo)
   const generateStyledExcelHTML = () => {
-    const netTitle =
-      effectiveNetworkFilter === 'juvenil'
-        ? 'Jóvenes - Reporte Semanal de Células'
-        : effectiveNetworkFilter === 'adulta'
-        ? 'Adultos - Reporte Semanal de Células'
-        : 'Planilla Consolidada de Células';
+    const netTitle = 'Planilla Consolidada de Células';
 
     const rowsHtml: string[] = [];
 
@@ -788,13 +768,7 @@ export default function CellsScreen() {
 
   const handleExportExcel = async () => {
     const htmlExcelContent = generateStyledExcelHTML();
-    const netTitle =
-      effectiveNetworkFilter === 'juvenil'
-        ? 'Red_Juvenil'
-        : effectiveNetworkFilter === 'adulta'
-        ? 'Red_Adulta'
-        : 'General';
-    const filename = `Planilla_Celulas_${netTitle}_${new Date().toISOString().slice(0, 10)}.xls`;
+    const filename = `Planilla_Celulas_${new Date().toISOString().slice(0, 10)}.xls`;
 
     if (Platform.OS === 'web') {
       try {
@@ -820,7 +794,7 @@ export default function CellsScreen() {
       try {
         await Share.share({
           message: generateExcelCSV(),
-          title: `Planilla de Células (Excel) - ${netTitle}`,
+          title: 'Planilla de Células (Excel)',
         });
       } catch {
         Alert.alert('Compartir', 'No se pudo abrir el menú de compartir.');
@@ -829,14 +803,7 @@ export default function CellsScreen() {
   };
 
   const handleShareSheetSummary = async () => {
-    const netTitle =
-      sheetNetworkFilter === 'juvenil'
-        ? 'RED JUVENIL'
-        : sheetNetworkFilter === 'adulta'
-        ? 'RED ADULTA'
-        : 'GENERAL';
-
-    const text = `📊 *PLANILLA SEMANAL DE CÉLULAS - ${netTitle}*
+    const text = `📊 *PLANILLA SEMANAL DE CÉLULAS*
 🏛️ *Iglesia Emmanuel de Caja de Agua*
 
 Total Células Reportadas: ${groupedSheetData.totalCells}
@@ -872,7 +839,7 @@ ${groupedSheetData.leaderGroups
     try {
       await Share.share({
         message: text,
-        title: `Planilla de Células - ${netTitle}`,
+        title: 'Planilla de Células',
       });
     } catch {
       Alert.alert('Compartir', 'No se pudo abrir el menú de compartir.');
@@ -905,9 +872,7 @@ ${groupedSheetData.leaderGroups
         <View style={{ flex: 1 }}>
           <View style={styles.badgeRow}>
             <Ionicons name="git-network" size={14} color="#2563EB" />
-            <Text style={styles.badgeText}>
-              {userNetwork === 'juvenil' ? 'Red Juvenil' : 'Red Adulta'}
-            </Text>
+            <Text style={styles.badgeText}>Discipulado G12</Text>
           </View>
           <Text style={styles.headerTitle}>Gestión Celular</Text>
           <Text style={styles.headerSubtitle}>
@@ -1060,19 +1025,6 @@ ${groupedSheetData.leaderGroups
                           : `🛡️ Bajo cobertura de: ${effectiveCoverage}`}
                       </Text>
                     </View>
-                    <View
-                      style={[
-                        styles.networkBadge,
-                        { backgroundColor: cell.network === 'juvenil' ? '#EDE9FE' : '#DBEAFE' },
-                      ]}>
-                      <Text
-                        style={[
-                          styles.networkBadgeText,
-                          { color: cell.network === 'juvenil' ? '#7C3AED' : '#1D4ED8' },
-                        ]}>
-                        {cell.network === 'juvenil' ? 'Red Juvenil' : 'Red Adulta'}
-                      </Text>
-                    </View>
                   </View>
 
                   {/* Cell Details Grid */}
@@ -1189,8 +1141,8 @@ ${groupedSheetData.leaderGroups
             <View style={styles.inboxBanner}>
               <Ionicons name="paper-plane" size={16} color="#2563EB" />
               <Text style={styles.inboxBannerText}>
-                {currentUser?.role === 'network_pastor' || currentUser?.role === 'senior_pastor'
-                  ? 'Bandeja Pastoral: Mostrando reportes recibidos de tu red celular y tus discípulos.'
+                {currentUser?.role === 'senior_pastor'
+                  ? 'Bandeja Pastoral: Mostrando reportes recibidos de las células y discípulos.'
                   : `Tus reportes son enviados directamente a tu pastor/líder encargado: ${leaderInCharge.name}.`}
               </Text>
             </View>
@@ -1247,11 +1199,7 @@ ${groupedSheetData.leaderGroups
                   <View style={styles.sheetHeaderBanner}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.sheetHeaderTitle}>
-                        {effectiveNetworkFilter === 'juvenil'
-                          ? 'Jóvenes - Reporte Semanal de Células'
-                          : effectiveNetworkFilter === 'adulta'
-                          ? 'Adultos - Reporte Semanal de Células'
-                          : 'Planilla Consolidada de Células'}
+                        Planilla Consolidada de Células
                       </Text>
                       <Text style={styles.sheetHeaderSubtitle}>
                         {groupedSheetData.totalCells} Células • {groupedSheetData.leaderGroups.length} Líderes de 12
@@ -1277,40 +1225,7 @@ ${groupedSheetData.leaderGroups
                     </View>
                   </View>
 
-                  {/* Selector de Red: Solo para Pastores Principales. Pastores de red y líderes ven exclusivamente su red */}
-                  {currentUser?.role === 'senior_pastor' ? (
-                    <View style={styles.sheetNetworkRow}>
-                      {(['juvenil', 'adulta', 'all'] as const).map((net) => (
-                        <TouchableOpacity
-                          key={net}
-                          style={[
-                            styles.sheetNetworkChip,
-                            sheetNetworkFilter === net && styles.sheetNetworkChipActive,
-                          ]}
-                          onPress={() => setSheetNetworkFilter(net)}>
-                          <Text
-                            style={[
-                              styles.sheetNetworkChipText,
-                              sheetNetworkFilter === net && styles.sheetNetworkChipTextActive,
-                            ]}>
-                            {net === 'juvenil'
-                              ? 'Red Juvenil'
-                              : net === 'adulta'
-                              ? 'Red Adulta'
-                              : 'Todas las Redes'}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ) : (
-                    <View style={styles.sheetNetworkRow}>
-                      <View style={[styles.sheetNetworkChip, styles.sheetNetworkChipActive]}>
-                        <Text style={[styles.sheetNetworkChipText, styles.sheetNetworkChipTextActive]}>
-                          {effectiveNetworkFilter === 'juvenil' ? 'Red Juvenil' : 'Red Adulta'}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
+
 
                   {/* Buscador dentro de la planilla */}
                   <View style={styles.sheetSearchBox}>
@@ -1834,12 +1749,7 @@ ${groupedSheetData.leaderGroups
                       </View>
                     </View>
                     <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                      <View style={styles.recapTag}>
-                        <Text style={styles.recapTagText}>
-                          {rep.network === 'juvenil' ? 'Red Juvenil' : 'Red Adulta'}
-                        </Text>
-                      </View>
-                      {(currentUser?.id === rep.recipientLeaderId || currentUser?.role === 'network_pastor' || currentUser?.role === 'senior_pastor') && (
+                      {(currentUser?.id === rep.recipientLeaderId || currentUser?.role === 'senior_pastor') && (
                         <View style={styles.receivedBadge}>
                           <Ionicons name="checkmark-done" size={11} color="#059669" />
                           <Text style={styles.receivedBadgeText}>Recibido</Text>
@@ -2005,23 +1915,7 @@ ${groupedSheetData.leaderGroups
                 </View>
               </View>
 
-              {/* Red asignada automáticamente */}
-              <View style={styles.networkLockedBanner}>
-                <Ionicons
-                  name={userNetwork === 'juvenil' ? 'sparkles' : 'people'}
-                  size={16}
-                  color={userNetwork === 'juvenil' ? '#7C3AED' : '#1D4ED8'}
-                />
-                <Text
-                  style={[
-                    styles.networkLockedText,
-                    { color: userNetwork === 'juvenil' ? '#6D28D9' : '#1E3A8A' },
-                  ]}>
-                  {userNetwork === 'juvenil'
-                    ? 'Red Juvenil (Asignada automáticamente)'
-                    : 'Red Adulta (Asignada automáticamente)'}
-                </Text>
-              </View>
+
 
               {/* Who leads this cell? (Myself vs Disciple) */}
               <Text style={styles.inputLabel}>¿Quién dirige esta célula? *</Text>
@@ -2225,9 +2119,6 @@ ${groupedSheetData.leaderGroups
                         🤝 Asistente: <Text style={{ fontWeight: '700' }}>{selectedCellForReport.assistantName}</Text>
                       </Text>
                     )}
-                    <Text style={styles.reportCellMetaText}>
-                      📍 Red: {selectedCellForReport.network === 'juvenil' ? 'Red Juvenil' : 'Red Adulta'}
-                    </Text>
                   </View>
                 </View>
               )}
@@ -2238,7 +2129,7 @@ ${groupedSheetData.leaderGroups
                 <View style={{ flex: 1, marginLeft: 8 }}>
                   <Text style={styles.recipientBannerTitle}>Líder Encargado (Recibe este Reporte):</Text>
                   <Text style={styles.recipientBannerName}>
-                    {leaderInCharge.name} ({currentUser?.network === 'juvenil' ? 'Pastor de Jóvenes' : 'Cobertura Pastoral'})
+                    {leaderInCharge.name} (Cobertura Pastoral)
                   </Text>
                 </View>
               </View>

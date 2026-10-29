@@ -1,8 +1,9 @@
 export type MemberRole = 'senior_pastor' | 'network_pastor' | 'g12_leader' | 'volunteer' | 'member' | 'visitor';
 
-export type ChurchNetwork = 'juvenil' | 'adulta';
+export type ChurchNetwork = 'general' | 'juvenil' | 'adulta';
 
 export type ChurchServiceSlotId = 
+  | 'domingo_11am'
   | 'domingo_adultos_1' 
   | 'domingo_juvenil' 
   | 'domingo_adultos_2' 

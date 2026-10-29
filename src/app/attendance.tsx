@@ -45,7 +45,7 @@ export default function AttendanceScreen() {
 
   const leaderInCharge = getLeaderInCharge(currentUser);
   const myLeaderAttendanceReports = getMyLeaderAttendanceReports();
-  const isPastor = currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
+  const isPastor = currentUser?.role === 'senior_pastor';
   const isLider12 =
     currentUser?.role === 'g12_leader' ||
     currentUser?.isLeaderOf12 ||
@@ -55,19 +55,9 @@ export default function AttendanceScreen() {
     isPastor ? 'reports' : 'form'
   );
 
-  // Filtrar servicios permitidos según la red del usuario: solo su red y el servicio de adoración
-  const allowedServices = servicesSchedule.filter((srv) => {
-    if (currentUser?.role === 'senior_pastor') return true;
-    if (srv.id === 'viernes_adoracion' || srv.network === 'general') return true;
-    if (currentUser?.network === 'juvenil') return srv.network === 'juvenil';
-    if (currentUser?.network === 'adulta') return srv.network === 'adulta';
-    return false;
-  });
-
-  const defaultServiceId =
-    currentUser?.network === 'juvenil'
-      ? 'domingo_juvenil'
-      : allowedServices[0]?.id || 'domingo_adultos_1';
+  // Servicios disponibles de la congregación (Servicio Dominical 11am y Viernes de Adoración)
+  const allowedServices = servicesSchedule;
+  const defaultServiceId = 'domingo_11am';
 
   // ==========================================
   // ESTADO PARA PASTORES (CONTEO POR REPORTES)
@@ -75,37 +65,13 @@ export default function AttendanceScreen() {
   const [pastorTab, setPastorTab] = useState<'consolidado' | 'reportes'>('consolidado');
   const [selectedServiceId, setSelectedServiceId] = useState(defaultServiceId);
 
-  // Filtrar los reportes según la red: pastores de red SOLO ven reportes de su red y adoración; Líderes 12 ven sus reportes y los de sus 144
+  // Reportes disponibles para la congregación y líderes
   const networkReports = useMemo(() => {
     if (currentUser?.role === 'senior_pastor') {
       return leaderAttendanceReports;
     }
-    if (currentUser?.role === 'network_pastor') {
-      const pastorNet = currentUser.network;
-      return leaderAttendanceReports.filter((rep) => {
-        if (rep.recipientLeaderId === currentUser.id) return true;
-        if (
-          rep.recipientLeaderName &&
-          rep.recipientLeaderName.toLowerCase().includes(currentUser.firstName.toLowerCase())
-        ) {
-          return true;
-        }
-        if (pastorNet === 'juvenil') {
-          return rep.serviceId === 'domingo_juvenil' || rep.serviceId === 'viernes_adoracion';
-        }
-        if (pastorNet === 'adulta') {
-          return (
-            rep.serviceId === 'domingo_adultos_1' ||
-            rep.serviceId === 'domingo_adultos_2' ||
-            rep.serviceId === 'viernes_adoracion'
-          );
-        }
-        const author = members.find((m) => m.id === rep.leaderId);
-        return author?.network === pastorNet;
-      });
-    }
     return myLeaderAttendanceReports;
-  }, [currentUser, leaderAttendanceReports, members, myLeaderAttendanceReports]);
+  }, [currentUser, leaderAttendanceReports, myLeaderAttendanceReports]);
 
   // Fechas disponibles en los reportes de su red
   const availableDates = useMemo(() => {
@@ -200,10 +166,7 @@ export default function AttendanceScreen() {
       const isRecPastor =
         cleanRec.includes('josue') ||
         cleanRec.includes('josué') ||
-        cleanRec.includes('norelis') ||
-        cleanRec.includes('carlos') ||
-        cleanRec.includes('neiyelis') ||
-        cleanRec.includes('peña');
+        cleanRec.includes('norelis');
 
       if (recName && !isRecPastor) {
         const matchingMember = members.find((m) =>
@@ -320,9 +283,7 @@ export default function AttendanceScreen() {
             ? override.age
             : computedAge !== undefined
               ? computedAge
-              : d.network === 'juvenil'
-                ? 16
-                : 30,
+              : 25,
       };
     });
     return [...registered, ...manualDisciples];
@@ -433,7 +394,7 @@ export default function AttendanceScreen() {
         name: newDiscipleName.trim(),
         attended: true,
         gender: newDiscipleGender,
-        age: ageNum !== undefined ? ageNum : currentUser?.network === 'juvenil' ? 16 : 30,
+        age: ageNum !== undefined ? ageNum : 25,
       },
     ]);
     setNewDiscipleName('');
@@ -579,8 +540,7 @@ export default function AttendanceScreen() {
               <View style={styles.leaderBadgeRow}>
                 <Ionicons name="shield-checkmark" size={14} color="#2563EB" />
                 <Text style={styles.leaderBadgeText}>
-                  {currentUser?.role === 'g12_leader' ? 'Líder de 12' : 'Miembro'} •{' '}
-                  {currentUser?.network === 'juvenil' ? 'Red Juvenil' : 'Red Adulta'}
+                  {currentUser?.role === 'g12_leader' ? 'Líder de 12' : 'Miembro'}
                 </Text>
               </View>
               <Text style={styles.headerTitle}>Reporte de Asistencia</Text>
@@ -595,7 +555,7 @@ export default function AttendanceScreen() {
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.recipientNoticeTitle}>Líder Encargado (Recibe este Reporte):</Text>
                 <Text style={styles.recipientNoticeName}>
-                  {leaderInCharge.name} ({currentUser?.network === 'juvenil' ? 'Pastor de Jóvenes' : 'Cobertura Pastoral'})
+                  {leaderInCharge.name} (Cobertura Pastoral)
                 </Text>
               </View>
             </View>

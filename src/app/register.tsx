@@ -25,7 +25,7 @@ interface RegisterScreenProps {
 
 export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) {
   const router = useRouter();
-  const { registerMember, getLeadersByNetwork, servicesSchedule } = useChurch();
+  const { registerMember, getLeadersByNetwork } = useChurch();
 
   // Form Fields
   const [firstName, setFirstName] = useState('');
@@ -37,47 +37,26 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [secureText, setSecureText] = useState(true);
-  const [network, setNetwork] = useState<ChurchNetwork>('adulta');
+  const network: ChurchNetwork = 'general';
   const [selectedLeaderId, setSelectedLeaderId] = useState<string>('');
-  const [preferredService, setPreferredService] = useState<ChurchServiceSlotId>('domingo_adultos_1');
+  const preferredService: ChurchServiceSlotId = 'domingo_11am';
   const [familyName, setFamilyName] = useState('');
 
   // Status & Feedback
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Servicios dominicales habituales (excluyendo el servicio especial de adoración de los viernes)
-  const sundayServices = useMemo(
-    () => servicesSchedule.filter((srv) => srv.id !== 'viernes_adoracion' && srv.day === 'Domingo'),
-    [servicesSchedule]
+  // Available leaders across the entire congregation
+  const availableLeaders = useMemo(
+    () => getLeadersByNetwork(),
+    [getLeadersByNetwork]
   );
 
-  // Get available leaders for the selected network
-  const availableLeaders = useMemo(() => getLeadersByNetwork(network), [getLeadersByNetwork, network]);
-
-  // Si no hay líder seleccionado o el seleccionado no pertenece a la red, toma el primero automáticamente
+  // Si no hay líder seleccionado, toma el primero automáticamente
   const currentLeaderId =
     selectedLeaderId && availableLeaders.some((l) => l.id === selectedLeaderId)
       ? selectedLeaderId
       : availableLeaders[0]?.id || '';
-
-  const handleNetworkChange = (newNet: ChurchNetwork) => {
-    setNetwork(newNet);
-    if (errorMessage) setErrorMessage(null);
-    // Suggest default service
-    if (newNet === 'juvenil') {
-      setPreferredService('domingo_juvenil');
-    } else {
-      setPreferredService('domingo_adultos_1');
-    }
-    // Select first leader in that network if available
-    const newLeaders = getLeadersByNetwork(newNet);
-    if (newLeaders.length > 0) {
-      setSelectedLeaderId(newLeaders[0].id);
-    } else {
-      setSelectedLeaderId('');
-    }
-  };
 
   const handleRegister = async () => {
     setErrorMessage(null);
@@ -172,7 +151,7 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
 
       Alert.alert(
         '¡Inscripción Exitosa!',
-        `Bienvenido(a) a la ${network === 'juvenil' ? 'Red Juvenil' : 'Red Adulta'}. Tu líder asignado es ${leaderName || 'el equipo pastoral'}. Ya eres parte de la congregación.`,
+        `Bienvenido(a) a la congregación. Tu líder asignado es ${leaderName || 'el equipo pastoral'}. Ya eres parte de la iglesia.`,
         [
           {
             text: 'Continuar a la App',
@@ -225,59 +204,11 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
             </View>
           </View>
 
-          {/* STEP 1: NETWORK SELECTION */}
+          {/* STEP 1: LEADER SELECTION (G12) */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>1. Selecciona tu Red *</Text>
-            <Text style={styles.sectionSub}>¿En cuál de nuestras dos redes te vas a congregar?</Text>
-
-            <View style={styles.networkToggleRow}>
-              {/* Adult Network */}
-              <TouchableOpacity
-                style={[
-                  styles.networkCardOption,
-                  network === 'adulta' && styles.networkCardOptionActiveAdult,
-                ]}
-                onPress={() => handleNetworkChange('adulta')}>
-                <View style={[styles.networkIcon, { backgroundColor: '#DBEAFE' }]}>
-                  <Ionicons name="people" size={22} color="#1D4ED8" />
-                </View>
-                <Text
-                  style={[
-                    styles.networkCardName,
-                    network === 'adulta' && { color: '#1E3A8A', fontWeight: '800' },
-                  ]}>
-                  Red Adulta
-                </Text>
-                <Text style={styles.networkCardDesc}>Servicios 9:00 AM y 1:00 PM</Text>
-              </TouchableOpacity>
-
-              {/* Youth Network */}
-              <TouchableOpacity
-                style={[
-                  styles.networkCardOption,
-                  network === 'juvenil' && styles.networkCardOptionActiveYouth,
-                ]}
-                onPress={() => handleNetworkChange('juvenil')}>
-                <View style={[styles.networkIcon, { backgroundColor: '#EDE9FE' }]}>
-                  <Ionicons name="sparkles" size={22} color="#7C3AED" />
-                </View>
-                <Text
-                  style={[
-                    styles.networkCardName,
-                    network === 'juvenil' && { color: '#6D28D9', fontWeight: '800' },
-                  ]}>
-                  Red Juvenil
-                </Text>
-                <Text style={styles.networkCardDesc}>Servicio 11:00 AM</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* STEP 2: LEADER SELECTION (G12) */}
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>2. ¿Quién es tu Líder de 12? *</Text>
+            <Text style={styles.sectionHeader}>1. ¿Quién es tu Líder de 12? *</Text>
             <Text style={styles.sectionSub}>
-              Líderes activos registrados en la {network === 'juvenil' ? 'Red Juvenil' : 'Red Adulta'}:
+              Líderes activos registrados en la congregación:
             </Text>
 
             <View style={styles.leadersList}>
@@ -304,11 +235,9 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
                         {lead.firstName} {lead.lastName}
                       </Text>
                       <Text style={styles.leaderRoleText}>
-                        {lead.role === 'senior_pastor'
+                        {lead.role === 'senior_pastor' || lead.role === 'network_pastor'
                           ? 'Pastor Principal'
-                          : lead.role === 'network_pastor'
-                            ? `Pastor ${network === 'juvenil' ? 'Juvenil' : 'Adultos'}`
-                            : 'Líder 12'}
+                          : 'Líder 12'}
                         {lead.disciplesCount ? ` • ${lead.disciplesCount} discípulos` : ''}
                       </Text>
                     </View>
@@ -326,43 +255,9 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
             </View>
           </View>
 
-          {/* STEP 3: PREFERRED SERVICE */}
+          {/* STEP 2: PERSONAL DATA */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>3. Servicio Habitual</Text>
-            <Text style={styles.sectionSub}>Elige el servicio en el que habitualmente te congregarás los domingos:</Text>
-
-            <View style={styles.servicesGrid}>
-              {sundayServices.map((srv) => (
-                <TouchableOpacity
-                  key={srv.id}
-                  style={[
-                    styles.serviceOption,
-                    preferredService === srv.id && styles.serviceOptionActive,
-                  ]}
-                  onPress={() => setPreferredService(srv.id)}>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.serviceOptionTitle,
-                        preferredService === srv.id && { color: '#1E3A8A', fontWeight: '800' },
-                      ]}>
-                      {srv.name}
-                    </Text>
-                    <Text style={styles.serviceOptionTime}>
-                      {srv.day} • {srv.time}
-                    </Text>
-                  </View>
-                  {preferredService === srv.id && (
-                    <Ionicons name="checkmark-circle" size={20} color="#1E3A8A" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* STEP 4: PERSONAL DATA */}
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>4. Datos Personales & Contacto</Text>
+            <Text style={styles.sectionHeader}>2. Datos Personales & Contacto</Text>
 
             <Text style={styles.fieldLabel}>Nombre *</Text>
             <TextInput
@@ -479,9 +374,9 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
             />
           </View>
 
-          {/* STEP 5: PASSWORD */}
+          {/* STEP 3: PASSWORD */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>5. Contraseña de Acceso *</Text>
+            <Text style={styles.sectionHeader}>3. Contraseña de Acceso *</Text>
             <Text style={styles.sectionSub}>Crea una contraseña segura para ingresar a tu cuenta</Text>
 
             <Text style={styles.fieldLabel}>Contraseña (Mínimo 6 caracteres) *</Text>

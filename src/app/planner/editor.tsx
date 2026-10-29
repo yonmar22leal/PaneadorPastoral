@@ -47,11 +47,7 @@ import {
   todayISO,
 } from '@/lib/events';
 
-const NETWORK_OPTIONS: { id: ChurchEvent['network']; label: string }[] = [
-  { id: 'general', label: 'General' },
-  { id: 'adulta', label: 'Red Adulta' },
-  { id: 'juvenil', label: 'Red Juvenil' },
-];
+
 
 export default function EventEditorScreen() {
   const router = useRouter();
@@ -74,17 +70,16 @@ export default function EventEditorScreen() {
     (existing?.type ? normalizeEventType(existing.type) : undefined) ??
     (params.type ? normalizeEventType(params.type) : 'servicio');
 
-  const defaultSlot =
-    sundayServices.find((s) => s.network === currentUser?.network) ?? sundayServices[0];
+  const defaultSlot = sundayServices[0];
   const initialTime =
     existing?.time ??
-    (initialType === 'servicio' && defaultSlot
-      ? defaultSlot.time.split(' - ')[0]
+    (initialType === 'servicio'
+      ? '11:00 AM'
       : '7:00 PM');
 
   const [type, setType] = useState<ChurchEventType>(initialType);
   const [serviceSlotId, setServiceSlotId] = useState<ChurchServiceSlotId | undefined>(
-    existing?.serviceSlotId ?? (initialType === 'servicio' ? defaultSlot?.id : undefined)
+    existing?.serviceSlotId ?? (initialType === 'servicio' ? 'domingo_11am' : undefined)
   );
   const [title, setTitle] = useState(
     existing?.title ??
@@ -98,8 +93,7 @@ export default function EventEditorScreen() {
   const [time, setTime] = useState(initialTime);
   const [location, setLocation] = useState(existing?.location ?? 'Templo Principal');
   const [network, setNetwork] = useState<ChurchEvent['network']>(
-    existing?.network ??
-      (initialType === 'servicio' && defaultSlot ? defaultSlot.network : 'general')
+    existing?.network ?? 'general'
   );
   const [theme, setTheme] = useState(existing?.theme ?? '');
   const [preacher, setPreacher] = useState(existing?.preacher ?? '');
@@ -127,39 +121,18 @@ export default function EventEditorScreen() {
   const [pickingCoordinatorForMinId, setPickingCoordinatorForMinId] = useState<string | null>(null);
   const [pickingVolunteerForVolId, setPickingVolunteerForVolId] = useState<string | null>(null);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
-  const [showOtherNetworks, setShowOtherNetworks] = useState(false);
-
-  // Red de la actividad en edición (predeterminada)
-  const targetNetwork = useMemo<'adulta' | 'juvenil'>(() => {
-    if (network && network !== 'general') {
-      return network as 'adulta' | 'juvenil';
-    }
-    return (currentUser?.network as 'adulta' | 'juvenil') || 'adulta';
-  }, [network, currentUser]);
-
-  const targetNetworkCount = useMemo(() => {
-    return members.filter((m) => m.network === targetNetwork).length;
-  }, [members, targetNetwork]);
-
-  const otherNetworkCount = useMemo(() => {
-    return members.filter((m) => m.network !== targetNetwork).length;
-  }, [members, targetNetwork]);
 
   const filteredMembersList = useMemo(() => {
     const q = memberSearchQuery.trim().toLowerCase();
+    if (!q) return members;
     return members.filter((m) => {
-      // 1. Predeterminado: solo miembros de la red actual a menos que se active ver apoyo
-      if (!showOtherNetworks && m.network !== targetNetwork) {
-        return false;
-      }
-      if (!q) return true;
       return (
         m.firstName.toLowerCase().includes(q) ||
         m.lastName.toLowerCase().includes(q) ||
         (m.phone ? m.phone.includes(q) : false)
       );
     });
-  }, [members, memberSearchQuery, showOtherNetworks, targetNetwork]);
+  }, [members, memberSearchQuery]);
 
   const toggleMinistry = (min: Ministry) => {
     setEventMinistries((prev) => {
@@ -558,31 +531,6 @@ export default function EventEditorScreen() {
               })}
             </View>
 
-            {type === 'servicio' && sundayServices.length > 0 && (
-              <>
-                <Text style={[styles.label, { marginTop: 14 }]}>
-                  Vincular a horario dominical (opcional)
-                </Text>
-                <View style={styles.typeGrid}>
-                  {sundayServices.map((s) => {
-                    const active = s.id === serviceSlotId;
-                    return (
-                      <TouchableOpacity
-                        key={s.id}
-                        onPress={() => handleSlotChange(s.id)}
-                        style={[styles.slotChip, active && styles.slotChipActive]}>
-                        <Text style={[styles.slotChipTitle, active && { color: '#FFFFFF' }]}>
-                          {s.name}
-                        </Text>
-                        <Text style={[styles.slotChipSub, active && { color: '#BFDBFE' }]}>
-                          {s.time.split(' - ')[0]}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </>
-            )}
           </View>
 
           {/* 2. WHEN & WHERE */}
@@ -647,19 +595,7 @@ export default function EventEditorScreen() {
               </View>
             </View>
 
-            <Text style={[styles.label, { marginTop: 12 }]}>Dirigido a</Text>
-            <View style={styles.typeGrid}>
-              {NETWORK_OPTIONS.map((n) => (
-                <TouchableOpacity
-                  key={n.id}
-                  onPress={() => setNetwork(n.id)}
-                  style={[styles.netChip, network === n.id && styles.netChipActive]}>
-                  <Text style={[styles.netChipText, network === n.id && { color: '#FFFFFF' }]}>
-                    {n.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+
           </View>
 
           {/* 3. DETAILS */}
@@ -1221,79 +1157,6 @@ export default function EventEditorScreen() {
             )}
           </View>
 
-          {/* SELECTOR / BOTÓN DE RED Y APOYO */}
-          <View style={styles.networkSelectorBar}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[
-                styles.networkTabBtn,
-                !showOtherNetworks && styles.networkTabBtnActive,
-              ]}
-              onPress={() => setShowOtherNetworks(false)}>
-              <Ionicons
-                name="people"
-                size={14}
-                color={!showOtherNetworks ? '#FFFFFF' : '#38BDF8'}
-              />
-              <Text
-                style={[
-                  styles.networkTabText,
-                  !showOtherNetworks && styles.networkTabTextActive,
-                ]}>
-                {targetNetwork === 'juvenil' ? 'Red Juvenil (Mi Red)' : 'Red Adulta (Mi Red)'}
-              </Text>
-              <View
-                style={[
-                  styles.networkCountPill,
-                  !showOtherNetworks && styles.networkCountPillActive,
-                ]}>
-                <Text
-                  style={[
-                    styles.networkCountPillText,
-                    !showOtherNetworks && styles.networkCountPillTextActive,
-                  ]}>
-                  {targetNetworkCount}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[
-                styles.networkTabBtn,
-                showOtherNetworks && styles.networkTabBtnSupportActive,
-              ]}
-              onPress={() => setShowOtherNetworks((prev) => !prev)}>
-              <Ionicons
-                name={showOtherNetworks ? 'checkmark-circle' : 'hand-left-outline'}
-                size={14}
-                color={showOtherNetworks ? '#FFFFFF' : '#A78BFA'}
-              />
-              <Text
-                style={[
-                  styles.networkTabText,
-                  showOtherNetworks && styles.networkTabTextActive,
-                  !showOtherNetworks && { color: '#C4B5FD' },
-                ]}>
-                {showOtherNetworks ? 'Apoyo Activo' : '+ Ver Apoyo Otra Red'}
-              </Text>
-              <View
-                style={[
-                  styles.networkCountPill,
-                  showOtherNetworks && styles.networkCountPillSupportActive,
-                ]}>
-                <Text
-                  style={[
-                    styles.networkCountPillText,
-                    showOtherNetworks && styles.networkCountPillTextActive,
-                    !showOtherNetworks && { color: '#C4B5FD' },
-                  ]}>
-                  +{otherNetworkCount}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
           {currentUser && (
             <TouchableOpacity
               style={styles.myselfQuickRow}
@@ -1320,51 +1183,30 @@ export default function EventEditorScreen() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
             renderItem={({ item }) => {
-              const isSupport = item.network !== targetNetwork;
               return (
                 <TouchableOpacity
-                  style={[
-                    styles.memberListItem,
-                    isSupport && styles.memberListItemSupport,
-                  ]}
+                  style={styles.memberListItem}
                   onPress={() => {
                     if (pickingCoordinatorForMinId) {
                       updateMinistryCoordinator(pickingCoordinatorForMinId, item);
                     }
                   }}>
-                  <View
-                    style={[
-                      styles.memberAvatar,
-                      isSupport && { backgroundColor: 'rgba(124, 58, 237, 0.2)' },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.memberAvatarText,
-                        isSupport && { color: '#C4B5FD' },
-                      ]}>
+                  <View style={styles.memberAvatar}>
+                    <Text style={styles.memberAvatarText}>
                       {item.firstName[0]}
                       {item.lastName[0] || ''}
                     </Text>
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <Text style={styles.memberName}>
-                        {item.firstName} {item.lastName}
-                      </Text>
-                      {isSupport && (
-                        <View style={styles.supportBadge}>
-                          <Text style={styles.supportBadgeText}>
-                            🤝 Apoyo · Red {item.network === 'juvenil' ? 'Juvenil' : 'Adulta'}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                    <Text style={styles.memberName}>
+                      {item.firstName} {item.lastName}
+                    </Text>
                     <Text style={styles.memberRole}>
-                      {item.role.replace('_', ' ').toUpperCase()} · Red {item.network}
+                      {item.role.replace('_', ' ').toUpperCase()}
                     </Text>
                     {item.phone ? <Text style={styles.memberPhone}>📞 {item.phone}</Text> : null}
                   </View>
-                  <Ionicons name="checkmark-circle-outline" size={20} color={isSupport ? '#A78BFA' : '#38BDF8'} />
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#38BDF8" />
                 </TouchableOpacity>
               );
             }}
@@ -1403,91 +1245,14 @@ export default function EventEditorScreen() {
             )}
           </View>
 
-          {/* SELECTOR / BOTÓN DE RED Y APOYO */}
-          <View style={styles.networkSelectorBar}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[
-                styles.networkTabBtn,
-                !showOtherNetworks && styles.networkTabBtnActive,
-              ]}
-              onPress={() => setShowOtherNetworks(false)}>
-              <Ionicons
-                name="people"
-                size={14}
-                color={!showOtherNetworks ? '#FFFFFF' : '#38BDF8'}
-              />
-              <Text
-                style={[
-                  styles.networkTabText,
-                  !showOtherNetworks && styles.networkTabTextActive,
-                ]}>
-                {targetNetwork === 'juvenil' ? 'Red Juvenil (Mi Red)' : 'Red Adulta (Mi Red)'}
-              </Text>
-              <View
-                style={[
-                  styles.networkCountPill,
-                  !showOtherNetworks && styles.networkCountPillActive,
-                ]}>
-                <Text
-                  style={[
-                    styles.networkCountPillText,
-                    !showOtherNetworks && styles.networkCountPillTextActive,
-                  ]}>
-                  {targetNetworkCount}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[
-                styles.networkTabBtn,
-                showOtherNetworks && styles.networkTabBtnSupportActive,
-              ]}
-              onPress={() => setShowOtherNetworks((prev) => !prev)}>
-              <Ionicons
-                name={showOtherNetworks ? 'checkmark-circle' : 'hand-left-outline'}
-                size={14}
-                color={showOtherNetworks ? '#FFFFFF' : '#A78BFA'}
-              />
-              <Text
-                style={[
-                  styles.networkTabText,
-                  showOtherNetworks && styles.networkTabTextActive,
-                  !showOtherNetworks && { color: '#C4B5FD' },
-                ]}>
-                {showOtherNetworks ? 'Apoyo Activo' : '+ Ver Apoyo Otra Red'}
-              </Text>
-              <View
-                style={[
-                  styles.networkCountPill,
-                  showOtherNetworks && styles.networkCountPillSupportActive,
-                ]}>
-                <Text
-                  style={[
-                    styles.networkCountPillText,
-                    showOtherNetworks && styles.networkCountPillTextActive,
-                    !showOtherNetworks && { color: '#C4B5FD' },
-                  ]}>
-                  +{otherNetworkCount}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
           <FlatList
             data={filteredMembersList}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
             renderItem={({ item }) => {
-              const isSupport = item.network !== targetNetwork;
               return (
                 <TouchableOpacity
-                  style={[
-                    styles.memberListItem,
-                    isSupport && styles.memberListItemSupport,
-                  ]}
+                  style={styles.memberListItem}
                   onPress={() => {
                     if (pickingVolunteerForVolId) {
                       updateVolunteer(pickingVolunteerForVolId, {
@@ -1498,39 +1263,22 @@ export default function EventEditorScreen() {
                       setPickingVolunteerForVolId(null);
                     }
                   }}>
-                  <View
-                    style={[
-                      styles.memberAvatar,
-                      isSupport && { backgroundColor: 'rgba(124, 58, 237, 0.2)' },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.memberAvatarText,
-                        isSupport && { color: '#C4B5FD' },
-                      ]}>
+                  <View style={styles.memberAvatar}>
+                    <Text style={styles.memberAvatarText}>
                       {item.firstName[0]}
                       {item.lastName[0] || ''}
                     </Text>
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <Text style={styles.memberName}>
-                        {item.firstName} {item.lastName}
-                      </Text>
-                      {isSupport && (
-                        <View style={styles.supportBadge}>
-                          <Text style={styles.supportBadgeText}>
-                            🤝 Apoyo · Red {item.network === 'juvenil' ? 'Juvenil' : 'Adulta'}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                    <Text style={styles.memberName}>
+                      {item.firstName} {item.lastName}
+                    </Text>
                     <Text style={styles.memberRole}>
-                      {item.role.replace('_', ' ').toUpperCase()} · Red {item.network}
+                      {item.role.replace('_', ' ').toUpperCase()}
                     </Text>
                     {item.phone ? <Text style={styles.memberPhone}>📞 {item.phone}</Text> : null}
                   </View>
-                  <Ionicons name="add-circle" size={22} color={isSupport ? '#A78BFA' : '#38BDF8'} />
+                  <Ionicons name="add-circle" size={22} color="#38BDF8" />
                 </TouchableOpacity>
               );
             }}

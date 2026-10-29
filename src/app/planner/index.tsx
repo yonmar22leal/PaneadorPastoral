@@ -32,7 +32,7 @@ export default function EventsListScreen() {
     getUserCoordinatedMinistries,
   } = useChurch();
 
-  // Eventos filtrados por red: jóvenes no le salen a la red adulta, solo a pastores principales
+  // Eventos de la iglesia para toda la congregación
   const visibleEvents = useMemo(() => {
     return getVisibleEvents(currentUser);
   }, [getVisibleEvents, currentUser]);

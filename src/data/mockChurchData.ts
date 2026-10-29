@@ -13,28 +13,12 @@ import {
 
 export const churchServicesSchedule: ChurchServiceSchedule[] = [
   {
-    id: 'domingo_adultos_1',
-    name: 'Servicio Adultos 1',
-    day: 'Domingo',
-    time: '9:00 AM - 11:00 AM',
-    network: 'adulta',
-    inChargePastors: ['Pastor José Peña (Principal)', 'Pastor Carlos Diez', 'Pastora Neiyelis de Diez'],
-  },
-  {
-    id: 'domingo_juvenil',
-    name: 'Servicio Juvenil',
+    id: 'domingo_11am',
+    name: 'Servicio Dominical',
     day: 'Domingo',
     time: '11:00 AM - 1:00 PM',
-    network: 'juvenil',
+    network: 'general',
     inChargePastors: ['Pastor Josué Rodríguez', 'Pastora Norelis de Rodríguez'],
-  },
-  {
-    id: 'domingo_adultos_2',
-    name: 'Servicio Adultos 2',
-    day: 'Domingo',
-    time: '1:00 PM - 3:00 PM',
-    network: 'adulta',
-    inChargePastors: ['Pastor José Peña (Principal)', 'Pastor Carlos Diez', 'Pastora Neiyelis de Diez'],
   },
   {
     id: 'viernes_adoracion',
@@ -42,7 +26,7 @@ export const churchServicesSchedule: ChurchServiceSchedule[] = [
     day: 'Viernes',
     time: '6:00 PM - 7:30 PM',
     network: 'general',
-    inChargePastors: ['Pastor José Peña (Principal)', 'Pastora Neidy de Peña (Principal)'],
+    inChargePastors: ['Pastor Josué Rodríguez', 'Pastora Norelis de Rodríguez'],
   },
 ];
 
@@ -411,8 +395,8 @@ export const defaultMinistries: Ministry[] = [
     id: 'min_alabanza',
     name: 'Alabanza',
     description: 'Dirección de alabanza, coro, banda musical y adoración profética en los servicios.',
-    coordinatorId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    coordinatorName: 'Pastor José Peña',
+    coordinatorId: 'pastor-josue-id',
+    coordinatorName: 'Pastor Josué Rodríguez',
     color: '#8B5CF6',
     icon: 'musical-notes',
     defaultRoles: [
@@ -431,8 +415,8 @@ export const defaultMinistries: Ministry[] = [
     id: 'min_audiovisual',
     name: 'Audiovisual',
     description: 'Consola de sonido, pantallas, transmisión multimedia, iluminación y soporte técnico.',
-    coordinatorId: 'carlos-diez-id',
-    coordinatorName: 'Pastor Carlos Diez',
+    coordinatorId: 'pastor-josue-id',
+    coordinatorName: 'Pastor Josué Rodríguez',
     color: '#0284C7',
     icon: 'videocam',
     defaultRoles: [
@@ -451,8 +435,8 @@ export const defaultMinistries: Ministry[] = [
     id: 'min_protocolo',
     name: 'Protocolo',
     description: 'Ujieres, bienvenida, acomodación en sala, orden de filas y recolección de ofrendas.',
-    coordinatorId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-    coordinatorName: 'Pastora Neidy de Peña',
+    coordinatorId: 'pastora-norelis-id',
+    coordinatorName: 'Pastora Norelis de Rodríguez',
     color: '#10B981',
     icon: 'shield-checkmark',
     defaultRoles: [

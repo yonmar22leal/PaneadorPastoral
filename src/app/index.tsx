@@ -66,15 +66,14 @@ export default function DashboardScreen() {
   } | null>(null);
   const [verseFeedback, setVerseFeedback] = useState<string | null>(null);
 
-  const isPastor =
-    currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
+  const isPastor = currentUser?.role === 'senior_pastor';
 
   const handleOpenCreatePost = () => {
-    setPostNetwork(currentUser?.role === 'network_pastor' ? currentUser.network : 'general');
+    setPostNetwork('general');
     setModalVisible(true);
   };
 
-  // Próximo evento filtrado por red
+  // Próximo evento de la iglesia
   const visibleEvents = useMemo(() => {
     return getVisibleEvents(currentUser);
   }, [getVisibleEvents, currentUser]);
@@ -85,16 +84,10 @@ export default function DashboardScreen() {
     return sorted.find((e) => e.date >= today) || sorted[0] || visibleEvents[0];
   }, [visibleEvents, today]);
 
-  // Mensajes pastorales visibles según la red del usuario
+  // Mensajes pastorales para toda la iglesia
   const visiblePosts = useMemo(() => {
     if (!currentUser) return [];
-    if (currentUser.role === 'senior_pastor') {
-      return pastoralPosts;
-    }
-    return pastoralPosts.filter((p) => {
-      if (!p.network || p.network === 'general') return true;
-      return p.network === currentUser.network;
-    });
+    return pastoralPosts;
   }, [pastoralPosts, currentUser]);
 
   // Cumpleañeros del mes actual
@@ -234,9 +227,6 @@ export default function DashboardScreen() {
 
   const getRoleLabel = () => {
     if (currentUser.role === 'senior_pastor') return 'Pastor Principal';
-    if (currentUser.role === 'network_pastor') {
-      return currentUser.network === 'juvenil' ? 'Pastor Juvenil' : 'Pastor Adultos';
-    }
     if (currentUser.generationLevel === 3) return 'Líder 144';
     if (currentUser.generationLevel === 4) return 'Líder 1728';
     if (currentUser.generationLevel === 2) return 'Líder 12';
@@ -244,8 +234,7 @@ export default function DashboardScreen() {
     if (currentUser.leaderId) {
       const leader = members.find((m) => m.id === currentUser.leaderId);
       if (leader) {
-        if (leader.role === 'senior_pastor') return 'Pastor de Red';
-        if (leader.role === 'network_pastor') return 'Líder 12';
+        if (leader.role === 'senior_pastor') return 'Líder 12';
         return 'Líder 144';
       }
     }
@@ -255,9 +244,7 @@ export default function DashboardScreen() {
       if (
         lName.includes('josue') ||
         lName.includes('josué') ||
-        lName.includes('norelis') ||
-        lName.includes('carlos diez') ||
-        lName.includes('neiyelis')
+        lName.includes('norelis')
       ) {
         return 'Líder 12';
       }
@@ -334,37 +321,6 @@ export default function DashboardScreen() {
                 <View style={styles.userBadgesRow}>
                   <View style={styles.roleBadge}>
                     <Text style={styles.roleBadgeText}>{getRoleLabel()}</Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.networkBadge,
-                      {
-                        backgroundColor:
-                          currentUser.network === 'juvenil'
-                            ? 'rgba(167, 139, 250, 0.2)'
-                            : 'rgba(56, 189, 248, 0.2)',
-                        borderColor:
-                          currentUser.network === 'juvenil'
-                            ? 'rgba(167, 139, 250, 0.4)'
-                            : 'rgba(56, 189, 248, 0.4)',
-                      },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.networkBadgeText,
-                        {
-                          color:
-                            currentUser.network === 'juvenil'
-                              ? '#C4B5FD'
-                              : '#7DD3FC',
-                        },
-                      ]}>
-                      {currentUser.role === 'senior_pastor'
-                        ? 'Todas las Redes'
-                        : currentUser.network === 'juvenil'
-                          ? 'Red Juvenil'
-                          : 'Red Adulta'}
-                    </Text>
                   </View>
                 </View>
               </View>
@@ -890,13 +846,7 @@ export default function DashboardScreen() {
                           <View style={styles.postAuthorMetaRow}>
                             <Text style={styles.postRoleBadge}>{authorRoleLabel}</Text>
                             <Text style={styles.postMetaDot}>•</Text>
-                            <Text style={styles.postNetworkTag}>
-                              {post.network === 'general'
-                                ? 'Toda la Iglesia'
-                                : post.network === 'juvenil'
-                                  ? 'Para: Red Juvenil'
-                                  : 'Para: Red Adulta'}
-                            </Text>
+                            <Text style={styles.postNetworkTag}>Toda la Iglesia</Text>
                           </View>
                         </View>
 
@@ -1010,53 +960,7 @@ export default function DashboardScreen() {
                 onChangeText={setPostTitle}
               />
 
-              <Text style={styles.modalInputLabel}>Dirigido a:</Text>
-              <View style={styles.networkSelectRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.networkOptionBtn,
-                    postNetwork === 'general' && styles.networkOptionBtnActive,
-                  ]}
-                  onPress={() => setPostNetwork('general')}>
-                  <Text
-                    style={[
-                      styles.networkOptionText,
-                      postNetwork === 'general' && styles.networkOptionTextActive,
-                    ]}>
-                    Toda la Iglesia
-                  </Text>
-                </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[
-                    styles.networkOptionBtn,
-                    postNetwork === 'adulta' && styles.networkOptionBtnActive,
-                  ]}
-                  onPress={() => setPostNetwork('adulta')}>
-                  <Text
-                    style={[
-                      styles.networkOptionText,
-                      postNetwork === 'adulta' && styles.networkOptionTextActive,
-                    ]}>
-                    Red Adulta
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.networkOptionBtn,
-                    postNetwork === 'juvenil' && styles.networkOptionBtnActive,
-                  ]}
-                  onPress={() => setPostNetwork('juvenil')}>
-                  <Text
-                    style={[
-                      styles.networkOptionText,
-                      postNetwork === 'juvenil' && styles.networkOptionTextActive,
-                    ]}>
-                    Red Juvenil
-                  </Text>
-                </TouchableOpacity>
-              </View>
 
               {/* SECCIÓN BIBLE API */}
               <View style={styles.bibleApiSection}>
@@ -1197,7 +1101,7 @@ export default function DashboardScreen() {
                         {m.firstName} {m.lastName}
                       </Text>
                       <Text style={styles.birthdayDateText}>
-                        🎂 {m.birthDate} • {m.network === 'juvenil' ? 'Red Juvenil' : 'Red Adulta'}
+                        🎂 {m.birthDate}
                       </Text>
                       {m.phone ? (
                         <Text style={styles.birthdayPhoneText}>Tel: {m.phone}</Text>
@@ -1236,17 +1140,12 @@ export default function DashboardScreen() {
                 </Text>
               </View>
 
-              <Text style={[styles.modalInputLabel, { marginTop: 16 }]}>Líneas de Cobertura:</Text>
+              <Text style={[styles.modalInputLabel, { marginTop: 16 }]}>Cobertura Pastoral:</Text>
               <View style={styles.coverageRow}>
-                <View style={styles.coverageCard}>
+                <View style={[styles.coverageCard, { flex: 1 }]}>
                   <Text style={styles.coverageTitle}>Pastores Principales</Text>
-                  <Text style={styles.coverageName}>Pr. José & Pra. Neidy Peña</Text>
-                  <Text style={styles.coverageSub}>Sede Central IEC</Text>
-                </View>
-                <View style={styles.coverageCard}>
-                  <Text style={styles.coverageTitle}>Pastores de Red</Text>
-                  <Text style={styles.coverageName}>Pr. Carlos & Pra. Neiyelis</Text>
-                  <Text style={styles.coverageSub}>Red Adulta • Adultos</Text>
+                  <Text style={styles.coverageName}>Pastor Josué Rodríguez & Pastora Norelis de Rodríguez</Text>
+                  <Text style={styles.coverageSub}>Iglesia Emmanuel de Caja de Agua</Text>
                 </View>
               </View>
 

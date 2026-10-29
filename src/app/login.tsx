@@ -79,17 +79,6 @@ export default function LoginScreen({ onGoRegister }: LoginScreenProps = {}) {
           <Text style={styles.appSubtitle}>
             Iglesia Emmanuel de Caja de Agua
           </Text>
-
-          <View style={styles.networksBadgeRow}>
-            <View style={[styles.networkPill, { backgroundColor: '#3B82F6' }]}>
-              <Ionicons name="people" size={13} color="#FFFFFF" />
-              <Text style={styles.networkPillText}>Red Adulta</Text>
-            </View>
-            <View style={[styles.networkPill, { backgroundColor: '#8B5CF6' }]}>
-              <Ionicons name="sparkles" size={13} color="#FFFFFF" />
-              <Text style={styles.networkPillText}>Red Juvenil</Text>
-            </View>
-          </View>
         </View>
 
         {/* Login Card */}

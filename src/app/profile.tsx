@@ -44,10 +44,8 @@ export default function ProfileScreen() {
   const [gender, setGender] = useState<'M' | 'F'>(currentUser?.gender || 'M');
   const [birthDate, setBirthDate] = useState(currentUser?.birthDate || '');
   const [familyName, setFamilyName] = useState(currentUser?.familyName || '');
-  const [network, setNetwork] = useState<ChurchNetwork>(currentUser?.network || 'adulta');
-  const [preferredService, setPreferredService] = useState<ChurchServiceSlotId>(
-    currentUser?.preferredService || 'domingo_adultos_1'
-  );
+  const [network] = useState<ChurchNetwork>(currentUser?.network || 'general');
+  const [preferredService] = useState<ChurchServiceSlotId>('domingo_11am');
   const [selectedLeaderId, setSelectedLeaderId] = useState<string>(currentUser?.leaderId || '');
 
   // Password change states (clave actual primero, luego nueva clave)
@@ -62,16 +60,10 @@ export default function ProfileScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Servicios dominicales habituales (excluyendo el servicio especial de adoración de los viernes)
-  const sundayServices = useMemo(
-    () => servicesSchedule.filter((srv) => srv.id !== 'viernes_adoracion' && srv.day === 'Domingo'),
-    [servicesSchedule]
-  );
-
-  // Available leaders for the active network
+  // Available leaders for the whole church
   const availableLeaders = useMemo(
-    () => getLeadersByNetwork(network),
-    [getLeadersByNetwork, network]
+    () => getLeadersByNetwork(),
+    [getLeadersByNetwork]
   );
 
   // Determinar líder efectivo
@@ -83,23 +75,6 @@ export default function ProfileScreen() {
         : availableLeaders[0]?.id || '';
 
   const isSeniorPastor = currentUser?.role === 'senior_pastor';
-
-  const handleNetworkChange = (newNet: ChurchNetwork) => {
-    setNetwork(newNet);
-    if (errorMessage) setErrorMessage(null);
-    if (successMessage) setSuccessMessage(null);
-    if (newNet === 'juvenil') {
-      setPreferredService('domingo_juvenil');
-    } else {
-      setPreferredService('domingo_adultos_1');
-    }
-    const newLeaders = getLeadersByNetwork(newNet);
-    if (newLeaders.length > 0) {
-      setSelectedLeaderId(newLeaders[0].id);
-    } else {
-      setSelectedLeaderId('');
-    }
-  };
 
   const handleSaveProfile = async () => {
     setErrorMessage(null);
@@ -248,8 +223,7 @@ export default function ProfileScreen() {
     if (currentUser.leaderId) {
       const leader = members.find((m) => m.id === currentUser.leaderId);
       if (leader) {
-        if (leader.role === 'senior_pastor') return 'Pastor de Red';
-        if (leader.role === 'network_pastor') return 'Líder 12';
+        if (leader.role === 'senior_pastor') return 'Líder 12';
         return 'Líder 144'; // Discípulo de un Líder 12
       }
     }
@@ -259,9 +233,7 @@ export default function ProfileScreen() {
       if (
         lName.includes('josue') ||
         lName.includes('josué') ||
-        lName.includes('norelis') ||
-        lName.includes('carlos diez') ||
-        lName.includes('neiyelis')
+        lName.includes('norelis')
       ) {
         return 'Líder 12';
       }
@@ -314,34 +286,6 @@ export default function ProfileScreen() {
               <View style={styles.rolePill}>
                 <Ionicons name="ribbon" size={13} color="#1E3A8A" />
                 <Text style={styles.rolePillText}>{getRoleLabel()}</Text>
-              </View>
-              <View
-                style={[
-                  styles.networkPill,
-                  {
-                    backgroundColor:
-                      currentUser.network === 'juvenil' ? '#EDE9FE' : '#DBEAFE',
-                  },
-                ]}>
-                <Ionicons
-                  name={currentUser.network === 'juvenil' ? 'sparkles' : 'people'}
-                  size={13}
-                  color={currentUser.network === 'juvenil' ? '#7C3AED' : '#1D4ED8'}
-                />
-                <Text
-                  style={[
-                    styles.networkPillText,
-                    {
-                      color:
-                        currentUser.network === 'juvenil' ? '#6D28D9' : '#1E3A8A',
-                    },
-                  ]}>
-                  {currentUser.role === 'senior_pastor'
-                    ? 'Todas las Redes'
-                    : currentUser.network === 'juvenil'
-                      ? 'Red Juvenil'
-                      : 'Red Adulta'}
-                </Text>
               </View>
             </View>
 
@@ -472,95 +416,19 @@ export default function ProfileScreen() {
             />
           </View>
 
-          {/* SECTION 2: SERVICIO HABITUAL */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeaderRow}>
-              <Ionicons name="time" size={18} color="#1E3A8A" />
-              <Text style={styles.sectionHeaderTitle}>2. Servicio Habitual al que Asistes</Text>
-            </View>
-            <Text style={styles.sectionSub}>
-              Configura el servicio al que habitualmente te congregas los domingos:
-            </Text>
-
-            <View style={styles.servicesGrid}>
-              {sundayServices.map((srv) => (
-                <TouchableOpacity
-                  key={srv.id}
-                  style={[
-                    styles.serviceOption,
-                    preferredService === srv.id && styles.serviceOptionActive,
-                  ]}
-                  onPress={() => {
-                    setPreferredService(srv.id);
-                    if (successMessage) setSuccessMessage(null);
-                  }}>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.serviceOptionTitle,
-                        preferredService === srv.id && { color: '#1E3A8A', fontWeight: '800' },
-                      ]}>
-                      {srv.name}
-                    </Text>
-                    <Text style={styles.serviceOptionTime}>
-                      {srv.day} • {srv.time}
-                    </Text>
-                  </View>
-                  {preferredService === srv.id && (
-                    <Ionicons name="checkmark-circle" size={20} color="#1E3A8A" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* SECTION 3: RED Y COBERTURA (G12) */}
+          {/* SECTION 2: COBERTURA PASTORAL (G12) */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
               <Ionicons name="git-network" size={18} color="#1E3A8A" />
-              <Text style={styles.sectionHeaderTitle}>3. Red y Cobertura Pastoral</Text>
+              <Text style={styles.sectionHeaderTitle}>2. Cobertura Pastoral y Discipulado</Text>
             </View>
-            <View style={styles.networkToggleRow}>
-              <TouchableOpacity
-                style={[
-                  styles.networkCardOption,
-                  network === 'adulta' && styles.networkCardOptionActiveAdult,
-                ]}
-                onPress={() => handleNetworkChange('adulta')}>
-                <View style={[styles.networkIcon, { backgroundColor: '#DBEAFE' }]}>
-                  <Ionicons name="people" size={20} color="#1D4ED8" />
-                </View>
-                <Text
-                  style={[
-                    styles.networkCardName,
-                    network === 'adulta' && { color: '#1E3A8A', fontWeight: '800' },
-                  ]}>
-                  Red Adulta
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.networkCardOption,
-                  network === 'juvenil' && styles.networkCardOptionActiveYouth,
-                ]}
-                onPress={() => handleNetworkChange('juvenil')}>
-                <View style={[styles.networkIcon, { backgroundColor: '#EDE9FE' }]}>
-                  <Ionicons name="sparkles" size={20} color="#7C3AED" />
-                </View>
-                <Text
-                  style={[
-                    styles.networkCardName,
-                    network === 'juvenil' && { color: '#6D28D9', fontWeight: '800' },
-                  ]}>
-                  Red Juvenil
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.sectionSub}>
+              Bajo la cobertura del Pastor Josué Rodríguez y la Pastora Norelis de Rodríguez:
+            </Text>
 
             {!isSeniorPastor && (
               <>
-                <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Tu Líder de 12 Directo</Text>
+                <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Tu Líder de 12 Directo</Text>
                 <View style={styles.leadersList}>
                   {availableLeaders.map((lead) => {
                     const isSelected = currentLeaderId === lead.id;
@@ -588,9 +456,7 @@ export default function ProfileScreen() {
                           <Text style={styles.leaderRoleText}>
                             {lead.role === 'senior_pastor'
                               ? 'Pastor Principal'
-                              : lead.role === 'network_pastor'
-                                ? `Pastor ${network === 'juvenil' ? 'Juvenil' : 'Adultos'}`
-                                : 'Líder 12'}
+                              : 'Líder de 12'}
                           </Text>
                         </View>
                         <View
@@ -608,11 +474,11 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          {/* SECTION 4: SEGURIDAD Y CONTRASEÑA */}
+          {/* SECTION 3: SEGURIDAD Y CONTRASEÑA */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
               <Ionicons name="lock-closed" size={18} color="#1E3A8A" />
-              <Text style={styles.sectionHeaderTitle}>4. Seguridad y Contraseña</Text>
+              <Text style={styles.sectionHeaderTitle}>3. Seguridad y Contraseña</Text>
             </View>
             <Text style={styles.sectionSub}>
               Para cambiar tu contraseña, ingresa primero tu contraseña actual y luego define la nueva.

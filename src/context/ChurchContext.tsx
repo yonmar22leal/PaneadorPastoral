@@ -43,10 +43,10 @@ const CHURCH_ID = '11111111-1111-1111-1111-111111111111';
 const defaultPastoralPosts: PastoralPost[] = [
   {
     id: 'post-1',
-    authorId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    authorName: 'Pastor José Peña',
+    authorId: 'pastor-josue-id',
+    authorName: 'Pastor Josué Rodríguez',
     authorRole: 'senior_pastor',
-    authorNetwork: 'adulta',
+    authorNetwork: 'general',
     network: 'general',
     title: 'Nuestra confianza inquebrantable en el Señor',
     content:
@@ -63,12 +63,12 @@ const defaultPastoralPosts: PastoralPost[] = [
     id: 'post-2',
     authorId: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
     authorName: 'Pastor Josué Rodríguez',
-    authorRole: 'network_pastor',
-    authorNetwork: 'juvenil',
-    network: 'juvenil',
-    title: 'Juventud: ¡Conquisten con fe y valentía!',
+    authorRole: 'senior_pastor',
+    authorNetwork: 'general',
+    network: 'general',
+    title: '¡Conquisten con fe y valentía!',
     content:
-      'Líderes y jóvenes de la Red Juvenil, ningún desafío es demasiado grande cuando caminamos en el poder del Espíritu Santo. ¡Este domingo nos vemos con expectativa de gloria!',
+      'Líderes y amada congregación, ningún desafío es demasiado grande cuando caminamos en el poder del Espíritu Santo. ¡Este domingo nos vemos a las 11:00 AM con expectativa de gloria!',
     verse: {
       reference: 'Filipenses 4:13',
       text: 'Todo lo puedo en Cristo que me fortalece.',
@@ -189,7 +189,7 @@ interface ChurchContextType {
   refreshData: () => Promise<void>;
 
   // G12 & Network Helpers
-  getLeadersByNetwork: (network: ChurchNetwork) => Member[];
+  getLeadersByNetwork: (network?: ChurchNetwork) => Member[];
   getDisciplesOfLeader: (leaderId: string) => Member[];
   getMyCellGroups: () => CellGroup[];
   getMyDisciples: () => Member[];
@@ -350,14 +350,12 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             }
           }
 
-          // Si el nombre de cobertura apunta a un pastor de red
+          // Si el nombre de cobertura apunta a un pastor
           const lName = (item.leader_name || '').toLowerCase();
           if (
             lName.includes('josue') ||
             lName.includes('josué') ||
-            lName.includes('norelis') ||
-            lName.includes('carlos diez') ||
-            lName.includes('neiyelis')
+            lName.includes('norelis')
           ) {
             return 2; // Líder 12
           }
@@ -715,9 +713,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           if (
             lName.includes('josue') ||
             lName.includes('josué') ||
-            lName.includes('norelis') ||
-            lName.includes('carlos diez') ||
-            lName.includes('neiyelis')
+            lName.includes('norelis')
           ) {
             resolvedGenLevel = 2;
           } else {
@@ -759,29 +755,25 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     return { success: true };
   };
 
-  // Filtro de eventos por Red: Los eventos de jóvenes no les salen a la red adulta, solo a pastores principales
+  // Eventos unificados para toda la iglesia
   const getVisibleEvents = useCallback(
-    (user: AuthUser | null = currentUser): ChurchEvent[] => {
-      if (!user) return events;
-      if (user.role === 'senior_pastor') return events;
-      return events.filter((ev) => {
-        if (!ev.network || ev.network === 'general') return true;
-        return ev.network === user.network;
-      });
+    (): ChurchEvent[] => {
+      return events;
     },
-    [events, currentUser]
+    [events]
   );
 
   const quickDemoLogin = async (type: string) => {
-    let email = 'jose.pena@iglesia.org';
-    if (type === 'pastor_jose' || type === 'senior_pastor') email = 'jose.pena@iglesia.org';
-    else if (type === 'pastora_neidy') email = 'neidy.pena@iglesia.org';
-    else if (type === 'pastor_josue' || type === 'juvenil') email = 'josue.rodriguez@iglesia.org';
-    else if (type === 'pastora_norelis') email = 'norelis.rodriguez@iglesia.org';
-    else if (type === 'pastor_carlos' || type === 'adulta') email = 'carlos.diez@iglesia.org';
-    else if (type === 'pastora_neiyelis') email = 'neiyelis.diez@iglesia.org';
-    else if (type === 'lider_yonmar' || type.includes('yonmar')) email = 'yonmar22@gmail.com';
-    else if (type.includes('@')) email = type;
+    let email = 'josue.rodriguez@iglesia.org';
+    if (type === 'pastor_josue' || type === 'senior_pastor' || type === 'pastor') {
+      email = 'josue.rodriguez@iglesia.org';
+    } else if (type === 'pastora_norelis') {
+      email = 'norelis.rodriguez@iglesia.org';
+    } else if (type === 'lider_yonmar' || type.includes('yonmar')) {
+      email = 'yonmar22@gmail.com';
+    } else if (type.includes('@')) {
+      email = type;
+    }
 
     await login(email);
   };
@@ -799,11 +791,12 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // G12 Helpers
-  const getLeadersByNetwork = (network: ChurchNetwork): Member[] => {
+  const getLeadersByNetwork = (network?: ChurchNetwork): Member[] => {
     return members.filter((m) => {
       if (m.role === 'senior_pastor') return true;
       const isLeader = m.role === 'network_pastor' || m.role === 'g12_leader' || m.isLeaderOf12;
-      return m.network === network && isLeader;
+      if (!network || network === 'general') return isLeader;
+      return (m.network === network || m.network === 'general') && isLeader;
     });
   };
 
@@ -1116,23 +1109,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       return { id: targetUser.leaderId || 'pastor-encargado', name: targetUser.leaderName };
     }
 
-    if (targetUser.role === 'network_pastor') {
-      return {
-        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-        name: 'Pastor José Peña',
-      };
-    }
-
-    if (targetUser.network === 'juvenil') {
-      return {
-        id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-        name: 'Pastor Josué Rodríguez',
-      };
-    }
-
     return {
-      id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-      name: 'Pastor Carlos Diez',
+      id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+      name: 'Pastor Josué Rodríguez',
     };
   };
 
@@ -1722,34 +1701,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
 
   const getMyLeaderAttendanceReports = (): LeaderAttendanceReport[] => {
     if (!currentUser) return [];
-    if (currentUser.role === 'senior_pastor') {
+    if (currentUser.role === 'senior_pastor' || currentUser.role === 'network_pastor') {
       return leaderAttendanceReports;
-    }
-    if (currentUser.role === 'network_pastor') {
-      return leaderAttendanceReports.filter((rep) => {
-        if (rep.recipientLeaderId === currentUser.id) return true;
-        if (
-          rep.recipientLeaderName &&
-          rep.recipientLeaderName.toLowerCase().includes(currentUser.firstName.toLowerCase())
-        ) {
-          return true;
-        }
-        if (
-          currentUser.network === 'juvenil' &&
-          (rep.serviceId === 'domingo_juvenil' || rep.serviceId === 'viernes_adoracion')
-        ) {
-          return true;
-        }
-        if (
-          currentUser.network === 'adulta' &&
-          (rep.serviceId === 'domingo_adultos_1' ||
-            rep.serviceId === 'domingo_adultos_2' ||
-            rep.serviceId === 'viernes_adoracion')
-        ) {
-          return true;
-        }
-        return rep.leaderId === currentUser.id;
-      });
     }
 
     // Para Líderes 12: incluir sus propios reportes de asistencia dominical y los de sus 144 discípulos

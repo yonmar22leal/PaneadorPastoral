@@ -57,10 +57,6 @@ export default function MembersScreen() {
   const [isBatchLeaderModalOpen, setIsBatchLeaderModalOpen] = useState(false);
   const [batchLeaderId, setBatchLeaderId] = useState<string>('');
 
-  const userNetwork = (currentUser?.network as 'adulta' | 'juvenil') || 'adulta';
-  const [network, setNetwork] = useState<'adulta' | 'juvenil'>(userNetwork);
-  const [networkFilter, setNetworkFilter] = useState<'my_network' | 'all'>('my_network');
-
   const isLeaderDisciplesMode = !isPastor && filterMode === 'disciples';
 
   // Líderes disponibles para asignar (Pastores y Líderes de 12)
@@ -80,12 +76,6 @@ export default function MembersScreen() {
     if (isLeaderDisciplesMode) {
       if (m.leaderId !== currentUser?.id) return false;
     } else {
-      // Modo Toda la Red / Directorio:
-      // Los Pastores Principales pertenecen a la iglesia completa, no se excluyen por red
-      const isSeniorPastor = m.role === 'senior_pastor';
-      if (!isSeniorPastor && networkFilter === 'my_network' && m.network !== userNetwork) {
-        return false;
-      }
 
       if (selectedRole !== 'all') {
         if (selectedRole === 'lider_144') {
@@ -206,7 +196,7 @@ export default function MembersScreen() {
       gender,
       birthDate: birthDate.trim() || undefined,
       role: isLeaderDisciplesMode ? 'member' : role,
-      network: isLeaderDisciplesMode ? userNetwork : network,
+      network: 'general',
       leaderId: assignedLeaderId,
       leaderName: assignedLeaderName,
       familyName: familyName.trim() || `Familia ${lastName.trim()}`,
@@ -439,51 +429,6 @@ export default function MembersScreen() {
         {/* SELECTOR DE RED Y FILTROS DE ROL */}
         {!isLeaderDisciplesMode && (
           <>
-            <View style={styles.networkSelectorBar}>
-              <TouchableOpacity
-                style={[
-                  styles.networkTabBtn,
-                  networkFilter === 'my_network' && styles.networkTabBtnActive,
-                ]}
-                onPress={() => setNetworkFilter('my_network')}>
-                <Ionicons
-                  name="people"
-                  size={14}
-                  color={networkFilter === 'my_network' ? '#FFFFFF' : '#1E3A8A'}
-                />
-                <Text
-                  style={[
-                    styles.networkTabText,
-                    networkFilter === 'my_network' && styles.networkTabTextActive,
-                  ]}>
-                  {userNetwork === 'juvenil'
-                    ? 'Red Juvenil (Mi Red)'
-                    : 'Red Adulta (Mi Red)'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.networkTabBtn,
-                  networkFilter === 'all' && styles.networkTabBtnSupportActive,
-                ]}
-                onPress={() => setNetworkFilter('all')}>
-                <Ionicons
-                  name={networkFilter === 'all' ? 'checkmark-circle' : 'hand-left-outline'}
-                  size={14}
-                  color={networkFilter === 'all' ? '#FFFFFF' : '#7C3AED'}
-                />
-                <Text
-                  style={[
-                    styles.networkTabText,
-                    networkFilter === 'all' && styles.networkTabTextActive,
-                    networkFilter !== 'all' && { color: '#7C3AED' },
-                  ]}>
-                  + Ver Apoyo de Otra Red
-                </Text>
-              </TouchableOpacity>
-            </View>
-
             <View style={styles.roleFilters}>
               <ScrollView
                 horizontal
@@ -491,8 +436,7 @@ export default function MembersScreen() {
                 contentContainerStyle={styles.roleChipsContent}>
                 {[
                   { id: 'all', label: 'Todos' },
-                  { id: 'senior_pastor', label: 'Pastor Principal' },
-                  { id: 'network_pastor', label: 'Pastores de Red' },
+                  { id: 'senior_pastor', label: 'Pastores Principales' },
                   { id: 'g12_leader', label: 'Líderes 12' },
                   { id: 'lider_144', label: 'Líderes 144' },
                   { id: 'member', label: 'Miembros' },
@@ -617,16 +561,6 @@ export default function MembersScreen() {
                               <Text style={styles.blockedBadgeText}>⛔ Bloqueado</Text>
                             </View>
                           )}
-
-                          {member.network !== userNetwork &&
-                            member.role !== 'senior_pastor' && (
-                              <View style={styles.supportBadge}>
-                                <Text style={styles.supportBadgeText}>
-                                  🤝 Apoyo ·{' '}
-                                  {member.network === 'juvenil' ? 'Juvenil' : 'Adulta'}
-                                </Text>
-                              </View>
-                            )}
 
                           <View
                             style={[
@@ -1016,7 +950,6 @@ export default function MembersScreen() {
                         'visitor',
                         'volunteer',
                         'g12_leader',
-                        'network_pastor',
                       ] as MemberRole[]
                     ).map((r) => (
                       <TouchableOpacity
@@ -1032,27 +965,6 @@ export default function MembersScreen() {
                             role === r && styles.roleSelectChipTextActive,
                           ]}>
                           {r.toUpperCase()}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <Text style={styles.formLabel}>Red a la que pertenece *</Text>
-                  <View style={styles.roleSelectionRow}>
-                    {(['adulta', 'juvenil'] as const).map((net) => (
-                      <TouchableOpacity
-                        key={net}
-                        style={[
-                          styles.roleSelectChip,
-                          network === net && styles.roleSelectChipActive,
-                        ]}
-                        onPress={() => setNetwork(net)}>
-                        <Text
-                          style={[
-                            styles.roleSelectChipText,
-                            network === net && styles.roleSelectChipTextActive,
-                          ]}>
-                          {net === 'adulta' ? 'RED ADULTA' : 'RED JUVENIL'}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -1239,8 +1151,6 @@ export default function MembersScreen() {
                             <Text style={styles.leaderOptionRole}>
                               {lead.role === 'senior_pastor'
                                 ? 'Pastor Principal'
-                                : lead.role === 'network_pastor'
-                                ? `Pastor de Red (${lead.network})`
                                 : 'Líder de 12'}
                             </Text>
                           </View>
@@ -1305,9 +1215,7 @@ export default function MembersScreen() {
                         <Text style={styles.leaderOptionRole}>
                           {lead.role === 'senior_pastor'
                             ? 'Pastor Principal'
-                            : lead.role === 'network_pastor'
-                            ? `Pastor de Red (${lead.network})`
-                            : 'Líder 12'}
+                            : 'Líder de 12'}
                         </Text>
                       </View>
                     </TouchableOpacity>
