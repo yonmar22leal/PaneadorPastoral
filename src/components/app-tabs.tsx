@@ -90,23 +90,9 @@ export default function AppTabs() {
           ]}
         />
       ),
-      tabBarStyle: !currentUser
-        ? { display: 'none' as const }
-        : {
-            position: 'absolute' as const,
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: 'transparent',
-            borderTopColor: 'rgba(255, 255, 255, 0.08)',
-            borderTopWidth: 1,
-            elevation: 0,
-            height: barHeight,
-            paddingBottom: bottomInset,
-            paddingTop: 6,
-          },
+      tabBarStyle: { display: 'none' as const },
     }),
-    [currentUser, barHeight, bottomInset]
+    []
   );
 
   const indexOptions = useMemo(
