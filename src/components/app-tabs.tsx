@@ -152,7 +152,7 @@ export default function AppTabs() {
       <Tabs.Screen name="login" options={HIDDEN_BAR_OPTIONS} />
       <Tabs.Screen name="register" options={HIDDEN_BAR_OPTIONS} />
       <Tabs.Screen name="profile" options={HIDDEN_BAR_OPTIONS} />
-      <Tabs.Screen name="ministries" options={HIDDEN_OPTIONS} />
+      <Tabs.Screen name="ministries" options={HIDDEN_BAR_OPTIONS} />
     </Tabs>
   );
 }

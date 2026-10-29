@@ -397,7 +397,15 @@ export default function MinistriesScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.hero}>
         <View style={styles.heroTop}>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/' as any);
+              }
+            }}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
