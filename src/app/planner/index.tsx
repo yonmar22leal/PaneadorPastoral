@@ -138,10 +138,21 @@ export default function EventsListScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.hero}>
-          <Text style={styles.heroKicker}>
-            {canManageEvents ? 'PLANEADOR PASTORAL' : 'CRONOGRAMA DE LA IGLESIA'}
-          </Text>
-          <Text style={styles.heroTitle}>Servicios & Eventos</Text>
+          <View style={styles.heroTopRow}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
+              activeOpacity={0.8}>
+              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.heroKicker}>
+                {canManageEvents ? 'PLANEADOR PASTORAL' : 'CRONOGRAMA DE LA IGLESIA'}
+              </Text>
+              <Text style={styles.heroTitle}>Servicios & Eventos</Text>
+            </View>
+          </View>
           <Text style={styles.heroSubtitle}>
             {canManageEvents
               ? 'Organiza el orden del servicio dominical y el cronograma de actividades.'
@@ -536,8 +547,23 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
   heroKicker: { color: '#38BDF8', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  heroTitle: { color: '#FFFFFF', fontSize: 25, fontWeight: '800', marginTop: 4, letterSpacing: -0.5 },
+  heroTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginTop: 2, letterSpacing: -0.5 },
   heroSubtitle: { color: '#94A3B8', fontSize: 13, marginTop: 4, lineHeight: 19 },
 
   // Botones de creación rápida

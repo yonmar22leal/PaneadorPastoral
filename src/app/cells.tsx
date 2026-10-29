@@ -1,6 +1,7 @@
 import { useChurch } from '@/context/ChurchContext';
 import { CellGroup, CellMeetingReport, CellPersonItem, ChurchNetwork } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import {
@@ -25,6 +26,7 @@ function getNextPersonId(prefix: string): string {
 }
 
 export default function CellsScreen() {
+  const router = useRouter();
   const {
     currentUser,
     members,
@@ -869,7 +871,14 @@ ${groupedSheetData.leaderGroups
 
       {/* Top Header */}
       <View style={styles.header}>
-        <View style={{ flex: 1 }}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
+          activeOpacity={0.8}>
+          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <View style={{ flex: 1, marginLeft: 12 }}>
           <View style={styles.badgeRow}>
             <Ionicons name="git-network" size={14} color="#2563EB" />
             <Text style={styles.badgeText}>Discipulado G12</Text>
@@ -2506,6 +2515,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 12,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   badgeRow: {
     flexDirection: 'row',

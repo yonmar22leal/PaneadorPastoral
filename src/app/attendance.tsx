@@ -15,6 +15,7 @@ import {
   ReportVisitorItem,
 } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -31,6 +32,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DoodleBackground } from '@/components/doodle-background';
 
 export default function AttendanceScreen() {
+  const router = useRouter();
   const {
     currentUser,
     members,
@@ -483,6 +485,23 @@ export default function AttendanceScreen() {
       <StatusBar style="light" />
       <DoodleBackground>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Top Navigation Row con Botón de Regresar */}
+        <View style={styles.topNavRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
+            activeOpacity={0.8}>
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.topNavTitle}>
+              {isPastor ? 'Control de Asistencia' : 'Reporte de Asistencia'}
+            </Text>
+            <Text style={styles.topNavSubtitle}>
+              {isPastor ? 'IEC Caja de Agua • Consolidado Pastoral' : 'Discipulado G12 • Envío de Reporte'}
+            </Text>
+          </View>
+        </View>
         {/* ============================================================== */}
         {/* SELECTOR DE MODO PARA LÍDERES 12 (ENVIAR REPORTE / VER RED)   */}
         {/* ============================================================== */}
@@ -1558,6 +1577,31 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 110,
+  },
+  topNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  topNavTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  topNavSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   header: {
     marginBottom: 16,

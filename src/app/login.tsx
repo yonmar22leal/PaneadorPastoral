@@ -70,6 +70,16 @@ export default function LoginScreen({ onGoRegister }: LoginScreenProps = {}) {
       <StatusBar style="light" />
       <AuroraBackground>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Top Bar con Botón Regresar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
+            activeOpacity={0.8}>
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
         {/* Header Hero */}
         <View style={styles.headerHero}>
           <View style={styles.churchIconContainer}>
@@ -194,6 +204,22 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 40,
+  },
+  topBar: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerHero: {
     alignItems: 'center',

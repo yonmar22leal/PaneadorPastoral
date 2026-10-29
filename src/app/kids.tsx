@@ -1,21 +1,23 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Alert,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
-  View,
   Text,
-  TouchableOpacity,
   TextInput,
-  Modal,
-  Alert,
-  Platform,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 
 export default function KidsCheckInScreen() {
+  const router = useRouter();
   const { kids, classrooms, checkInKid, checkOutKid, addKid } = useChurch();
 
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
@@ -107,7 +109,14 @@ export default function KidsCheckInScreen() {
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <DoodleBackground>
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
+          activeOpacity={0.8}>
+          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <View style={{ flex: 1, marginLeft: 10 }}>
           <Text style={styles.headerTitle}>Recepción de Niños</Text>
           <Text style={styles.headerSubtitle}>
             Control de entrada y código de seguridad para entrega
@@ -441,6 +450,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 10,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTitle: {
     fontSize: 22,

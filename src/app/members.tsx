@@ -3,6 +3,7 @@ import { calcAge } from '@/lib/attendance';
 import { Member, MemberRole } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   Alert,
@@ -20,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DoodleBackground } from '@/components/doodle-background';
 
 export default function MembersScreen() {
+  const router = useRouter();
   const {
     members,
     addMember,
@@ -322,7 +324,14 @@ export default function MembersScreen() {
       <DoodleBackground>
         {/* Header */}
         <View style={styles.header}>
-          <View style={{ flex: 1 }}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
+            activeOpacity={0.8}>
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={styles.headerTitle}>
               {isPastor ? 'Directorio & Familias' : 'Mis 12 Discípulos'}
             </Text>
@@ -1254,6 +1263,16 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 10,
     gap: 8,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTitle: {
     fontSize: 22,
