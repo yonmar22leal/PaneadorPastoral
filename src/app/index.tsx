@@ -745,19 +745,21 @@ export default function DashboardScreen() {
                     <Text style={styles.subActionLabel}>Ver Ministerios</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.subActionItem}
-                    activeOpacity={0.8}
-                    onPress={() => router.push('/ministries' as any)}>
-                    <View
-                      style={[
-                        styles.subActionIconBox,
-                        { backgroundColor: 'rgba(56, 189, 248, 0.2)' },
-                      ]}>
-                      <Ionicons name="add-circle-outline" size={16} color="#38BDF8" />
-                    </View>
-                    <Text style={styles.subActionLabel}>+ Crear Nuevo</Text>
-                  </TouchableOpacity>
+                  {isPastor && (
+                    <TouchableOpacity
+                      style={styles.subActionItem}
+                      activeOpacity={0.8}
+                      onPress={() => router.push('/ministries' as any)}>
+                      <View
+                        style={[
+                          styles.subActionIconBox,
+                          { backgroundColor: 'rgba(56, 189, 248, 0.2)' },
+                        ]}>
+                        <Ionicons name="add-circle-outline" size={16} color="#38BDF8" />
+                      </View>
+                      <Text style={styles.subActionLabel}>+ Crear Nuevo</Text>
+                    </TouchableOpacity>
+                  )}
 
                   <TouchableOpacity
                     style={styles.subActionItem}

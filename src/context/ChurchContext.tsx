@@ -1397,6 +1397,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addMinistry = async (data: Omit<Ministry, 'id' | 'createdAt'>): Promise<string> => {
+    if (currentUser?.role !== 'senior_pastor') {
+      throw new Error('Solo los Pastores Principales tienen autorización para crear ministerios.');
+    }
     const newId = generateUUID();
     const newMin: Ministry = {
       ...data,
@@ -1432,6 +1435,18 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateMinistry = async (id: string, patch: Partial<Ministry>): Promise<void> => {
+    const target = ministries.find((m) => m.id === id);
+    const fullName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}`.trim().toLowerCase() : '';
+    const isCoord = Boolean(
+      target && currentUser && (
+        (target.coordinatorId && target.coordinatorId === currentUser.id) ||
+        (target.coordinatorName && target.coordinatorName.trim().toLowerCase().includes(fullName))
+      )
+    );
+    if (currentUser?.role !== 'senior_pastor' && !isCoord) {
+      throw new Error('Solo los Pastores Principales o el Coordinador asignado pueden editar este ministerio.');
+    }
+
     const updated = ministries.map((m) => (m.id === id ? { ...m, ...patch } : m));
     setMinistries(updated);
     AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(updated)).catch(() => {});
@@ -1455,6 +1470,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteMinistry = async (id: string): Promise<void> => {
+    if (currentUser?.role !== 'senior_pastor') {
+      throw new Error('Solo los Pastores Principales tienen autorización para eliminar ministerios.');
+    }
     const updated = ministries.filter((m) => m.id !== id);
     setMinistries(updated);
     AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(updated)).catch(() => {});

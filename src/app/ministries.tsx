@@ -58,6 +58,18 @@ export default function MinistriesScreen() {
 
   const isPastor = currentUser?.role === 'senior_pastor';
 
+  const isCoordinatorOf = (min?: Ministry | null): boolean => {
+    if (!min || !currentUser) return false;
+    if (min.coordinatorId && min.coordinatorId === currentUser.id) return true;
+    const fullName = `${currentUser.firstName} ${currentUser.lastName}`.trim().toLowerCase();
+    if (min.coordinatorName && min.coordinatorName.trim().toLowerCase().includes(fullName)) return true;
+    return false;
+  };
+
+  const canEditMinistry = (min?: Ministry | null): boolean => {
+    return isPastor || isCoordinatorOf(min);
+  };
+
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -255,6 +267,10 @@ export default function MinistriesScreen() {
   };
 
   const openCreateModal = () => {
+    if (!isPastor) {
+      Alert.alert('Acceso restringido', 'Solo los Pastores Principales tienen autorización para crear nuevos ministerios.');
+      return;
+    }
     setEditingMinistry(null);
     setName('');
     setDescription('');
@@ -277,6 +293,10 @@ export default function MinistriesScreen() {
   };
 
   const openEditModal = (min: Ministry) => {
+    if (!canEditMinistry(min)) {
+      Alert.alert('Acceso restringido', 'Solo los Pastores Principales o el Coordinador asignado pueden editar este ministerio.');
+      return;
+    }
     setEditingMinistry(min);
     setName(min.name);
     setDescription(min.description || '');
@@ -295,6 +315,7 @@ export default function MinistriesScreen() {
   };
 
   const handleSelectMember = (m: Member) => {
+    if (!isPastor) return;
     setCoordinatorId(m.id);
     setCoordinatorName(`${m.firstName} ${m.lastName}`);
     setCoordinatorPhone(m.phone || '');
@@ -302,6 +323,7 @@ export default function MinistriesScreen() {
   };
 
   const handleSelectMyself = () => {
+    if (!isPastor) return;
     if (currentUser) {
       setCoordinatorId(currentUser.id);
       setCoordinatorName(`${currentUser.firstName} ${currentUser.lastName} (Pastor)`);
@@ -311,6 +333,15 @@ export default function MinistriesScreen() {
   };
 
   const handleSave = async () => {
+    if (!editingMinistry && !isPastor) {
+      Alert.alert('Acceso restringido', 'Solo los Pastores Principales pueden crear nuevos ministerios.');
+      return;
+    }
+    if (editingMinistry && !canEditMinistry(editingMinistry)) {
+      Alert.alert('Acceso restringido', 'Solo los Pastores Principales o el Coordinador asignado pueden editar este ministerio.');
+      return;
+    }
+
     if (!name.trim()) {
       Alert.alert('Nombre requerido', 'Ingresa el nombre del ministerio (ej: Alabanza, Audiovisual, Protocolo).');
       return;
@@ -327,9 +358,9 @@ export default function MinistriesScreen() {
           description: description.trim() || undefined,
           color: selectedColor,
           icon: selectedIcon,
-          coordinatorId,
-          coordinatorName: coordinatorName.trim(),
-          coordinatorPhone: coordinatorPhone.trim() || undefined,
+          coordinatorId: isPastor ? coordinatorId : editingMinistry.coordinatorId,
+          coordinatorName: isPastor ? coordinatorName.trim() : editingMinistry.coordinatorName,
+          coordinatorPhone: isPastor ? (coordinatorPhone.trim() || undefined) : editingMinistry.coordinatorPhone,
           defaultRoles: rolesList,
         });
       } else {
@@ -351,6 +382,11 @@ export default function MinistriesScreen() {
   };
 
   const handleDelete = (min: Ministry) => {
+    if (!isPastor) {
+      Alert.alert('Acceso restringido', 'Solo los Pastores Principales tienen autorización para eliminar ministerios.');
+      return;
+    }
+
     if (Platform.OS === 'web') {
       const confirmed =
         typeof window !== 'undefined'
@@ -412,10 +448,14 @@ export default function MinistriesScreen() {
             <Text style={styles.heroKicker}>DELEGACIÓN & EQUIPOS</Text>
             <Text style={styles.heroTitle}>Ministerios</Text>
           </View>
-          <TouchableOpacity style={styles.addTopBtn} onPress={openCreateModal}>
-            <Ionicons name="add" size={18} color="#FFFFFF" />
-            <Text style={styles.addTopBtnText}>Crear</Text>
-          </TouchableOpacity>
+          {isPastor ? (
+            <TouchableOpacity style={styles.addTopBtn} onPress={openCreateModal}>
+              <Ionicons name="add" size={18} color="#FFFFFF" />
+              <Text style={styles.addTopBtnText}>Crear</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 40 }} />
+          )}
         </View>
 
         <Text style={styles.heroSubtitle}>
@@ -456,10 +496,12 @@ export default function MinistriesScreen() {
                 ? 'Prueba con otro término de búsqueda.'
                 : 'Crea ministerios independientes como Alabanza, Audiovisual o Protocolo para organizar a los servidores de la iglesia.'}
             </Text>
-            <TouchableOpacity style={styles.emptyBtn} onPress={openCreateModal}>
-              <Ionicons name="add-circle" size={18} color="#FFFFFF" />
-              <Text style={styles.emptyBtnText}>Crear Ministerio</Text>
-            </TouchableOpacity>
+            {isPastor && (
+              <TouchableOpacity style={styles.emptyBtn} onPress={openCreateModal}>
+                <Ionicons name="add-circle" size={18} color="#FFFFFF" />
+                <Text style={styles.emptyBtnText}>Crear Ministerio</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           filteredMinistries.map((min) => {
@@ -571,32 +613,34 @@ export default function MinistriesScreen() {
                     <Text style={styles.actionBtnTeamText}>Ver Equipo ({serverCount})</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.actionBtnAddServer}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      setActiveTeamMinistry(min);
-                      setAddServerSearch('');
-                      setAddServerModalVisible(true);
-                    }}>
-                    <Ionicons name="person-add-outline" size={15} color="#10B981" />
-                    <Text style={styles.actionBtnAddServerText}>+ Servidor</Text>
-                  </TouchableOpacity>
+                  {canEditMinistry(min) && (
+                    <TouchableOpacity
+                      style={styles.actionBtnAddServer}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setActiveTeamMinistry(min);
+                        setAddServerSearch('');
+                        setAddServerModalVisible(true);
+                      }}>
+                      <Ionicons name="person-add-outline" size={15} color="#10B981" />
+                      <Text style={styles.actionBtnAddServerText}>+ Servidor</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {canEditMinistry(min) && (
+                    <TouchableOpacity
+                      style={styles.actionBtnEdit}
+                      onPress={() => openEditModal(min)}>
+                      <Ionicons name="create-outline" size={16} color="#38BDF8" />
+                    </TouchableOpacity>
+                  )}
 
                   {isPastor && (
-                    <>
-                      <TouchableOpacity
-                        style={styles.actionBtnEdit}
-                        onPress={() => openEditModal(min)}>
-                        <Ionicons name="create-outline" size={16} color="#38BDF8" />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.actionBtnDelete}
-                        onPress={() => handleDelete(min)}>
-                        <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                      </TouchableOpacity>
-                    </>
+                    <TouchableOpacity
+                      style={styles.actionBtnDelete}
+                      onPress={() => handleDelete(min)}>
+                      <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                    </TouchableOpacity>
                   )}
                 </View>
               </View>
@@ -634,10 +678,14 @@ export default function MinistriesScreen() {
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Nombre del Ministerio *</Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  !isPastor && { opacity: 0.7, backgroundColor: 'rgba(255, 255, 255, 0.04)' },
+                ]}
                 placeholder="Ej: Alabanza, Audiovisual, Protocolo, Danza..."
                 placeholderTextColor="#94A3B8"
                 value={name}
+                editable={isPastor}
                 onChangeText={setName}
               />
             </View>
@@ -654,35 +702,53 @@ export default function MinistriesScreen() {
               />
             </View>
 
-            {/* 2. Asignar Coordinador */}
+            {/* 2. Asignar Coordinador (Solo editable por Pastores) */}
             <View style={styles.formGroup}>
               <View style={styles.coordLabelRow}>
                 <Text style={styles.inputLabel}>Coordinador Responsable *</Text>
-                <TouchableOpacity onPress={handleSelectMyself}>
-                  <Text style={styles.assignMyselfText}>Asignarme a mí</Text>
-                </TouchableOpacity>
+                {isPastor && (
+                  <TouchableOpacity onPress={handleSelectMyself}>
+                    <Text style={styles.assignMyselfText}>Asignarme a mí</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              <TouchableOpacity
-                style={styles.pickerSelector}
-                onPress={() => {
-                  setMemberSearch('');
-                  setMemberPickerVisible(true);
-                }}>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[
-                      styles.pickerSelectorValue,
-                      !coordinatorName && { color: '#94A3B8' },
-                    ]}>
-                    {coordinatorName || 'Seleccionar de los pastores o miembros...'}
-                  </Text>
-                  {coordinatorPhone ? (
-                    <Text style={styles.pickerSelectorSub}>📞 {coordinatorPhone}</Text>
-                  ) : null}
+              {isPastor ? (
+                <TouchableOpacity
+                  style={styles.pickerSelector}
+                  onPress={() => {
+                    setMemberSearch('');
+                    setMemberPickerVisible(true);
+                  }}>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.pickerSelectorValue,
+                        !coordinatorName && { color: '#94A3B8' },
+                      ]}>
+                      {coordinatorName || 'Seleccionar de los pastores o miembros...'}
+                    </Text>
+                    {coordinatorPhone ? (
+                      <Text style={styles.pickerSelectorSub}>📞 {coordinatorPhone}</Text>
+                    ) : null}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#64748B" />
+                </TouchableOpacity>
+              ) : (
+                <View
+                  style={[
+                    styles.pickerSelector,
+                    { opacity: 0.85, backgroundColor: 'rgba(255, 255, 255, 0.04)' },
+                  ]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pickerSelectorValue}>{coordinatorName}</Text>
+                    {coordinatorPhone ? (
+                      <Text style={styles.pickerSelectorSub}>📞 {coordinatorPhone}</Text>
+                    ) : null}
+                  </View>
+                  <Ionicons name="lock-closed" size={16} color="#94A3B8" />
                 </View>
-                <Ionicons name="chevron-forward" size={18} color="#64748B" />
-              </TouchableOpacity>
+              )}
             </View>
 
             {/* 3. Selección de Color */}
@@ -902,12 +968,14 @@ export default function MinistriesScreen() {
                 {activeMinistryMembers.length} Servidores en el equipo
               </Text>
             </View>
-            <TouchableOpacity
-              style={styles.addServerTopBtn}
-              onPress={() => setAddServerModalVisible(true)}>
-              <Ionicons name="person-add" size={15} color="#FFFFFF" />
-              <Text style={styles.addServerTopBtnText}>+ Inscribir</Text>
-            </TouchableOpacity>
+            {canEditMinistry(activeTeamMinistry) && (
+              <TouchableOpacity
+                style={styles.addServerTopBtn}
+                onPress={() => setAddServerModalVisible(true)}>
+                <Ionicons name="person-add" size={15} color="#FFFFFF" />
+                <Text style={styles.addServerTopBtnText}>+ Inscribir</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Coordinador Banner */}
@@ -948,14 +1016,18 @@ export default function MinistriesScreen() {
               <Ionicons name="people-outline" size={48} color="#64748B" />
               <Text style={styles.teamEmptyTitle}>No hay servidores inscritos</Text>
               <Text style={styles.teamEmptySub}>
-                Pulsa en "+ Inscribir" para sumar hermanos(as) de la iglesia al ministerio de {activeTeamMinistry?.name}.
+                {canEditMinistry(activeTeamMinistry)
+                  ? `Pulsa en "+ Inscribir" para sumar hermanos(as) de la iglesia al ministerio de ${activeTeamMinistry?.name}.`
+                  : `Aún no hay servidores registrados en el ministerio de ${activeTeamMinistry?.name}.`}
               </Text>
-              <TouchableOpacity
-                style={styles.teamEmptyBtn}
-                onPress={() => setAddServerModalVisible(true)}>
-                <Ionicons name="person-add" size={16} color="#FFFFFF" />
-                <Text style={styles.teamEmptyBtnText}>Inscribir Primer Servidor</Text>
-              </TouchableOpacity>
+              {canEditMinistry(activeTeamMinistry) && (
+                <TouchableOpacity
+                  style={styles.teamEmptyBtn}
+                  onPress={() => setAddServerModalVisible(true)}>
+                  <Ionicons name="person-add" size={16} color="#FFFFFF" />
+                  <Text style={styles.teamEmptyBtnText}>Inscribir Primer Servidor</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <FlatList
@@ -1001,11 +1073,13 @@ export default function MinistriesScreen() {
                       </>
                     ) : null}
 
-                    <TouchableOpacity
-                      style={styles.serverDeleteBtn}
-                      onPress={() => handleRemoveMemberFromMinistry(item)}>
-                      <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                    </TouchableOpacity>
+                    {canEditMinistry(activeTeamMinistry) && (
+                      <TouchableOpacity
+                        style={styles.serverDeleteBtn}
+                        onPress={() => handleRemoveMemberFromMinistry(item)}>
+                        <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               )}
