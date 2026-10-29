@@ -1,7 +1,7 @@
 # CACHE DE ARQUITECTURA Y ESTADO DEL PROYECTO
 **Proyecto:** Planeador Pastoral (IEC - Iglesia Emmanuel de Caja de Agua)  
 **Versión:** 1.0.0 | **Expo SDK:** 58.0.19 | **React Native:** 0.88.0 | **React:** 19.3.0  
-**Última actualización de caché:** 2026-10-27 (Módulo de Perfil y Configuración Personal completa: datos personales, culto habitual, red y cobertura G12, cambio de contraseña y sincronización Supabase)  
+**Última actualización de caché:** 2026-10-29 (Estética Dark Glassmorphic completa en toda la aplicación: Aurora Mesh difuminado, sección completa de Eventos/Servicios [lista, detalle, editor y ministerios], tarjetas translúcidas, contenedores/divs, botones con gradientes/acentos cyan, inputs oscuros con placeholders legibles y modales glassmorphic)  
 **Estado de TypeScript:** 100% libre de errores (`tsc --noEmit` exitoso) | **Expo Doctor:** 20/20 pasados | **Expo Lint:** 0 errores, 0 advertencias
 
 > **PROPÓSITO DE ESTE ARCHIVO:**  
@@ -21,11 +21,14 @@
   5. Registro y consolidación de asistencia dominical por categorías demográficas.
   6. Check-in / check-out de Iglesia Infantil con códigos de seguridad.
 - **Identidad Visual / Icono:** Diseño pastoral y de gestión eclesial con Santa Biblia abierta en el centro, cruz en la página, congregación/comunidad tomada de la mano en unidad y discipulado, manos de apoyo pastoral y símbolos de gestión litúrgica (gráfica de crecimiento, reporte con checklist y corazón) sobre gradiente azul real (`#1E3A8A`). Totalmente limpio sin textos. Generado en 1024x1024 (`assets/images/icon.png`, `android-icon-foreground.png`, `splash-icon.png`, `favicon.png`).
-- **Fondos Patrón Estilo WhatsApp (Doodle Cristiano):** 
-  - Componente universal: [`DoodleBackground`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/components/doodle-background.tsx) con `resizeMode="repeat"`.
-  - `assets/images/doodle-pattern-light.png`: Patrón sutil en tonos pastel/azul pizarra suave con símbolos de cruz, Santa Biblia, paloma de la paz con ramita de olivo, corazones, manos orando, peces ichthys, cáliz y báculos pastorales (opacidad 15%).
-  - `assets/images/doodle-pattern-dark.png`: Versión oscura con fondo azul medianoche profundo (`#0F172A`) y trazos sutiles en dorado/blanco (opacidad 22%).
-  - **Vistas que lo integran:** `login.tsx` (oscuro), `index.tsx`, `cells.tsx`, `attendance.tsx`, `members.tsx`, `planner/index.tsx`, `planner/[id].tsx`, `planner/editor.tsx`, `ministries.tsx`, `kids.tsx` y `register.tsx`.
+- **Estética Visual Dark Glassmorphic & Aurora Mesh (Obsidian, Luces Ambientales y Componentes Translúcidos):** 
+  - Componente universal: [`AuroraBackground`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/components/aurora-background.tsx) y [`DoodleBackground`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/components/doodle-background.tsx) potenciados con `expo-linear-gradient` (`#070A14` ➔ `#0A1128` ➔ `#060913` ➔ `#080E1A`), orbes de luz ambiental de color (Azul, Teal, Rosa y Esmeralda) y capa de desenfoque nativo con `BlurView` (`expo-blur` a intensidad 70/90 y `filter: 'blur(100px)'` en web).
+  - Tarjetas y Contenedores (divs): Con estilo dark glassmorphism (`rgba(15, 23, 42, 0.75-0.85)` y bordes translúcidos de luz `rgba(255, 255, 255, 0.08-0.35)`).
+  - Botones y Acciones: Botones primarios en Cyan/Azul elétrico (`#0284C7`), pills de filtro activos en `rgba(56, 189, 248, 0.2)` con bordes `#38BDF8`, botones de batch y estado con sombras dinámicas y tipografía de alto contraste (`#FFFFFF`).
+  - Inputs y Formularios: Campos de texto oscuros translúcidos (`rgba(15, 23, 42, 0.75)` con borde `rgba(255, 255, 255, 0.12)`, texto `#FFFFFF` y `placeholderTextColor="#64748B"`).
+  - Píldoras de navegación superior: **Discipulado** y **Zona interactiva** (Palabra de los Pastores con versículos y devocionales).
+  - Iconos circulares con resplandor neón: Azul/Cyan (`#38BDF8`) para Asistencia, Teal (`#2DD4BF`) para Células, Coral/Rosa (`#FB7185`) para Cuidado Pastoral, Violeta (`#A78BFA`) para Liturgia y Ámbar (`#FBBF24`) para Donaciones y Reportes.
+  - Vistas completamente armonizadas: [`src/app/index.tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/index.tsx), [`src/app/login.tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/login.tsx), [`src/app/register.tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/register.tsx), [`src/app/members.tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/members.tsx), [`src/app/cells.tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/cells.tsx), [`src/app/attendance.tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/attendance.tsx), [`src/app/kids.tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/kids.tsx), [`src/app/profile.tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/profile.tsx), [`src/app/planner/index.tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/planner/index.tsx), [`src/app/planner/[id].tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/planner/[id].tsx), [`src/app/planner/editor.tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/planner/editor.tsx) y [`src/app/ministries.tsx`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/app/ministries.tsx).
 
 ---
 
@@ -35,7 +38,7 @@
 |---|---|---|
 | **Framework** | Expo SDK 58 (58.0.19) | React Compiler habilitado (`experiments.reactCompiler: true`), Typed Routes activadas. |
 | **Core UI** | React Native 0.88.0, React 19.3.0 | Arquitectura Mobile-First. Estilos con StyleSheet / Vanilla CSS adaptativo (Light/Dark). |
-| **Navegación** | Expo Router 58.0.26 (React Navigation 7) | Rutas basadas en archivos bajo `src/app/`. Barra de navegación en `src/components/app-tabs.tsx` con opciones e iconos memoizados para prevenir loops de re-render en `BottomTabView`. |
+| **Navegación** | Expo Router 58.0.26 (React Navigation 7) | Rutas basadas en archivos bajo `src/app/`. Barra de navegación translúcida flotante en `src/components/app-tabs.tsx` con `position: 'absolute'`, `tabBarBackground` con `BlurView` nativo (`expo-blur`), e insets dinámicos (`56 + bottomInset`) de modo que el fondo degradado y luces ambientales fluyan por detrás de la barra hasta el borde de la pantalla. Para evitar franjas negras arriba del navbar, las pantallas usan `<SafeAreaView edges={['top', 'left', 'right']}>` y `paddingBottom: 110` en sus `ScrollView`/`FlatList`. Canvas oscuro forzado con `SystemUI.setBackgroundColorAsync('#070A14')`, `userInterfaceStyle: "dark"`, `["expo-navigation-bar", { "enforceContrast": false }]` y `<NavigationBar style="light" />` (en Expo Navigation Bar, `style="light"` produce barra oscura con botones blancos; `style="dark"` produce barra blanca). Luces ambientales difuminadas sin bordes en Android mediante [`AmbientOrb`](file:///d:/asdasd/iglesia/PaneadorPastoral/src/components/ambient-orb.tsx) con gradientes concéntricos multi-parada que se desvanecen a alfa 0. |
 | **Base de Datos** | Supabase (`@supabase/supabase-js` ^2.118.0) | PostgreSQL con RLS abierto para anon. Conexión centralizada en `src/lib/supabase.ts`. |
 | **Almacenamiento Local** | `@react-native-async-storage/async-storage` 2.2.0 | Persistencia de sesión de usuario y caché de ministerios sin conexión. |
 | **Animaciones / UI** | `react-native-reanimated` 4.5.1, `@expo/vector-icons` | Iconografía Ionicons, splash animado nativo en `src/components/animated-icon.tsx`. |

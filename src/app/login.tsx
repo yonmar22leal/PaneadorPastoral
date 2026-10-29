@@ -1,3 +1,4 @@
+import { AuroraBackground } from '@/components/aurora-background';
 import { useChurch } from '@/context/ChurchContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -5,7 +6,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
   Alert,
-  ImageBackground,
   ScrollView,
   StyleSheet,
   Text,
@@ -68,11 +68,7 @@ export default function LoginScreen({ onGoRegister }: LoginScreenProps = {}) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
-      <ImageBackground
-        source={require('@/assets/images/doodle-pattern-dark.png')}
-        style={styles.backgroundImage}
-        imageStyle={{ opacity: 0.22 }}
-        resizeMode="repeat">
+      <AuroraBackground>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header Hero */}
         <View style={styles.headerHero}>
@@ -192,7 +188,7 @@ export default function LoginScreen({ onGoRegister }: LoginScreenProps = {}) {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </ImageBackground>
+    </AuroraBackground>
   </SafeAreaView>
   );
 }
@@ -200,7 +196,7 @@ export default function LoginScreen({ onGoRegister }: LoginScreenProps = {}) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#070A14',
   },
   backgroundImage: {
     flex: 1,
@@ -260,24 +256,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cardContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
     marginHorizontal: 20,
     borderRadius: 24,
     padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.35,
     shadowRadius: 16,
     elevation: 6,
   },
   cardTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   cardDescription: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 4,
     marginBottom: 18,
     lineHeight: 17,
@@ -286,9 +284,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     borderWidth: 1,
-    borderColor: '#FCA5A5',
+    borderColor: 'rgba(251, 113, 133, 0.3)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 14,
@@ -296,23 +294,23 @@ const styles = StyleSheet.create({
   errorAlertText: {
     flex: 1,
     fontSize: 12,
-    color: '#991B1B',
+    color: '#FCA5A5',
     fontWeight: '600',
     lineHeight: 16,
   },
   inputLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: '#94A3B8',
     marginBottom: 6,
     marginTop: 8,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 14,
     paddingHorizontal: 14,
     height: 48,
@@ -320,15 +318,15 @@ const styles = StyleSheet.create({
   },
   inputWrapperError: {
     borderColor: '#EF4444',
-    backgroundColor: '#FFF5F5',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   textInput: {
     flex: 1,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   primaryButton: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#0284C7',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -336,9 +334,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     marginTop: 22,
-    shadowColor: '#1E3A8A',
+    shadowColor: '#38BDF8',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -355,12 +353,12 @@ const styles = StyleSheet.create({
   },
   registerPrompt: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#94A3B8',
   },
   registerLink: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#2563EB',
+    color: '#38BDF8',
   },
   demoSection: {
     marginHorizontal: 20,

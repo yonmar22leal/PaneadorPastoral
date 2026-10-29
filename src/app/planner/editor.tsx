@@ -482,9 +482,9 @@ export default function EventEditorScreen() {
       </View>
 
       <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: '#F8FAFC' }}
+        style={{ flex: 1, backgroundColor: '#080C16' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <DoodleBackground style={{ backgroundColor: '#F8FAFC' }}>
+        <DoodleBackground>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 140 }}
           keyboardShouldPersistTaps="handled"
@@ -495,11 +495,11 @@ export default function EventEditorScreen() {
               marginHorizontal: 16,
               marginTop: 14,
               marginBottom: 4,
-              backgroundColor: '#EFF6FF',
+              backgroundColor: 'rgba(56, 189, 248, 0.12)',
               borderRadius: 14,
               padding: 12,
               borderWidth: 1,
-              borderColor: '#BFDBFE',
+              borderColor: 'rgba(56, 189, 248, 0.25)',
               flexDirection: 'row',
               alignItems: 'center',
               gap: 10,
@@ -509,20 +509,20 @@ export default function EventEditorScreen() {
                 width: 34,
                 height: 34,
                 borderRadius: 17,
-                backgroundColor: '#DBEAFE',
+                backgroundColor: 'rgba(56, 189, 248, 0.18)',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
-              <Ionicons name="shield-checkmark" size={18} color="#1E40AF" />
+              <Ionicons name="shield-checkmark" size={18} color="#38BDF8" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#1E40AF', textTransform: 'uppercase' }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: '#38BDF8', textTransform: 'uppercase' }}>
                 {existing ? 'Dueño del Evento' : 'Creador del Evento'}
               </Text>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B' }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
                 {existing?.createdByName || (currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'Pastor')}
               </Text>
-              <Text style={{ fontSize: 11, color: '#64748B' }}>
+              <Text style={{ fontSize: 11, color: '#94A3B8' }}>
                 {currentUser?.role === 'senior_pastor' && existing && existing.createdById !== currentUser.id
                   ? 'Editando con autoridad de Pastor Principal'
                   : 'Solo el creador y pastores principales pueden editar este evento'}
@@ -726,7 +726,7 @@ export default function EventEditorScreen() {
               <TouchableOpacity
                 style={styles.templateBtn}
                 onPress={() => router.push('/ministries' as any)}>
-                <Ionicons name="ribbon-outline" size={14} color="#2563EB" />
+                <Ionicons name="ribbon-outline" size={14} color="#38BDF8" />
                 <Text style={styles.templateBtnText}>Ministerios</Text>
               </TouchableOpacity>
             </View>
@@ -740,18 +740,18 @@ export default function EventEditorScreen() {
                   key={min.id}
                   style={[
                     styles.minCardRow,
-                    isActive && { borderColor: min.color || '#2563EB', backgroundColor: '#F8FAFC' },
+                    isActive && { borderColor: min.color || '#38BDF8', backgroundColor: (min.color || '#38BDF8') + '15' },
                   ]}>
                   <View style={styles.minHeaderRow}>
                     <View
                       style={[
                         styles.minIconCircle,
-                        { backgroundColor: (min.color || '#2563EB') + '22' },
+                        { backgroundColor: (min.color || '#38BDF8') + '22' },
                       ]}>
                       <Ionicons
                         name={(min.icon as any) || 'people'}
                         size={18}
-                        color={min.color || '#2563EB'}
+                        color={min.color || '#38BDF8'}
                       />
                     </View>
                     <View style={{ flex: 1, marginLeft: 10 }}>
@@ -763,7 +763,7 @@ export default function EventEditorScreen() {
                     <Switch
                       value={isActive}
                       onValueChange={() => toggleMinistry(min)}
-                      trackColor={{ false: '#CBD5E1', true: min.color || '#3B82F6' }}
+                      trackColor={{ false: '#334155', true: min.color || '#0284C7' }}
                       thumbColor="#FFFFFF"
                     />
                   </View>
@@ -784,14 +784,14 @@ export default function EventEditorScreen() {
                             setMemberSearchQuery('');
                             setPickingCoordinatorForMinId(min.id);
                           }}>
-                          <Ionicons name="swap-horizontal" size={14} color="#2563EB" />
+                          <Ionicons name="swap-horizontal" size={14} color="#38BDF8" />
                           <Text style={styles.minChangeBtnText}>Delegar</Text>
                         </TouchableOpacity>
                       </View>
 
                       {min.defaultRoles && min.defaultRoles.length > 0 && (
                         <View style={{ marginTop: 8 }}>
-                          <Text style={[styles.label, { fontSize: 10, color: '#64748B' }]}>
+                          <Text style={[styles.label, { fontSize: 10, color: '#94A3B8' }]}>
                             PUESTOS DISPONIBLES:
                           </Text>
                           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
@@ -799,14 +799,14 @@ export default function EventEditorScreen() {
                               <View
                                 key={rIdx}
                                 style={{
-                                  backgroundColor: '#FFFFFF',
+                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
                                   borderWidth: 1,
-                                  borderColor: '#E2E8F0',
+                                  borderColor: 'rgba(255, 255, 255, 0.12)',
                                   borderRadius: 6,
                                   paddingHorizontal: 6,
                                   paddingVertical: 2,
                                 }}>
-                                <Text style={{ fontSize: 10, color: '#334155', fontWeight: '700' }}>
+                                <Text style={{ fontSize: 10, color: '#E2E8F0', fontWeight: '700' }}>
                                   {r}
                                 </Text>
                               </View>
@@ -843,7 +843,7 @@ export default function EventEditorScreen() {
                 </Text>
               </View>
               <TouchableOpacity style={styles.templateBtn} onPress={loadTemplate}>
-                <Ionicons name="color-wand" size={14} color="#2563EB" />
+                <Ionicons name="color-wand" size={14} color="#38BDF8" />
                 <Text style={styles.templateBtnText}>Plantilla</Text>
               </TouchableOpacity>
             </View>
@@ -918,7 +918,7 @@ export default function EventEditorScreen() {
                                   durationMinutes: Math.max(0, item.durationMinutes - 5),
                                 })
                               }>
-                              <Ionicons name="remove" size={16} color="#0F172A" />
+                              <Ionicons name="remove" size={16} color="#FFFFFF" />
                             </TouchableOpacity>
                             <TextInput
                               style={styles.stepInput}
@@ -935,7 +935,7 @@ export default function EventEditorScreen() {
                               onPress={() =>
                                 updateItem(item.id, { durationMinutes: item.durationMinutes + 5 })
                               }>
-                              <Ionicons name="add" size={16} color="#0F172A" />
+                              <Ionicons name="add" size={16} color="#FFFFFF" />
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -980,7 +980,7 @@ export default function EventEditorScreen() {
                           onPress={() => updateItem(item.id, { ministryId: undefined, ministryName: undefined })}
                           style={[
                             styles.miniChip,
-                            !item.ministryName && { backgroundColor: '#334155', borderColor: '#334155' },
+                            !item.ministryName && { backgroundColor: 'rgba(255, 255, 255, 0.15)', borderColor: 'rgba(255, 255, 255, 0.25)' },
                           ]}>
                           <Text style={[styles.miniChipText, !item.ministryName && { color: '#FFFFFF' }]}>
                             General
@@ -999,7 +999,7 @@ export default function EventEditorScreen() {
                               }
                               style={[
                                 styles.miniChip,
-                                isSel && { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+                                isSel && { backgroundColor: '#0284C7', borderColor: '#38BDF8' },
                               ]}>
                               <Text style={[styles.miniChipText, isSel && { color: '#FFFFFF' }]}>
                                 {m.ministryName}
@@ -1022,7 +1022,7 @@ export default function EventEditorScreen() {
                           style={styles.itemActionBtn}
                           disabled={index === 0}
                           onPress={() => moveItem(index, -1)}>
-                          <Ionicons name="arrow-up" size={16} color={index === 0 ? '#CBD5E1' : '#334155'} />
+                          <Ionicons name="arrow-up" size={16} color={index === 0 ? 'rgba(255,255,255,0.15)' : '#94A3B8'} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.itemActionBtn}
@@ -1031,14 +1031,14 @@ export default function EventEditorScreen() {
                           <Ionicons
                             name="arrow-down"
                             size={16}
-                            color={index === finalSchedule.length - 1 ? '#CBD5E1' : '#334155'}
+                            color={index === finalSchedule.length - 1 ? 'rgba(255,255,255,0.15)' : '#94A3B8'}
                           />
                         </TouchableOpacity>
                         <View style={{ flex: 1 }} />
                         <TouchableOpacity
-                          style={[styles.itemActionBtn, { backgroundColor: '#FEF2F2' }]}
+                          style={[styles.itemActionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}
                           onPress={() => removeItem(item.id)}>
-                          <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                          <Ionicons name="trash-outline" size={16} color="#EF4444" />
                           <Text style={styles.deleteText}>Quitar</Text>
                         </TouchableOpacity>
                       </View>
@@ -1049,7 +1049,7 @@ export default function EventEditorScreen() {
             })}
 
             <TouchableOpacity style={styles.addBtn} onPress={addItem}>
-              <Ionicons name="add-circle" size={18} color="#2563EB" />
+              <Ionicons name="add-circle" size={18} color="#38BDF8" />
               <Text style={styles.addBtnText}>Agregar bloque al cronograma</Text>
             </TouchableOpacity>
           </View>
@@ -1069,7 +1069,7 @@ export default function EventEditorScreen() {
                           onPress={() => updateVolunteer(v.id, { area: em.ministryName, ministryId: em.ministryId })}
                           style={[
                             styles.miniChip,
-                            v.area === em.ministryName && { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+                            v.area === em.ministryName && { backgroundColor: '#0284C7', borderColor: '#38BDF8' },
                           ]}>
                           <Text style={[styles.miniChipText, v.area === em.ministryName && { color: '#FFFFFF' }]}>
                             {em.ministryName}
@@ -1101,8 +1101,8 @@ export default function EventEditorScreen() {
                               style={[
                                 styles.miniChip,
                                 isSel && {
-                                  backgroundColor: minObj.color || '#2563EB',
-                                  borderColor: minObj.color || '#2563EB',
+                                  backgroundColor: minObj.color || '#0284C7',
+                                  borderColor: minObj.color || '#38BDF8',
                                 },
                               ]}>
                               <Text
@@ -1149,7 +1149,7 @@ export default function EventEditorScreen() {
                         setMemberSearchQuery('');
                         setPickingVolunteerForVolId(v.id);
                       }}>
-                      <Ionicons name="people" size={14} color="#2563EB" />
+                      <Ionicons name="people" size={14} color="#38BDF8" />
                       <Text style={styles.pickMemberSmBtnText}>Buscar</Text>
                     </TouchableOpacity>
                   </View>
@@ -1157,7 +1157,7 @@ export default function EventEditorScreen() {
                 <TouchableOpacity
                   style={styles.volRemove}
                   onPress={() => setVolunteers((prev) => prev.filter((x) => x.id !== v.id))}>
-                  <Ionicons name="close" size={16} color="#DC2626" />
+                  <Ionicons name="close" size={16} color="#EF4444" />
                 </TouchableOpacity>
               </View>
             ))}
@@ -1169,7 +1169,7 @@ export default function EventEditorScreen() {
                   { id: localId('vol'), area: '', role: '', assignedTo: '', confirmed: false },
                 ])
               }>
-              <Ionicons name="person-add" size={16} color="#2563EB" />
+              <Ionicons name="person-add" size={16} color="#38BDF8" />
               <Text style={styles.addBtnText}>Agregar servidor</Text>
             </TouchableOpacity>
           </View>
@@ -1199,7 +1199,7 @@ export default function EventEditorScreen() {
         <SafeAreaView style={styles.modalSafeArea}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setPickingCoordinatorForMinId(null)} style={styles.modalCloseBtn}>
-              <Ionicons name="close" size={22} color="#0F172A" />
+              <Ionicons name="close" size={22} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Delegar Coordinador</Text>
             <View style={{ width: 40 }} />
@@ -1233,7 +1233,7 @@ export default function EventEditorScreen() {
               <Ionicons
                 name="people"
                 size={14}
-                color={!showOtherNetworks ? '#FFFFFF' : '#1E3A8A'}
+                color={!showOtherNetworks ? '#FFFFFF' : '#38BDF8'}
               />
               <Text
                 style={[
@@ -1267,13 +1267,13 @@ export default function EventEditorScreen() {
               <Ionicons
                 name={showOtherNetworks ? 'checkmark-circle' : 'hand-left-outline'}
                 size={14}
-                color={showOtherNetworks ? '#FFFFFF' : '#7C3AED'}
+                color={showOtherNetworks ? '#FFFFFF' : '#A78BFA'}
               />
               <Text
                 style={[
                   styles.networkTabText,
                   showOtherNetworks && styles.networkTabTextActive,
-                  !showOtherNetworks && { color: '#7C3AED' },
+                  !showOtherNetworks && { color: '#C4B5FD' },
                 ]}>
                 {showOtherNetworks ? 'Apoyo Activo' : '+ Ver Apoyo Otra Red'}
               </Text>
@@ -1286,7 +1286,7 @@ export default function EventEditorScreen() {
                   style={[
                     styles.networkCountPillText,
                     showOtherNetworks && styles.networkCountPillTextActive,
-                    !showOtherNetworks && { color: '#7C3AED' },
+                    !showOtherNetworks && { color: '#C4B5FD' },
                   ]}>
                   +{otherNetworkCount}
                 </Text>
@@ -1311,7 +1311,7 @@ export default function EventEditorScreen() {
                 </Text>
                 <Text style={styles.myselfSubtitle}>Asignarme como coordinador de este servicio</Text>
               </View>
-              <Ionicons name="arrow-forward" size={16} color="#2563EB" />
+              <Ionicons name="arrow-forward" size={16} color="#38BDF8" />
             </TouchableOpacity>
           )}
 
@@ -1335,12 +1335,12 @@ export default function EventEditorScreen() {
                   <View
                     style={[
                       styles.memberAvatar,
-                      isSupport && { backgroundColor: '#F3E8FF' },
+                      isSupport && { backgroundColor: 'rgba(124, 58, 237, 0.2)' },
                     ]}>
                     <Text
                       style={[
                         styles.memberAvatarText,
-                        isSupport && { color: '#7C3AED' },
+                        isSupport && { color: '#C4B5FD' },
                       ]}>
                       {item.firstName[0]}
                       {item.lastName[0] || ''}
@@ -1364,7 +1364,7 @@ export default function EventEditorScreen() {
                     </Text>
                     {item.phone ? <Text style={styles.memberPhone}>📞 {item.phone}</Text> : null}
                   </View>
-                  <Ionicons name="checkmark-circle-outline" size={20} color={isSupport ? '#7C3AED' : '#2563EB'} />
+                  <Ionicons name="checkmark-circle-outline" size={20} color={isSupport ? '#A78BFA' : '#38BDF8'} />
                 </TouchableOpacity>
               );
             }}
@@ -1381,7 +1381,7 @@ export default function EventEditorScreen() {
         <SafeAreaView style={styles.modalSafeArea}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setPickingVolunteerForVolId(null)} style={styles.modalCloseBtn}>
-              <Ionicons name="close" size={22} color="#0F172A" />
+              <Ionicons name="close" size={22} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Seleccionar Servidor</Text>
             <View style={{ width: 40 }} />
@@ -1415,7 +1415,7 @@ export default function EventEditorScreen() {
               <Ionicons
                 name="people"
                 size={14}
-                color={!showOtherNetworks ? '#FFFFFF' : '#1E3A8A'}
+                color={!showOtherNetworks ? '#FFFFFF' : '#38BDF8'}
               />
               <Text
                 style={[
@@ -1449,13 +1449,13 @@ export default function EventEditorScreen() {
               <Ionicons
                 name={showOtherNetworks ? 'checkmark-circle' : 'hand-left-outline'}
                 size={14}
-                color={showOtherNetworks ? '#FFFFFF' : '#7C3AED'}
+                color={showOtherNetworks ? '#FFFFFF' : '#A78BFA'}
               />
               <Text
                 style={[
                   styles.networkTabText,
                   showOtherNetworks && styles.networkTabTextActive,
-                  !showOtherNetworks && { color: '#7C3AED' },
+                  !showOtherNetworks && { color: '#C4B5FD' },
                 ]}>
                 {showOtherNetworks ? 'Apoyo Activo' : '+ Ver Apoyo Otra Red'}
               </Text>
@@ -1468,7 +1468,7 @@ export default function EventEditorScreen() {
                   style={[
                     styles.networkCountPillText,
                     showOtherNetworks && styles.networkCountPillTextActive,
-                    !showOtherNetworks && { color: '#7C3AED' },
+                    !showOtherNetworks && { color: '#C4B5FD' },
                   ]}>
                   +{otherNetworkCount}
                 </Text>
@@ -1501,12 +1501,12 @@ export default function EventEditorScreen() {
                   <View
                     style={[
                       styles.memberAvatar,
-                      isSupport && { backgroundColor: '#F3E8FF' },
+                      isSupport && { backgroundColor: 'rgba(124, 58, 237, 0.2)' },
                     ]}>
                     <Text
                       style={[
                         styles.memberAvatarText,
-                        isSupport && { color: '#7C3AED' },
+                        isSupport && { color: '#C4B5FD' },
                       ]}>
                       {item.firstName[0]}
                       {item.lastName[0] || ''}
@@ -1530,7 +1530,7 @@ export default function EventEditorScreen() {
                     </Text>
                     {item.phone ? <Text style={styles.memberPhone}>📞 {item.phone}</Text> : null}
                   </View>
-                  <Ionicons name="add-circle" size={22} color={isSupport ? '#7C3AED' : '#2563EB'} />
+                  <Ionicons name="add-circle" size={22} color={isSupport ? '#A78BFA' : '#38BDF8'} />
                 </TouchableOpacity>
               );
             }}
@@ -1542,7 +1542,7 @@ export default function EventEditorScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#1E3A8A' },
+  safeArea: { flex: 1, backgroundColor: '#070A14' },
   center: { justifyContent: 'center', alignItems: 'center', padding: 24 },
   lockedTitle: { color: '#FFFFFF', fontWeight: '800', marginTop: 12, fontSize: 15, textAlign: 'center' },
   topBar: {
@@ -1556,43 +1556,50 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   topTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
   saveBtnTop: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0284C7',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  saveBtnTopText: { color: '#1E3A8A', fontWeight: '800', fontSize: 13 },
+  saveBtnTopText: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
     marginHorizontal: 16,
     marginTop: 14,
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A', marginBottom: 4 },
-  cardSub: { fontSize: 12, color: '#64748B', fontWeight: '600', marginBottom: 8 },
-  label: { fontSize: 12, fontWeight: '700', color: '#475569', marginTop: 10, marginBottom: 5 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', marginBottom: 4 },
+  cardSub: { fontSize: 12, color: '#94A3B8', fontWeight: '600', marginBottom: 8 },
+  label: { fontSize: 12, fontWeight: '700', color: '#94A3B8', marginTop: 10, marginBottom: 5 },
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   inputSm: { paddingVertical: 8, fontSize: 13 },
-  inputDisabled: { backgroundColor: '#F1F5F9', color: '#94A3B8' },
+  inputDisabled: { backgroundColor: 'rgba(255, 255, 255, 0.02)', color: '#64748B' },
   row2: { flexDirection: 'row', gap: 10 },
   typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   typeChip: {
@@ -1603,142 +1610,149 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
-  typeChipText: { fontSize: 12, fontWeight: '700', color: '#334155' },
+  typeChipText: { fontSize: 12, fontWeight: '700', color: '#E2E8F0' },
   slotChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
-    backgroundColor: '#EFF6FF',
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
   },
-  slotChipActive: { backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' },
-  slotChipTitle: { fontSize: 12, fontWeight: '800', color: '#1E3A8A' },
-  slotChipSub: { fontSize: 11, fontWeight: '600', color: '#3B82F6', marginTop: 1 },
-  dateSelected: { fontSize: 14, fontWeight: '800', color: '#0F172A', marginTop: 2 },
+  slotChipActive: { backgroundColor: '#0284C7', borderColor: '#38BDF8' },
+  slotChipTitle: { fontSize: 12, fontWeight: '800', color: '#38BDF8' },
+  slotChipSub: { fontSize: 11, fontWeight: '600', color: '#7DD3FC', marginTop: 1 },
+  dateSelected: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginTop: 2 },
   dayChip: {
     width: 50,
     paddingVertical: 8,
     borderRadius: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
-  dayChipSunday: { borderColor: '#93C5FD', backgroundColor: '#EFF6FF' },
-  dayChipWeek: { fontSize: 10, fontWeight: '800', color: '#64748B' },
-  dayChipNum: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
+  dayChipSunday: { borderColor: 'rgba(56, 189, 248, 0.35)', backgroundColor: 'rgba(56, 189, 248, 0.1)' },
+  dayChipWeek: { fontSize: 10, fontWeight: '800', color: '#94A3B8' },
+  dayChipNum: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
   netChip: {
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
-  netChipActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
-  netChipText: { fontSize: 12, fontWeight: '700', color: '#334155' },
+  netChipActive: { backgroundColor: '#0284C7', borderColor: '#38BDF8' },
+  netChipText: { fontSize: 12, fontWeight: '700', color: '#E2E8F0' },
   templateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
   },
-  templateBtnText: { color: '#2563EB', fontSize: 12, fontWeight: '800' },
+  templateBtnText: { color: '#38BDF8', fontSize: 12, fontWeight: '800' },
   autoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  autoText: { flex: 1, fontSize: 12, fontWeight: '700', color: '#475569' },
+  autoText: { flex: 1, fontSize: 12, fontWeight: '700', color: '#94A3B8' },
   itemCard: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderLeftWidth: 4,
     borderRadius: 14,
     marginBottom: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
     overflow: 'hidden',
   },
   itemSummary: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
   itemTimeBox: { width: 62 },
-  itemTime: { fontSize: 12, fontWeight: '800', color: '#0F172A' },
+  itemTime: { fontSize: 12, fontWeight: '800', color: '#38BDF8' },
   itemDur: { fontSize: 10, fontWeight: '700', color: '#94A3B8' },
-  itemTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
-  itemResp: { fontSize: 11, color: '#64748B', marginTop: 1 },
+  itemTitle: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  itemResp: { fontSize: 11, color: '#94A3B8', marginTop: 1 },
   itemEditor: {
     paddingHorizontal: 12,
     paddingBottom: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    backgroundColor: '#FCFDFE',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
   },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     overflow: 'hidden',
   },
   stepBtn: { paddingHorizontal: 12, paddingVertical: 10 },
-  stepInput: { flex: 1, textAlign: 'center', fontSize: 14, fontWeight: '800', color: '#0F172A' },
+  stepInput: { flex: 1, textAlign: 'center', fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
   miniChip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
-  miniChipText: { fontSize: 11, fontWeight: '700', color: '#475569' },
+  miniChipText: { fontSize: 11, fontWeight: '700', color: '#94A3B8' },
   itemActions: { flexDirection: 'row', gap: 8, marginTop: 12, alignItems: 'center' },
   itemActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 10,
   },
-  deleteText: { color: '#DC2626', fontSize: 12, fontWeight: '700' },
+  deleteText: { color: '#EF4444', fontSize: 12, fontWeight: '700' },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     borderWidth: 1.5,
-    borderColor: '#BFDBFE',
+    borderColor: 'rgba(56, 189, 248, 0.35)',
     borderStyle: 'dashed',
     borderRadius: 14,
     paddingVertical: 12,
     marginTop: 6,
+    backgroundColor: 'rgba(56, 189, 248, 0.05)',
   },
-  addBtnText: { color: '#2563EB', fontWeight: '800', fontSize: 13 },
+  addBtnText: { color: '#38BDF8', fontWeight: '800', fontSize: 13 },
   volRow: {
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   volRemove: {
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1748,9 +1762,9 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: 16,
-    backgroundColor: 'rgba(248,250,252,0.96)',
+    backgroundColor: 'rgba(7, 10, 20, 0.95)',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   saveBtn: {
     flexDirection: 'row',
@@ -1759,14 +1773,19 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 15,
     borderRadius: 16,
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
   },
   saveBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   // Ministry assignment styles
   minCardRow: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: 12,
     marginBottom: 10,
   },
@@ -1784,76 +1803,80 @@ const styles = StyleSheet.create({
   minTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   minSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 1,
   },
   minAssignmentDetails: {
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   minCoordBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     gap: 8,
   },
   minCoordLabel: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#64748B',
+    color: '#94A3B8',
     letterSpacing: 0.5,
   },
   minCoordName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   minCoordPhone: {
     fontSize: 11,
-    color: '#2563EB',
+    color: '#38BDF8',
     marginTop: 1,
   },
   minChangeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
   },
   minChangeBtnText: {
-    color: '#2563EB',
+    color: '#38BDF8',
     fontSize: 11,
     fontWeight: '700',
   },
   pickMemberSmBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
     paddingHorizontal: 10,
     borderRadius: 10,
     gap: 4,
     height: 38,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
   },
   pickMemberSmBtnText: {
-    color: '#2563EB',
+    color: '#38BDF8',
     fontSize: 12,
     fontWeight: '700',
   },
   modalSafeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#070A14',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1862,7 +1885,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   modalCloseBtn: {
     width: 36,
@@ -1873,59 +1896,61 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   searchBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   searchBarInput: {
     flex: 1,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   myselfQuickRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
     marginHorizontal: 16,
     marginBottom: 10,
     padding: 12,
     borderRadius: 12,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: 'rgba(56, 189, 248, 0.25)',
   },
   myselfAvatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#0284C7',
     justifyContent: 'center',
     alignItems: 'center',
   },
   myselfTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#1E3A8A',
+    color: '#38BDF8',
   },
   myselfSubtitle: {
     fontSize: 11,
-    color: '#3B82F6',
+    color: '#7DD3FC',
   },
   memberListItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
@@ -1934,28 +1959,28 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   memberAvatarText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#475569',
+    color: '#38BDF8',
   },
   memberName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   memberRole: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 1,
   },
   memberPhone: {
     fontSize: 11,
-    color: '#2563EB',
+    color: '#38BDF8',
     marginTop: 2,
     fontWeight: '600',
   },
@@ -1974,61 +1999,61 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   networkTabBtnActive: {
-    backgroundColor: '#1E3A8A',
-    borderColor: '#1E3A8A',
+    backgroundColor: '#0284C7',
+    borderColor: '#38BDF8',
   },
   networkTabBtnSupportActive: {
     backgroundColor: '#7C3AED',
-    borderColor: '#7C3AED',
+    borderColor: '#A78BFA',
   },
   networkTabText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#94A3B8',
   },
   networkTabTextActive: {
     color: '#FFFFFF',
   },
   networkCountPill: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 8,
   },
   networkCountPillActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   networkCountPillSupportActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   networkCountPillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#475569',
+    color: '#94A3B8',
   },
   networkCountPillTextActive: {
     color: '#FFFFFF',
   },
   memberListItemSupport: {
-    borderColor: '#DDD6FE',
-    backgroundColor: '#FAF5FF',
+    borderColor: 'rgba(167, 139, 250, 0.25)',
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
   },
   supportBadge: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: 'rgba(124, 58, 237, 0.2)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: 'rgba(167, 139, 250, 0.35)',
   },
   supportBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#C4B5FD',
   },
 });

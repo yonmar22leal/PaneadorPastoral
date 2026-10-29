@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { DoodleBackground } from '@/components/doodle-background';
 
 const PRESET_COLORS = [
@@ -300,7 +301,11 @@ export default function MinistriesScreen() {
       <StatusBar style="light" />
 
       {/* HEADER HERO */}
-      <View style={styles.hero}>
+      <LinearGradient
+        colors={['rgba(15, 23, 42, 0.95)', 'rgba(30, 58, 138, 0.38)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.hero}>
         <View style={styles.heroTop}>
           <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
@@ -311,7 +316,7 @@ export default function MinistriesScreen() {
           </View>
           {isPastor ? (
             <TouchableOpacity style={styles.addTopBtn} onPress={openCreateModal}>
-              <Ionicons name="add" size={20} color="#1E3A8A" />
+              <Ionicons name="add" size={18} color="#FFFFFF" />
               <Text style={styles.addTopBtnText}>Crear</Text>
             </TouchableOpacity>
           ) : (
@@ -323,10 +328,10 @@ export default function MinistriesScreen() {
           Asigna y delega coordinadores para Alabanza, Audiovisual, Protocolo y más. Cada
           coordinador podrá armar sus servidores y su cronograma en cada servicio.
         </Text>
-      </View>
+      </LinearGradient>
 
       {/* LISTA DE MINISTERIOS */}
-      <DoodleBackground style={{ backgroundColor: '#F8FAFC' }}>
+      <DoodleBackground>
       <ScrollView
         contentContainerStyle={styles.scrollList}
         showsVerticalScrollIndicator={false}>
@@ -355,18 +360,18 @@ export default function MinistriesScreen() {
             return (
               <View
                 key={min.id}
-                style={[styles.ministryCard, { borderLeftColor: min.color || '#2563EB' }]}>
+                style={[styles.ministryCard, { borderLeftColor: min.color || '#38BDF8' }]}>
                 {/* Header de la tarjeta */}
                 <View style={styles.cardHeader}>
                   <View
                     style={[
                       styles.iconContainer,
-                      { backgroundColor: (min.color || '#2563EB') + '1A' },
+                      { backgroundColor: (min.color || '#38BDF8') + '22' },
                     ]}>
                     <Ionicons
                       name={(min.icon as any) || 'people'}
                       size={22}
-                      color={min.color || '#2563EB'}
+                      color={min.color || '#38BDF8'}
                     />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
@@ -387,7 +392,7 @@ export default function MinistriesScreen() {
                 {/* Coordinador Box */}
                 <View style={styles.coordinatorBox}>
                   <View style={styles.coordAvatar}>
-                    <Ionicons name="person" size={16} color="#1E3A8A" />
+                    <Ionicons name="person" size={16} color="#38BDF8" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.coordKicker}>COORDINADOR(A) PERMANENTE</Text>
@@ -398,7 +403,7 @@ export default function MinistriesScreen() {
                   </View>
 
                   <View style={styles.statsPill}>
-                    <Ionicons name="people-outline" size={13} color="#64748B" />
+                    <Ionicons name="people-outline" size={13} color="#94A3B8" />
                     <Text style={styles.statsPillText}>{serverCount} en lista</Text>
                   </View>
                 </View>
@@ -413,12 +418,12 @@ export default function MinistriesScreen() {
                           key={rIdx}
                           style={[
                             styles.roleChipBadge,
-                            { borderColor: (min.color || '#2563EB') + '44' },
+                            { borderColor: (min.color || '#38BDF8') + '44' },
                           ]}>
                           <View
                             style={[
                               styles.roleChipDot,
-                              { backgroundColor: min.color || '#2563EB' },
+                              { backgroundColor: min.color || '#38BDF8' },
                             ]}
                           />
                           <Text style={styles.roleChipBadgeText}>{roleName}</Text>
@@ -434,14 +439,14 @@ export default function MinistriesScreen() {
                     <TouchableOpacity
                       style={styles.actionBtnEdit}
                       onPress={() => openEditModal(min)}>
-                      <Ionicons name="create-outline" size={16} color="#2563EB" />
+                      <Ionicons name="create-outline" size={16} color="#38BDF8" />
                       <Text style={styles.actionBtnEditText}>Editar / Delegar</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.actionBtnDelete}
                       onPress={() => handleDelete(min)}>
-                      <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                      <Ionicons name="trash-outline" size={16} color="#EF4444" />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -463,7 +468,7 @@ export default function MinistriesScreen() {
         <SafeAreaView style={styles.modalSafeArea}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
-              <Ionicons name="close" size={22} color="#0F172A" />
+              <Ionicons name="close" size={22} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>
               {editingMinistry ? 'Editar Ministerio' : 'Nuevo Ministerio'}
@@ -573,7 +578,7 @@ export default function MinistriesScreen() {
                       <Ionicons
                         name={ic.name as any}
                         size={18}
-                        color={active ? '#FFFFFF' : '#475569'}
+                        color={active ? '#FFFFFF' : '#94A3B8'}
                       />
                       <Text
                         style={[
@@ -593,7 +598,7 @@ export default function MinistriesScreen() {
               <View style={styles.roleHeaderRow}>
                 <Text style={styles.inputLabel}>Puestos de Servicio en Servicios</Text>
                 <TouchableOpacity onPress={handleLoadSuggestedRoles} style={styles.suggestBtn}>
-                  <Ionicons name="sparkles" size={13} color="#2563EB" />
+                  <Ionicons name="sparkles" size={13} color="#38BDF8" />
                   <Text style={styles.suggestBtnText}>Sugerir Puestos</Text>
                 </TouchableOpacity>
               </View>
@@ -607,7 +612,7 @@ export default function MinistriesScreen() {
                   <View key={idx} style={[styles.roleEditTag, { borderColor: selectedColor }]}>
                     <Text style={styles.roleEditTagText}>{r}</Text>
                     <TouchableOpacity onPress={() => handleRemoveRole(r)} style={styles.roleRemoveBtn}>
-                      <Ionicons name="close-circle" size={16} color="#DC2626" />
+                      <Ionicons name="close-circle" size={16} color="#EF4444" />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -634,7 +639,7 @@ export default function MinistriesScreen() {
             </View>
 
             <View style={styles.noticeBox}>
-              <Ionicons name="information-circle" size={18} color="#2563EB" />
+              <Ionicons name="information-circle" size={18} color="#38BDF8" />
               <Text style={styles.noticeBoxText}>
                 El coordinador permanente tendrá permisos para delegar y asignar los servidores
                 a cada puesto en los servicios, y editar los bloques correspondientes en el cronograma.
@@ -655,7 +660,7 @@ export default function MinistriesScreen() {
             <TouchableOpacity
               onPress={() => setMemberPickerVisible(false)}
               style={styles.modalCloseBtn}>
-              <Ionicons name="close" size={22} color="#0F172A" />
+              <Ionicons name="close" size={22} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Asignar Coordinador</Text>
             <View style={{ width: 40 }} />
@@ -689,7 +694,7 @@ export default function MinistriesScreen() {
               <Ionicons
                 name="people"
                 size={14}
-                color={!showOtherNetworks ? '#FFFFFF' : '#1E3A8A'}
+                color={!showOtherNetworks ? '#FFFFFF' : '#38BDF8'}
               />
               <Text
                 style={[
@@ -723,13 +728,13 @@ export default function MinistriesScreen() {
               <Ionicons
                 name={showOtherNetworks ? 'checkmark-circle' : 'hand-left-outline'}
                 size={14}
-                color={showOtherNetworks ? '#FFFFFF' : '#7C3AED'}
+                color={showOtherNetworks ? '#FFFFFF' : '#A78BFA'}
               />
               <Text
                 style={[
                   styles.networkTabText,
                   showOtherNetworks && styles.networkTabTextActive,
-                  !showOtherNetworks && { color: '#7C3AED' },
+                  !showOtherNetworks && { color: '#C4B5FD' },
                 ]}>
                 {showOtherNetworks ? 'Apoyo Activo' : '+ Ver Apoyo Otra Red'}
               </Text>
@@ -742,7 +747,7 @@ export default function MinistriesScreen() {
                   style={[
                     styles.networkCountPillText,
                     showOtherNetworks && styles.networkCountPillTextActive,
-                    !showOtherNetworks && { color: '#7C3AED' },
+                    !showOtherNetworks && { color: '#C4B5FD' },
                   ]}>
                   +{otherNetworkCount}
                 </Text>
@@ -766,7 +771,7 @@ export default function MinistriesScreen() {
                     : 'Pastor de Red'}
                 </Text>
               </View>
-              <Ionicons name="arrow-forward" size={16} color="#2563EB" />
+              <Ionicons name="arrow-forward" size={16} color="#38BDF8" />
             </TouchableOpacity>
           )}
 
@@ -786,12 +791,12 @@ export default function MinistriesScreen() {
                   <View
                     style={[
                       styles.memberAvatar,
-                      isSupport && { backgroundColor: '#F3E8FF' },
+                      isSupport && { backgroundColor: 'rgba(124, 58, 237, 0.2)' },
                     ]}>
                     <Text
                       style={[
                         styles.memberAvatarText,
-                        isSupport && { color: '#7C3AED' },
+                        isSupport && { color: '#C4B5FD' },
                       ]}>
                       {item.firstName[0]}
                       {item.lastName[0] || ''}
@@ -815,7 +820,7 @@ export default function MinistriesScreen() {
                     </Text>
                     {item.phone ? <Text style={styles.memberPhone}>📞 {item.phone}</Text> : null}
                   </View>
-                  <Ionicons name="add-circle" size={22} color={isSupport ? '#7C3AED' : '#2563EB'} />
+                  <Ionicons name="add-circle" size={22} color={isSupport ? '#A78BFA' : '#38BDF8'} />
                 </TouchableOpacity>
               );
             }}
@@ -829,15 +834,16 @@ export default function MinistriesScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#070A14',
   },
   hero: {
-    backgroundColor: '#1E3A8A',
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 22,
     borderBottomLeftRadius: 26,
     borderBottomRightRadius: 26,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   heroTop: {
     flexDirection: 'row',
@@ -849,15 +855,17 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   headerTitleWrap: {
     alignItems: 'center',
   },
   heroKicker: {
-    color: '#93C5FD',
+    color: '#38BDF8',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1,
@@ -868,7 +876,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   heroSubtitle: {
-    color: '#DBEAFE',
+    color: '#94A3B8',
     fontSize: 13,
     lineHeight: 18,
     marginTop: 6,
@@ -877,33 +885,35 @@ const styles = StyleSheet.create({
   addTopBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0284C7',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 12,
     gap: 4,
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 3,
   },
   addTopBtnText: {
-    color: '#1E3A8A',
+    color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 13,
   },
   scrollList: {
     padding: 16,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'transparent',
     minHeight: '100%',
   },
   ministryCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
     borderRadius: 18,
     padding: 16,
     marginBottom: 14,
     borderLeftWidth: 5,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -924,21 +934,23 @@ const styles = StyleSheet.create({
   ministryName: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   myRoleBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   myRoleBadgeText: {
-    color: '#15803D',
+    color: '#34D399',
     fontSize: 10,
     fontWeight: '800',
   },
   ministryDesc: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 12,
     marginTop: 4,
     lineHeight: 17,
@@ -946,40 +958,42 @@ const styles = StyleSheet.create({
   coordinatorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 14,
     padding: 12,
     marginTop: 14,
     gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   coordAvatar: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   coordKicker: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#64748B',
+    color: '#94A3B8',
     letterSpacing: 0.6,
   },
   coordName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   coordPhone: {
     fontSize: 11,
-    color: '#475569',
+    color: '#38BDF8',
     marginTop: 1,
   },
   statsPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
@@ -987,7 +1001,7 @@ const styles = StyleSheet.create({
   },
   statsPillText: {
     fontSize: 11,
-    color: '#475569',
+    color: '#94A3B8',
     fontWeight: '600',
   },
   cardActionsRow: {
@@ -997,20 +1011,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
     gap: 10,
   },
   actionBtnEdit: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
     gap: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
   },
   actionBtnEditText: {
-    color: '#2563EB',
+    color: '#38BDF8',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1018,28 +1034,28 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   emptyCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
     borderRadius: 20,
     padding: 30,
     alignItems: 'center',
     marginTop: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   emptyTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#1E293B',
+    color: '#FFFFFF',
     marginTop: 14,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#94A3B8',
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 18,
@@ -1047,7 +1063,7 @@ const styles = StyleSheet.create({
   emptyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#0284C7',
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 12,
@@ -1062,7 +1078,7 @@ const styles = StyleSheet.create({
   // MODAL STYLES
   modalSafeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#070A14',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1071,7 +1087,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   modalCloseBtn: {
     width: 36,
@@ -1082,10 +1098,10 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   modalSaveBtn: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#0284C7',
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 10,
@@ -1105,7 +1121,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: '#94A3B8',
     marginBottom: 6,
   },
   inputHelp: {
@@ -1115,14 +1131,14 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   coordLabelRow: {
     flexDirection: 'row',
@@ -1133,15 +1149,15 @@ const styles = StyleSheet.create({
   assignMyselfText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#38BDF8',
   },
   pickerSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -1149,11 +1165,11 @@ const styles = StyleSheet.create({
   pickerSelectorValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   pickerSelectorSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 2,
   },
   colorPalette: {
@@ -1170,7 +1186,7 @@ const styles = StyleSheet.create({
   },
   colorDotActive: {
     borderWidth: 3,
-    borderColor: '#0F172A',
+    borderColor: '#FFFFFF',
   },
   iconPalette: {
     flexDirection: 'row',
@@ -1184,81 +1200,85 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   iconChipText: {
     fontSize: 12,
-    color: '#475569',
+    color: '#94A3B8',
     fontWeight: '600',
   },
   noticeBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
     borderRadius: 14,
     padding: 14,
     gap: 10,
     marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
   },
   noticeBoxText: {
     flex: 1,
     fontSize: 12,
-    color: '#1E40AF',
+    color: '#7DD3FC',
     lineHeight: 18,
   },
   searchBarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   searchBarInput: {
     flex: 1,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   myselfQuickRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
     marginHorizontal: 16,
     marginBottom: 10,
     padding: 12,
     borderRadius: 12,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: 'rgba(56, 189, 248, 0.25)',
   },
   myselfAvatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#0284C7',
     justifyContent: 'center',
     alignItems: 'center',
   },
   myselfTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#1E3A8A',
+    color: '#38BDF8',
   },
   myselfSubtitle: {
     fontSize: 11,
-    color: '#3B82F6',
+    color: '#7DD3FC',
   },
   memberListItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
@@ -1267,28 +1287,28 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   memberAvatarText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#475569',
+    color: '#38BDF8',
   },
   memberName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   memberRole: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 1,
   },
   memberPhone: {
     fontSize: 11,
-    color: '#2563EB',
+    color: '#38BDF8',
     marginTop: 2,
     fontWeight: '600',
   },
@@ -1296,12 +1316,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   rolesSectionTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#94A3B8',
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1315,7 +1335,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 8,
@@ -1329,7 +1349,7 @@ const styles = StyleSheet.create({
   roleChipBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#E2E8F0',
   },
   roleHeaderRow: {
     flexDirection: 'row',
@@ -1341,15 +1361,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
   },
   suggestBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#38BDF8',
   },
   rolesEditorWrap: {
     flexDirection: 'row',
@@ -1361,7 +1383,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1.5,
     borderRadius: 8,
     paddingLeft: 10,
@@ -1371,7 +1393,7 @@ const styles = StyleSheet.create({
   roleEditTagText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   roleRemoveBtn: {
     padding: 2,
@@ -1384,14 +1406,14 @@ const styles = StyleSheet.create({
   },
   addRoleInput: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   addRoleBtn: {
     flexDirection: 'row',
@@ -1421,61 +1443,61 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   networkTabBtnActive: {
-    backgroundColor: '#1E3A8A',
-    borderColor: '#1E3A8A',
+    backgroundColor: '#0284C7',
+    borderColor: '#38BDF8',
   },
   networkTabBtnSupportActive: {
     backgroundColor: '#7C3AED',
-    borderColor: '#7C3AED',
+    borderColor: '#A78BFA',
   },
   networkTabText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#94A3B8',
   },
   networkTabTextActive: {
     color: '#FFFFFF',
   },
   networkCountPill: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 8,
   },
   networkCountPillActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   networkCountPillSupportActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   networkCountPillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#475569',
+    color: '#94A3B8',
   },
   networkCountPillTextActive: {
     color: '#FFFFFF',
   },
   memberListItemSupport: {
-    borderColor: '#DDD6FE',
-    backgroundColor: '#FAF5FF',
+    borderColor: 'rgba(167, 139, 250, 0.25)',
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
   },
   supportBadge: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: 'rgba(124, 58, 237, 0.2)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: 'rgba(167, 139, 250, 0.35)',
   },
   supportBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#C4B5FD',
   },
 });

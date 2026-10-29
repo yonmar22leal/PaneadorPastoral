@@ -328,7 +328,7 @@ export default function MembersScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <DoodleBackground>
         {/* Header */}
         <View style={styles.header}>
@@ -866,6 +866,7 @@ export default function MembersScreen() {
               <TextInput
                 style={styles.formInput}
                 placeholder="Ej: Daniel"
+                placeholderTextColor="#64748B"
                 value={firstName}
                 onChangeText={setFirstName}
               />
@@ -874,6 +875,7 @@ export default function MembersScreen() {
               <TextInput
                 style={styles.formInput}
                 placeholder="Ej: Salazar"
+                placeholderTextColor="#64748B"
                 value={lastName}
                 onChangeText={setLastName}
               />
@@ -883,6 +885,7 @@ export default function MembersScreen() {
               <TextInput
                 style={styles.formInput}
                 placeholder="Ej: daniels (sin espacios)"
+                placeholderTextColor="#64748B"
                 autoCapitalize="none"
                 autoCorrect={false}
                 value={username}
@@ -897,6 +900,7 @@ export default function MembersScreen() {
               <TextInput
                 style={styles.formInput}
                 placeholder="Ej: +58 412 1234567"
+                placeholderTextColor="#64748B"
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
@@ -938,6 +942,7 @@ export default function MembersScreen() {
               <TextInput
                 style={styles.formInput}
                 placeholder="Ej: 2004-06-15"
+                placeholderTextColor="#64748B"
                 value={birthDate}
                 onChangeText={setBirthDate}
               />
@@ -945,7 +950,7 @@ export default function MembersScreen() {
                 <Text
                   style={{
                     fontSize: 12,
-                    color: '#2563EB',
+                    color: '#38BDF8',
                     fontWeight: '700',
                     marginTop: -4,
                     marginBottom: 8,
@@ -1059,6 +1064,7 @@ export default function MembersScreen() {
               <TextInput
                 style={styles.formInput}
                 placeholder="Ej: Familia Salazar Morales"
+                placeholderTextColor="#64748B"
                 value={familyName}
                 onChangeText={setFamilyName}
               />
@@ -1067,6 +1073,7 @@ export default function MembersScreen() {
               <TextInput
                 style={[styles.formInput, { height: 70 }]}
                 placeholder="Ej: Petición de oración por su familia, trabajo, etc."
+                placeholderTextColor="#64748B"
                 multiline
                 value={notes}
                 onChangeText={setNotes}
@@ -1329,7 +1336,7 @@ export default function MembersScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#080C16',
   },
   header: {
     flexDirection: 'row',
@@ -1343,41 +1350,46 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 2,
   },
   selectModeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: 'rgba(56, 189, 248, 0.3)',
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 12,
     gap: 4,
   },
   selectModeBtnActive: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#FECACA',
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderColor: 'rgba(251, 113, 133, 0.4)',
   },
   selectModeBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#38BDF8',
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#0284C7',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     gap: 6,
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   addBtnText: {
     color: '#FFFFFF',
@@ -1386,11 +1398,13 @@ const styles = StyleSheet.create({
   },
   leaderToggleRow: {
     flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     marginHorizontal: 20,
     marginBottom: 12,
     borderRadius: 12,
     padding: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   leaderToggleBtn: {
     flex: 1,
@@ -1400,32 +1414,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   leaderToggleBtnActive: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    borderWidth: 1,
+    borderColor: '#38BDF8',
   },
   leaderToggleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#94A3B8',
   },
   leaderToggleTextActive: {
     color: '#FFFFFF',
+    fontWeight: '800',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
     marginHorizontal: 20,
     paddingHorizontal: 14,
     height: 44,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     gap: 10,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   roleFilters: {
     marginTop: 12,
@@ -1438,48 +1455,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   roleChipActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    borderColor: '#38BDF8',
   },
   roleChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#94A3B8',
   },
   roleChipTextActive: {
-    color: '#FFFFFF',
+    color: '#38BDF8',
+    fontWeight: '800',
   },
   listContent: {
     paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: 110,
     gap: 12,
   },
   memberCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
   },
   memberCardBlocked: {
-    backgroundColor: '#FFF5F5',
-    borderColor: '#FCA5A5',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(251, 113, 133, 0.35)',
     opacity: 0.88,
   },
   memberCardSelected: {
-    borderColor: '#2563EB',
+    borderColor: '#38BDF8',
     borderWidth: 2,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
   },
   cardTop: {
     flexDirection: 'row',
@@ -1496,7 +1515,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -1509,7 +1530,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1D4ED8',
+    color: '#38BDF8',
   },
   memberDetails: {
     flex: 1,
@@ -1522,11 +1543,11 @@ const styles = StyleSheet.create({
   memberName: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   memberUsername: {
     fontSize: 12,
-    color: '#2563EB',
+    color: '#38BDF8',
     fontWeight: '700',
     marginTop: 1,
   },
@@ -1540,40 +1561,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   blockedBadge: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: 'rgba(239, 68, 68, 0.18)',
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#FCA5A5',
+    borderColor: 'rgba(251, 113, 133, 0.35)',
   },
   blockedBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#DC2626',
+    color: '#FB7185',
   },
   leaderInfoText: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 4,
   },
   familyNameText: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 2,
   },
   notesContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 6,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     padding: 8,
     borderRadius: 8,
     marginTop: 10,
   },
   notesText: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     fontStyle: 'italic',
     flex: 1,
   },
@@ -1584,7 +1607,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   phoneLabelRow: {
     flexDirection: 'row',
@@ -1594,7 +1617,7 @@ const styles = StyleSheet.create({
   },
   phoneText: {
     fontSize: 12,
-    color: '#475569',
+    color: '#CBD5E1',
     fontWeight: '500',
   },
   contactActions: {
@@ -1606,9 +1629,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: 'rgba(99, 102, 241, 0.35)',
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 10,
@@ -1616,13 +1639,15 @@ const styles = StyleSheet.create({
   pastoralManageBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#4338CA',
+    color: '#818CF8',
   },
   iconActionBtn: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1631,16 +1656,18 @@ const styles = StyleSheet.create({
     bottom: 24,
     left: 20,
     right: 20,
-    backgroundColor: '#0F172A',
-    borderRadius: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     padding: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
     elevation: 8,
   },
   batchInfo: {
@@ -1670,7 +1697,7 @@ const styles = StyleSheet.create({
   },
   modalSafeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#090D1A',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1679,12 +1706,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   modalHeaderTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   formScroll: {
     flex: 1,
@@ -1696,10 +1723,10 @@ const styles = StyleSheet.create({
   discipleAddBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderWidth: 1,
-    borderColor: '#A7F3D0',
-    borderRadius: 12,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderRadius: 14,
     padding: 12,
     gap: 10,
     marginBottom: 10,
@@ -1707,7 +1734,7 @@ const styles = StyleSheet.create({
   discipleAddBannerText: {
     flex: 1,
     fontSize: 12,
-    color: '#065F46',
+    color: '#34D399',
     lineHeight: 18,
   },
   avatarPickerSection: {
@@ -1719,12 +1746,12 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#CBD5E1',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   avatarPreviewImage: {
     width: 80,
@@ -1739,9 +1766,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: 'rgba(56, 189, 248, 0.3)',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
@@ -1749,36 +1776,36 @@ const styles = StyleSheet.create({
   pickPhotoBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#38BDF8',
   },
   removePhotoBtn: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     padding: 7,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   formLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: '#F1F5F9',
     marginTop: 10,
   },
   fieldHelpText: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 2,
     marginBottom: 4,
   },
   formInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   roleSelectionRow: {
     flexDirection: 'row',
@@ -1791,28 +1818,34 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   roleSelectChipActive: {
-    backgroundColor: '#1E3A8A',
-    borderColor: '#1E3A8A',
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    borderColor: '#38BDF8',
   },
   roleSelectChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: '#94A3B8',
   },
   roleSelectChipTextActive: {
-    color: '#FFFFFF',
+    color: '#38BDF8',
+    fontWeight: '800',
   },
   submitBtn: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#0284C7',
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 24,
     marginBottom: 40,
+    shadowColor: '#0284C7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
   },
   submitBtnText: {
     color: '#FFFFFF',
@@ -1834,78 +1867,80 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   networkTabBtnActive: {
-    backgroundColor: '#1E3A8A',
-    borderColor: '#1E3A8A',
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    borderColor: '#38BDF8',
   },
   networkTabBtnSupportActive: {
-    backgroundColor: '#7C3AED',
-    borderColor: '#7C3AED',
+    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+    borderColor: '#C084FC',
   },
   networkTabText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#94A3B8',
   },
   networkTabTextActive: {
     color: '#FFFFFF',
   },
   supportBadge: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: 'rgba(168, 85, 247, 0.2)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: 'rgba(168, 85, 247, 0.4)',
   },
   supportBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#C084FC',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 48,
     paddingHorizontal: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginTop: 12,
   },
   emptyTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#334155',
+    color: '#F8FAFC',
     marginTop: 12,
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 6,
     textAlign: 'center',
     lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(3, 7, 18, 0.75)',
     justifyContent: 'center',
     padding: 20,
   },
   manageModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F172A',
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
     elevation: 10,
   },
   manageModalHeader: {
@@ -1913,18 +1948,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
     paddingBottom: 14,
     marginBottom: 14,
   },
   manageModalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   manageModalSubtitle: {
     fontSize: 13,
-    color: '#2563EB',
+    color: '#38BDF8',
     fontWeight: '700',
     marginTop: 2,
   },
@@ -1934,7 +1969,7 @@ const styles = StyleSheet.create({
   manageSectionTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#334155',
+    color: '#94A3B8',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -1948,23 +1983,23 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   statusNoticeBoxActive: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   statusNoticeBoxBlocked: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   statusNoticeTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#15803D',
+    color: '#34D399',
   },
   statusNoticeDesc: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 2,
   },
   toggleBlockBtn: {
@@ -1988,12 +2023,12 @@ const styles = StyleSheet.create({
   },
   currentLeaderLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#94A3B8',
     marginBottom: 8,
   },
   leadersListContainer: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -2004,23 +2039,23 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
   },
   leaderOptionRowSelected: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
   },
   leaderOptionName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: '#F1F5F9',
   },
   leaderOptionNameSelected: {
-    color: '#2563EB',
+    color: '#38BDF8',
     fontWeight: '800',
   },
   leaderOptionRole: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
   },
 });
