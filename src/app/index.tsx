@@ -35,6 +35,7 @@ export default function DashboardScreen() {
     currentUser,
     isLoading,
     members,
+    ministries,
     getVisibleEvents,
     logout,
     pastoralPosts,
@@ -81,7 +82,7 @@ export default function DashboardScreen() {
   const today = todayISO();
   const nextEvent = useMemo(() => {
     const sorted = sortEventsAsc(visibleEvents);
-    return sorted.find((e) => e.date >= today) || sorted[0] || visibleEvents[0];
+    return sorted.find((e) => e.date >= today) || null;
   }, [visibleEvents, today]);
 
   // Mensajes pastorales para toda la iglesia
@@ -694,6 +695,82 @@ export default function DashboardScreen() {
                       <Ionicons name="musical-notes-outline" size={16} color="#F472B6" />
                     </View>
                     <Text style={styles.subActionLabel}>Ministerios</Text>
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+
+              {/* CARD DEDICADA: MINISTERIOS & EQUIPOS DE SERVICIO */}
+              <LinearGradient
+                colors={['rgba(139, 92, 246, 0.32)', 'rgba(15, 23, 42, 0.85)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.glassCard, { borderColor: 'rgba(167, 139, 250, 0.35)' }]}>
+                <TouchableOpacity
+                  style={styles.glassCardHeader}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/ministries' as any)}>
+                  <View
+                    style={[
+                      styles.badgeGlowCircle,
+                      {
+                        backgroundColor: 'rgba(139, 92, 246, 0.22)',
+                        borderColor: 'rgba(167, 139, 250, 0.5)',
+                      },
+                    ]}>
+                    <Ionicons name="ribbon" size={24} color="#A78BFA" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.glassCardTitle}>Ministerios & Equipos</Text>
+                    <Text style={styles.glassCardSubtitle}>
+                      {ministries.length > 0
+                        ? `${ministries.length} ministerios activos • Alabanza, Audiovisual, Protocolo...`
+                        : 'Organiza y crea ministerios de la iglesia'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                </TouchableOpacity>
+
+                <View style={styles.subActionsRow}>
+                  <TouchableOpacity
+                    style={styles.subActionItem}
+                    activeOpacity={0.8}
+                    onPress={() => router.push('/ministries' as any)}>
+                    <View
+                      style={[
+                        styles.subActionIconBox,
+                        { backgroundColor: 'rgba(139, 92, 246, 0.2)' },
+                      ]}>
+                      <Ionicons name="people-circle-outline" size={16} color="#A78BFA" />
+                    </View>
+                    <Text style={styles.subActionLabel}>Ver Ministerios</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.subActionItem}
+                    activeOpacity={0.8}
+                    onPress={() => router.push('/ministries' as any)}>
+                    <View
+                      style={[
+                        styles.subActionIconBox,
+                        { backgroundColor: 'rgba(56, 189, 248, 0.2)' },
+                      ]}>
+                      <Ionicons name="add-circle-outline" size={16} color="#38BDF8" />
+                    </View>
+                    <Text style={styles.subActionLabel}>+ Crear Nuevo</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.subActionItem}
+                    activeOpacity={0.8}
+                    onPress={() => router.push('/members' as any)}>
+                    <View
+                      style={[
+                        styles.subActionIconBox,
+                        { backgroundColor: 'rgba(16, 185, 129, 0.2)' },
+                      ]}>
+                      <Ionicons name="shield-checkmark-outline" size={16} color="#10B981" />
+                    </View>
+                    <Text style={styles.subActionLabel}>Servidores</Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>

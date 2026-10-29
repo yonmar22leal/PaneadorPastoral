@@ -26,6 +26,7 @@ import {
   defaultMinistries,
 } from '../data/mockChurchData';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { todayISO } from '../lib/events';
 
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -201,6 +202,9 @@ interface ChurchContextType {
   addMinistry: (ministry: Omit<Ministry, 'id' | 'createdAt'>) => Promise<string>;
   updateMinistry: (ministryId: string, data: Partial<Ministry>) => Promise<void>;
   deleteMinistry: (ministryId: string) => Promise<void>;
+  assignMemberToMinistry: (memberId: string, ministryName: string) => Promise<void>;
+  removeMemberFromMinistry: (memberId: string, ministryName: string) => Promise<void>;
+  deletePastEvents: () => Promise<number>;
   getUserCoordinatedMinistries: (eventId: string, user?: AuthUser | null) => EventMinistryAssignment[];
   canUserEditEventPart: (
     eventId: string,
@@ -500,7 +504,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         setLeaderAttendanceReports(mappedLeaderReps);
       }
 
-      // E. Eventos y órdenes de servicio
+      // E. Eventos y órdenes de servicio (solo activos hoy en adelante)
       const { data: eventsData, error: evError } = await supabase.from('church_events').select('*');
       if (evError) {
         // Silenciar si la tabla aún no existe en Supabase para evitar saturar la consola
@@ -508,7 +512,21 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           console.warn('Supabase church_events fetch error:', evError.message);
         }
       } else if (eventsData) {
-        setEvents(eventsData.map(eventFromRow));
+        const today = todayISO();
+        // Filtrar inmediatamente para que los eventos pasados no se muestren
+        const activeEventsData = eventsData.filter((item: any) => item.event_date >= today);
+        setEvents(activeEventsData.map(eventFromRow));
+
+        // Purgar de Supabase automáticamente los eventos cuya fecha ya pasó
+        const pastEvents = eventsData.filter((item: any) => item.event_date < today);
+        if (pastEvents.length > 0) {
+          try {
+            await supabase.from('church_events').delete().lt('event_date', today);
+            console.log(`Purgados ${pastEvents.length} eventos pasados de la base de datos.`);
+          } catch (err) {
+            console.warn('Error purgando eventos pasados:', err);
+          }
+        }
       }
 
       // F. Niños de Iglesia Infantil
@@ -755,10 +773,11 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     return { success: true };
   };
 
-  // Eventos unificados para toda la iglesia
+  // Eventos unificados y activos (hoy en adelante) para toda la iglesia
   const getVisibleEvents = useCallback(
     (): ChurchEvent[] => {
-      return events;
+      const today = todayISO();
+      return events.filter((e) => e.date >= today);
     },
     [events]
   );
@@ -1449,6 +1468,39 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const assignMemberToMinistry = async (memberId: string, ministryName: string): Promise<void> => {
+    const target = members.find((m) => m.id === memberId);
+    if (!target) return;
+    const currentList = target.ministries || [];
+    if (currentList.some((n) => n.toLowerCase() === ministryName.toLowerCase())) return;
+    const updated = [...currentList, ministryName];
+    await updateMember(memberId, { ministries: updated });
+  };
+
+  const removeMemberFromMinistry = async (memberId: string, ministryName: string): Promise<void> => {
+    const target = members.find((m) => m.id === memberId);
+    if (!target) return;
+    const currentList = target.ministries || [];
+    const updated = currentList.filter((n) => n.toLowerCase() !== ministryName.toLowerCase());
+    await updateMember(memberId, { ministries: updated });
+  };
+
+  const deletePastEvents = async (): Promise<number> => {
+    const today = todayISO();
+    const past = events.filter((e) => e.date < today);
+    if (past.length === 0) return 0;
+    const remaining = events.filter((e) => e.date >= today);
+    setEvents(remaining);
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('church_events').delete().lt('event_date', today);
+      } catch (e) {
+        console.warn('Error eliminando eventos pasados en Supabase:', e);
+      }
+    }
+    return past.length;
+  };
+
   const getUserCoordinatedMinistries = (
     eventId: string,
     user: AuthUser | null = currentUser
@@ -1880,6 +1932,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         if (mergedData.generationLevel !== undefined) payload.generation_level = mergedData.generationLevel;
         if (mergedData.isLeaderOf12 !== undefined) payload.is_leader_of_12 = mergedData.isLeaderOf12;
         if (mergedData.avatarUrl !== undefined) payload.avatar_url = mergedData.avatarUrl;
+        if (mergedData.ministries !== undefined) payload.ministries = mergedData.ministries;
         await supabase.from('members').update(payload).eq('id', memberId);
       } catch (e) {
         console.warn('Error en Supabase updateMember:', e);
@@ -1969,6 +2022,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         addMinistry,
         updateMinistry,
         deleteMinistry,
+        assignMemberToMinistry,
+        removeMemberFromMinistry,
+        deletePastEvents,
         getUserCoordinatedMinistries,
         canUserEditEventPart,
         updateEventMinistryData,
