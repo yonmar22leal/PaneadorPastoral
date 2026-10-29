@@ -97,7 +97,7 @@ export default function MinistriesScreen() {
       return (
         m.firstName.toLowerCase().includes(q) ||
         m.lastName.toLowerCase().includes(q) ||
-        m.phone.includes(q)
+        (m.phone ? m.phone.includes(q) : false)
       );
     });
   }, [members, memberSearch, showOtherNetworks, targetNetwork]);

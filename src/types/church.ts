@@ -29,8 +29,9 @@ export interface Member {
   id: string;
   firstName: string;
   lastName: string;
-  phone: string;
+  phone?: string;
   email?: string;
+  username?: string;
   role: MemberRole;
   network: ChurchNetwork;
   gender?: 'M' | 'F';
@@ -147,6 +148,8 @@ export interface CellMeetingReport {
 export interface AuthUser {
   id: string;
   email: string;
+  username?: string;
+  avatarUrl?: string;
   password?: string;
   firstName: string;
   lastName: string;

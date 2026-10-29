@@ -237,6 +237,7 @@ interface ChurchContextType {
     data: UpdateProfileData
   ) => Promise<{ success: boolean; error?: string }>;
   updateMember: (memberId: string, data: Partial<Member>) => Promise<void>;
+  updateMembersBatch: (memberIds: string[], data: Partial<Member>) => Promise<void>;
 }
 
 const ChurchContext = createContext<ChurchContextType | undefined>(undefined);
@@ -379,6 +380,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             lastName: item.last_name,
             phone: item.phone || '',
             email: item.email || undefined,
+            username: item.username || undefined,
+            avatarUrl: item.avatar_url || undefined,
             role: item.role,
             network: item.network,
             leaderId: item.leader_id || undefined,
@@ -615,10 +618,15 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
 
   // Auth Methods: Autentica contra la base de datos
   const login = async (email: string, password?: string): Promise<LoginResult> => {
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanIdentifier = email.trim().toLowerCase();
 
-    // 1. Buscar en memoria local de miembros ya cargados
-    let found = members.find((m) => m.email?.toLowerCase() === cleanEmail);
+    // 1. Buscar en memoria local de miembros ya cargados (por email o username)
+    let found = members.find(
+      (m) =>
+        m.email?.toLowerCase() === cleanIdentifier ||
+        m.username?.toLowerCase() === cleanIdentifier ||
+        (cleanIdentifier.includes('@') && m.username?.toLowerCase() === cleanIdentifier.split('@')[0])
+    );
 
     // 2. Si aún no está en memoria, consultar directamente en Supabase
     if (!found && isSupabaseConfigured) {
@@ -626,7 +634,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         const { data, error } = await supabase
           .from('members')
           .select('*')
-          .ilike('email', cleanEmail)
+          .ilike('email', cleanIdentifier)
           .limit(1);
 
         if (!error && data && data.length > 0) {
@@ -637,6 +645,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             lastName: item.last_name,
             phone: item.phone || '',
             email: item.email || undefined,
+            username: item.username || undefined,
+            avatarUrl: item.avatar_url || undefined,
             role: item.role,
             network: item.network,
             leaderId: item.leader_id || undefined,
@@ -659,7 +669,15 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     if (!found) {
       return {
         success: false,
-        error: 'No encontramos ningún usuario con este correo electrónico. Verifica tus datos o regístrate.',
+        error: 'No encontramos ningún usuario con este usuario o correo electrónico. Verifica tus datos o regístrate.',
+      };
+    }
+
+    // Verificar si la cuenta ha sido bloqueada por el pastor
+    if (found.isActive === false) {
+      return {
+        success: false,
+        error: 'Esta cuenta ha sido bloqueada o desactivada por la administración pastoral. Por favor comunícate con tu pastor.',
       };
     }
 
@@ -714,6 +732,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     const user: AuthUser = {
       id: found.id,
       email: found.email || '',
+      username: found.username,
+      avatarUrl: found.avatarUrl,
       password: found.password,
       firstName: found.firstName,
       lastName: found.lastName,
@@ -860,9 +880,24 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   const registerMember = async (
     newMemberData: Omit<Member, 'id'> & { autoLogin?: boolean }
   ): Promise<RegisterMemberResult> => {
-    const cleanEmail = newMemberData.email?.trim().toLowerCase();
+    const cleanUsername = (newMemberData.username || '').trim().toLowerCase();
+    const cleanEmail =
+      newMemberData.email?.trim().toLowerCase() ||
+      (cleanUsername ? `${cleanUsername}@iglesia.local` : undefined);
 
-    // 1. Validar si ya existe una cuenta con este correo
+    // 1. Validar si ya existe una cuenta con este correo o usuario
+    if (cleanUsername) {
+      const existsUsername = members.some(
+        (m) => m.username && m.username.trim().toLowerCase() === cleanUsername
+      );
+      if (existsUsername) {
+        return {
+          success: false,
+          error: 'Ya existe una cuenta con este nombre de usuario. Por favor elige otro.',
+        };
+      }
+    }
+
     if (cleanEmail) {
       const existsInLocal = members.some(
         (m) => m.email && m.email.trim().toLowerCase() === cleanEmail
@@ -870,7 +905,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       if (existsInLocal) {
         return {
           success: false,
-          error: 'Ya existe una cuenta registrada con este correo electrónico. Por favor inicia sesión.',
+          error: 'Ya existe una cuenta registrada con este correo electrónico o usuario. Por favor inicia sesión.',
         };
       }
 
@@ -885,7 +920,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           if (!checkError && existingData && existingData.length > 0) {
             return {
               success: false,
-              error: 'Ya existe una cuenta registrada con este correo electrónico en el sistema. Por favor inicia sesión.',
+              error: 'Ya existe una cuenta registrada con este correo o usuario en el sistema.',
             };
           }
         } catch (e) {
@@ -918,33 +953,48 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     const newMember: Member = {
       ...newMemberData,
       id: newId,
+      phone: newMemberData.phone?.trim() || '',
       email: cleanEmail || undefined,
+      username: cleanUsername || undefined,
+      avatarUrl: newMemberData.avatarUrl,
       leaderName,
-      role: calculatedRole,
-      generationLevel: calculatedLevel,
-      isLeaderOf12: calculatedLevel === 2,
+      role: newMemberData.role || calculatedRole,
+      generationLevel: newMemberData.generationLevel || calculatedLevel,
+      isLeaderOf12: (newMemberData.generationLevel || calculatedLevel) === 2,
     };
 
     if (isSupabaseConfigured) {
       try {
-        const { error: insertError } = await supabase.from('members').insert({
+        const memberInsertPayload: any = {
           id: newId,
           church_id: CHURCH_ID,
           first_name: newMember.firstName,
           last_name: newMember.lastName,
           email: newMember.email || null,
-          phone: newMember.phone,
+          phone: newMember.phone || '',
           network: newMember.network,
-          role: calculatedRole,
+          role: newMember.role,
           gender: newMember.gender || null,
           leader_id: newMember.leaderId || null,
-          is_leader_of_12: calculatedLevel === 2,
-          generation_level: calculatedLevel,
+          is_leader_of_12: newMember.isLeaderOf12 ?? false,
+          generation_level: newMember.generationLevel ?? 2,
           family_name: newMember.familyName || null,
           preferred_service_id: newMember.preferredService || null,
           notes: newMember.notes || null,
           password: newMember.password || null,
-        });
+          is_active: newMember.isActive ?? true,
+        };
+        if (newMember.avatarUrl) {
+          memberInsertPayload.avatar_url = newMember.avatarUrl;
+        }
+
+        let { error: insertError } = await supabase.from('members').insert(memberInsertPayload);
+        if (insertError && (/column/i.test(insertError.message) || insertError.code === '42703')) {
+          delete memberInsertPayload.avatar_url;
+          delete memberInsertPayload.is_active;
+          const retryRes = await supabase.from('members').insert(memberInsertPayload);
+          insertError = retryRes.error;
+        }
 
         if (insertError) {
           console.error('Supabase member insert error:', insertError.message);
@@ -1822,26 +1872,74 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateMember = async (memberId: string, data: Partial<Member>): Promise<void> => {
+    // Si se actualiza el líder directo, recalcular leaderName, generationLevel y isLeaderOf12
+    let calculatedLeaderName = data.leaderName;
+    let calculatedGenLevel = data.generationLevel;
+    let calculatedIsLeaderOf12 = data.isLeaderOf12;
+
+    if (data.leaderId !== undefined) {
+      if (!data.leaderId) {
+        calculatedLeaderName = undefined;
+      } else {
+        const leader = members.find((m) => m.id === data.leaderId);
+        if (leader) {
+          calculatedLeaderName = `${leader.firstName} ${leader.lastName}`.trim();
+          if (leader.role === 'senior_pastor' || leader.role === 'network_pastor') {
+            calculatedGenLevel = 2; // Discípulo de pastor = Líder 12
+            calculatedIsLeaderOf12 = true;
+          } else if (leader.generationLevel === 2) {
+            calculatedGenLevel = 3; // Discípulo de Líder 12 = Líder 144
+            calculatedIsLeaderOf12 = false;
+          } else if (leader.generationLevel === 3) {
+            calculatedGenLevel = 4; // Discípulo de Líder 144 = Líder 1728
+            calculatedIsLeaderOf12 = false;
+          }
+        }
+      }
+    }
+
+    const mergedData: Partial<Member> = {
+      ...data,
+      ...(calculatedLeaderName !== undefined ? { leaderName: calculatedLeaderName } : {}),
+      ...(calculatedGenLevel !== undefined ? { generationLevel: calculatedGenLevel } : {}),
+      ...(calculatedIsLeaderOf12 !== undefined ? { isLeaderOf12: calculatedIsLeaderOf12 } : {}),
+    };
+
     setMembers((prev) =>
-      prev.map((m) => (m.id === memberId ? { ...m, ...data } : m))
+      prev.map((m) => (m.id === memberId ? { ...m, ...mergedData } : m))
     );
     if (currentUser && currentUser.id === memberId) {
-      const updatedUser: AuthUser = { ...currentUser, ...data };
+      const updatedUser: AuthUser = { ...currentUser, ...mergedData };
       setCurrentUser(updatedUser);
       await AsyncStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(updatedUser));
     }
     if (isSupabaseConfigured) {
       try {
         const payload: any = {};
-        if (data.firstName !== undefined) payload.first_name = data.firstName;
-        if (data.lastName !== undefined) payload.last_name = data.lastName;
-        if (data.phone !== undefined) payload.phone = data.phone;
-        if (data.gender !== undefined) payload.gender = data.gender;
-        if (data.birthDate !== undefined) payload.birth_date = data.birthDate;
+        if (mergedData.firstName !== undefined) payload.first_name = mergedData.firstName;
+        if (mergedData.lastName !== undefined) payload.last_name = mergedData.lastName;
+        if (mergedData.phone !== undefined) payload.phone = mergedData.phone;
+        if (mergedData.gender !== undefined) payload.gender = mergedData.gender;
+        if (mergedData.birthDate !== undefined) payload.birth_date = mergedData.birthDate;
+        if (mergedData.isActive !== undefined) payload.is_active = mergedData.isActive;
+        if (mergedData.leaderId !== undefined) payload.leader_id = mergedData.leaderId;
+        if (mergedData.role !== undefined) payload.role = mergedData.role;
+        if (mergedData.generationLevel !== undefined) payload.generation_level = mergedData.generationLevel;
+        if (mergedData.isLeaderOf12 !== undefined) payload.is_leader_of_12 = mergedData.isLeaderOf12;
+        if (mergedData.avatarUrl !== undefined) payload.avatar_url = mergedData.avatarUrl;
         await supabase.from('members').update(payload).eq('id', memberId);
       } catch (e) {
         console.warn('Error en Supabase updateMember:', e);
       }
+    }
+  };
+
+  const updateMembersBatch = async (
+    memberIds: string[],
+    data: Partial<Member>
+  ): Promise<void> => {
+    for (const id of memberIds) {
+      await updateMember(id, data);
     }
   };
 
@@ -1935,6 +2033,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         addCellMeetingReport,
         updateUserProfile,
         updateMember,
+        updateMembersBatch,
       }}>
       {children}
     </ChurchContext.Provider>
