@@ -1,3 +1,4 @@
+import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 import { calcAge } from '@/lib/attendance';
 import { Member, MemberRole } from '@/types/church';
@@ -18,7 +19,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DoodleBackground } from '@/components/doodle-background';
 
 export default function MembersScreen() {
   const router = useRouter();
@@ -186,8 +186,8 @@ export default function MembersScreen() {
     const assignedLeaderName = assignedLeader
       ? `${assignedLeader.firstName} ${assignedLeader.lastName}`.trim()
       : isLeaderDisciplesMode && currentUser
-      ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
-      : undefined;
+        ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
+        : undefined;
 
     await addMember({
       firstName: firstName.trim(),
@@ -753,7 +753,7 @@ export default function MembersScreen() {
                   : 'Registrar Persona en el Directorio'}
               </Text>
               <TouchableOpacity onPress={() => setIsAddModalOpen(false)}>
-                <Ionicons name="close" size={24} color="#0F172A" />
+                <Ionicons name="close" size={24} color="#ffffffff" />
               </TouchableOpacity>
             </View>
 
@@ -937,14 +937,14 @@ export default function MembersScreen() {
                           style={[
                             styles.roleSelectChipText,
                             newMemberLeaderId === lead.id &&
-                              styles.roleSelectChipTextActive,
+                            styles.roleSelectChipTextActive,
                           ]}>
                           {lead.firstName} {lead.lastName} (
                           {lead.role === 'senior_pastor'
                             ? 'Pastor P.'
                             : lead.role === 'network_pastor'
-                            ? 'P. Red'
-                            : 'Líder 12'}
+                              ? 'P. Red'
+                              : 'Líder 12'}
                           )
                         </Text>
                       </TouchableOpacity>

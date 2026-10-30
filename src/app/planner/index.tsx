@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -30,7 +30,34 @@ export default function EventsListScreen() {
     canManageEvents,
     currentUser,
     getUserCoordinatedMinistries,
+    members,
   } = useChurch();
+
+  // Helper para verificar cumpleaños en fecha específica (MM-DD)
+  const isBirthdayOnDate = (birthDate?: string, targetDateStr?: string) => {
+    if (!birthDate || !targetDateStr) return false;
+    const bParts = birthDate.replace(/\//g, '-').split('-');
+    const tParts = targetDateStr.split('-');
+    if (bParts.length >= 3 && tParts.length >= 3) {
+      const bMonth = parseInt(bParts[1], 10);
+      const bDay = parseInt(bParts[2], 10);
+      const tMonth = parseInt(tParts[1], 10);
+      const tDay = parseInt(tParts[2], 10);
+      return bMonth === tMonth && bDay === tDay;
+    }
+    return false;
+  };
+
+  const getAgeTurning = (birthDate: string, targetYear: number) => {
+    const bParts = birthDate.replace(/\//g, '-').split('-');
+    if (bParts.length >= 1) {
+      const bYear = parseInt(bParts[0], 10);
+      if (bYear > 1900 && bYear < targetYear) {
+        return targetYear - bYear;
+      }
+    }
+    return null;
+  };
 
   // Eventos de la iglesia para toda la congregación
   const visibleEvents = useMemo(() => {
@@ -325,6 +352,7 @@ export default function EventsListScreen() {
                       const isSelected = item.date === selectedDate;
                       const hasServices = dayEvents.some((e: ChurchEvent) => normalizeEventType(e.type) === 'servicio');
                       const hasEvents = dayEvents.some((e: ChurchEvent) => normalizeEventType(e.type) === 'evento');
+                      const hasBirthdays = members.some((m) => isBirthdayOnDate(m.birthDate, item.date));
 
                       return (
                         <TouchableOpacity
@@ -347,7 +375,7 @@ export default function EventsListScreen() {
                             {item.dayNumber}
                           </Text>
 
-                          {/* PUNTOS INDICADORES DE SERVICIOS / EVENTOS */}
+                          {/* PUNTOS INDICADORES DE SERVICIOS / EVENTOS Y CUMPLEAÑOS */}
                           <View style={styles.dotsRow}>
                             {hasServices && (
                               <View
@@ -364,6 +392,9 @@ export default function EventsListScreen() {
                                   { backgroundColor: isSelected ? '#E9D5FF' : '#7C3AED' },
                                 ]}
                               />
+                            )}
+                            {hasBirthdays && (
+                              <Text style={{ fontSize: 8, lineHeight: 10 }}>🎂</Text>
                             )}
                           </View>
                         </TouchableOpacity>
@@ -382,6 +413,10 @@ export default function EventsListScreen() {
                 <View style={styles.legendItem}>
                   <View style={[styles.legendDot, { backgroundColor: '#7C3AED' }]} />
                   <Text style={styles.legendText}>Evento</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <Text style={{ fontSize: 11 }}>🎂</Text>
+                  <Text style={styles.legendText}>Cumpleaños</Text>
                 </View>
                 <View style={styles.legendItem}>
                   <View style={styles.legendTodayRing} />
@@ -407,7 +442,7 @@ export default function EventsListScreen() {
                 </View>
                 <Text style={styles.selectedDayCount}>
                   {selectedDayEvents.length === 0
-                    ? 'Sin actividades programadas'
+                    ? 'Sin eventos oficiales'
                     : `${selectedDayEvents.length} actividad${selectedDayEvents.length > 1 ? 'es' : ''}`}
                 </Text>
               </View>
@@ -421,6 +456,71 @@ export default function EventsListScreen() {
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* RECORDATORIO DE CUMPLEAÑOS (FESTIVO / RECORDATORIO, NO EVENTO) */}
+            {(() => {
+              const selectedYear = fromISODate(selectedDate).getFullYear();
+              const dayBirthdays = members.filter((m) => isBirthdayOnDate(m.birthDate, selectedDate));
+              if (dayBirthdays.length === 0) return null;
+
+              return (
+                <LinearGradient
+                  colors={['rgba(244, 63, 94, 0.22)', 'rgba(30, 27, 75, 0.65)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.birthdayReminderCard}>
+                  <View style={styles.birthdayReminderHeader}>
+                    <View style={styles.birthdayBadge}>
+                      <Text style={styles.birthdayBadgeText}>🎉 RECORDATORIO DE CUMPLEAÑOS</Text>
+                    </View>
+                    <Text style={styles.birthdayReminderTitle}>
+                      ¡Hoy celebran su vida! ({dayBirthdays.length})
+                    </Text>
+                  </View>
+
+                  {dayBirthdays.map((m) => {
+                    const age = getAgeTurning(m.birthDate || '', selectedYear);
+                    return (
+                      <View key={m.id} style={styles.birthdayPersonRow}>
+                        <View style={styles.birthdayAvatarCircle}>
+                          <Text style={styles.birthdayAvatarText}>
+                            {m.firstName?.[0] || '🎂'}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                          <Text style={styles.birthdayPersonName}>
+                            {m.firstName} {m.lastName}
+                          </Text>
+                          <Text style={styles.birthdayPersonAge}>
+                            {age ? `Cumple ${age} años 🎂` : 'Celebrando su cumpleaños'}
+                          </Text>
+                        </View>
+                        {m.phone ? (
+                          <View style={styles.birthdayContactActions}>
+                            <TouchableOpacity
+                              style={styles.birthdayActionBtnWhatsApp}
+                              onPress={() => {
+                                const clean = m.phone!.replace(/[^0-9]/g, '');
+                                const text = encodeURIComponent(
+                                  `¡Feliz Cumpleaños ${m.firstName}! 🎉🎂 Que el Señor derrame abundantes bendiciones, gozo y salud en tu vida. ¡Te mandamos un fuerte abrazo desde tu iglesia IEC Caja de Agua! 🙏✨`
+                                );
+                                Linking.openURL(`https://wa.me/${clean}?text=${text}`);
+                              }}>
+                              <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.birthdayActionBtnCall}
+                              onPress={() => Linking.openURL(`tel:${m.phone}`)}>
+                              <Ionicons name="call" size={14} color="#38BDF8" />
+                            </TouchableOpacity>
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </LinearGradient>
+              );
+            })()}
 
             {/* LISTA DE ACTIVIDADES PARA EL DÍA SELECCIONADO */}
             <View style={styles.selectedDayList}>
@@ -883,6 +983,93 @@ const styles = StyleSheet.create({
     borderRadius: 4.5,
     borderWidth: 1.5,
     borderColor: '#38BDF8',
+  },
+
+  // Recordatorio de Cumpleaños en Calendario
+  birthdayReminderCard: {
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(251, 113, 133, 0.45)',
+  },
+  birthdayReminderHeader: {
+    marginBottom: 8,
+  },
+  birthdayBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(244, 63, 94, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 113, 133, 0.4)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 4,
+  },
+  birthdayBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FDA4AF',
+    letterSpacing: 0.5,
+  },
+  birthdayReminderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  birthdayPersonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 8,
+  },
+  birthdayAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(244, 63, 94, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  birthdayAvatarText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FDA4AF',
+  },
+  birthdayPersonName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  birthdayPersonAge: {
+    fontSize: 12,
+    color: '#F472B6',
+    marginTop: 1,
+  },
+  birthdayContactActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  birthdayActionBtnWhatsApp: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#22C55E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  birthdayActionBtnCall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   legendText: {
     fontSize: 11,

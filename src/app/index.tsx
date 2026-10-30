@@ -1,3 +1,4 @@
+import { AuroraBackground } from '@/components/aurora-background';
 import { useChurch } from '@/context/ChurchContext';
 import { fetchBibleVerse, POPULAR_VERSES, QuickBibleVerse } from '@/lib/bible';
 import {
@@ -7,7 +8,6 @@ import {
   sortEventsAsc,
   todayISO,
 } from '@/lib/events';
-import { AuroraBackground } from '@/components/aurora-background';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -16,16 +16,19 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PrayerCategory, PrayerRequest, PrayerStatus } from '@/types/church';
 import LoginScreen from './login';
 import RegisterScreen from './register';
 
@@ -42,6 +45,10 @@ export default function DashboardScreen() {
     addPastoralPost,
     toggleLikePost,
     deletePastoralPost,
+    prayerRequests,
+    addPrayerRequest,
+    updatePrayerRequestStatus,
+    deletePrayerRequest,
   } = useChurch();
 
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -56,6 +63,17 @@ export default function DashboardScreen() {
   // Modales adicionales de cuidado pastoral
   const [birthdayModalVisible, setBirthdayModalVisible] = useState(false);
   const [prayerModalVisible, setPrayerModalVisible] = useState(false);
+  const [birthdayFilterTab, setBirthdayFilterTab] = useState<'month' | 'next30' | 'all'>('month');
+
+  // Estado para Peticiones de Oración
+  const [prayerTab, setPrayerTab] = useState<'list' | 'create'>('list');
+  const [prayerFilter, setPrayerFilter] = useState<'all' | 'pending' | 'praying' | 'answered'>('all');
+  const [prayerTitle, setPrayerTitle] = useState('');
+  const [prayerDesc, setPrayerDesc] = useState('');
+  const [prayerCategory, setPrayerCategory] = useState<PrayerCategory>('salud');
+  const [prayerPhone, setPrayerPhone] = useState('');
+  const [prayerPrivate, setPrayerPrivate] = useState(false);
+  const [isSubmittingPrayer, setIsSubmittingPrayer] = useState(false);
 
   // Estado del versículo bíblico adjunto
   const [verseQuery, setVerseQuery] = useState('');
@@ -91,26 +109,129 @@ export default function DashboardScreen() {
     return pastoralPosts;
   }, [pastoralPosts, currentUser]);
 
-  // Cumpleañeros del mes actual
-  const upcomingBirthdays = useMemo(() => {
+  // Cumpleañeros calculados con data de perfiles y fecha de nacimiento
+  const birthdaysList = useMemo(() => {
     const now = new Date();
-    const currentMonth = now.getMonth() + 1; // 1-12
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth() + 1; // 1-12
+    const curDay = now.getDate();
+
     return members
-      .filter((m) => {
-        if (!m.birthDate) return false;
-        const parts = m.birthDate.split('-');
-        if (parts.length >= 2) {
-          const month = parseInt(parts[1], 10);
-          return month === currentMonth;
+      .filter((m) => Boolean(m.birthDate))
+      .map((m) => {
+        const parts = m.birthDate!.replace(/\//g, '-').split('-');
+        const bYear = parts.length >= 1 ? parseInt(parts[0], 10) : 0;
+        const bMonth = parts.length >= 2 ? parseInt(parts[1], 10) : 0;
+        const bDay = parts.length >= 3 ? parseInt(parts[2], 10) : 0;
+        const isToday = bMonth === curMonth && bDay === curDay;
+
+        let nextBDate = new Date(curYear, bMonth - 1, bDay);
+        if (nextBDate.getTime() < new Date(curYear, curMonth - 1, curDay).getTime()) {
+          nextBDate = new Date(curYear + 1, bMonth - 1, bDay);
         }
-        return false;
+        const diffMs = nextBDate.getTime() - new Date(curYear, curMonth - 1, curDay).getTime();
+        const daysUntil = Math.round(diffMs / (1000 * 60 * 60 * 24));
+        const ageTurning = bYear > 1900 ? (nextBDate.getFullYear() - bYear) : null;
+
+        return {
+          member: m,
+          day: bDay,
+          month: bMonth,
+          year: bYear,
+          isToday,
+          isCurrentMonth: bMonth === curMonth,
+          daysUntil,
+          ageTurning,
+        };
       })
-      .sort((a, b) => {
-        const dayA = parseInt(a.birthDate?.split('-')[2] || '0', 10);
-        const dayB = parseInt(b.birthDate?.split('-')[2] || '0', 10);
-        return dayA - dayB;
-      });
+      .sort((a, b) => a.daysUntil - b.daysUntil);
   }, [members]);
+
+  const filteredBirthdays = useMemo(() => {
+    if (birthdayFilterTab === 'month') {
+      return birthdaysList.filter((b) => b.isCurrentMonth);
+    }
+    if (birthdayFilterTab === 'next30') {
+      return birthdaysList.filter((b) => b.daysUntil <= 30);
+    }
+    return birthdaysList;
+  }, [birthdaysList, birthdayFilterTab]);
+
+  const birthdaysThisMonthCount = useMemo(() => {
+    return birthdaysList.filter((b) => b.isCurrentMonth).length;
+  }, [birthdaysList]);
+
+  // Peticiones de Oración y conteo para pastores
+  const pendingPrayersCount = useMemo(() => {
+    return prayerRequests.filter((p) => p.status === 'pending').length;
+  }, [prayerRequests]);
+
+  const visiblePrayerRequests = useMemo(() => {
+    let list = prayerRequests;
+    if (!isPastor) {
+      list = prayerRequests.filter(
+        (p) => p.memberId === currentUser?.id || (!p.isPrivateForPastors)
+      );
+    }
+    if (prayerFilter !== 'all') {
+      list = list.filter((p) => p.status === prayerFilter);
+    }
+    return list;
+  }, [prayerRequests, isPastor, currentUser, prayerFilter]);
+
+  const handleSendPrayerRequest = async () => {
+    if (!prayerTitle.trim()) {
+      Alert.alert('Falta el motivo', 'Por favor ingresa el título o motivo de la petición.');
+      return;
+    }
+    if (!prayerDesc.trim()) {
+      Alert.alert('Falta la descripción', 'Por favor describe tu petición para que los pastores podamos orar con detalle.');
+      return;
+    }
+    setIsSubmittingPrayer(true);
+    try {
+      const requesterName = currentUser
+        ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
+        : 'Hermano(a) de la iglesia';
+      const requesterPhone = prayerPhone.trim() || currentUser?.phone || undefined;
+
+      await addPrayerRequest({
+        memberId: currentUser?.id || 'anon',
+        memberName: requesterName,
+        memberPhone: requesterPhone,
+        category: prayerCategory,
+        title: prayerTitle.trim(),
+        description: prayerDesc.trim(),
+        isPrivateForPastors: prayerPrivate,
+      });
+
+      setPrayerTitle('');
+      setPrayerDesc('');
+      setPrayerPhone('');
+      setPrayerPrivate(false);
+      setPrayerTab('list');
+
+      Alert.alert(
+        '¡Petición Enviada!',
+        'Tu petición ha sido entregada al equipo pastoral. Los Pastores Josué y Norelis la presentarán en oración ante el Señor.'
+      );
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'No se pudo enviar la petición.');
+    } finally {
+      setIsSubmittingPrayer(false);
+    }
+  };
+
+  const handleMarkPraying = async (prId: string) => {
+    const pastorName = currentUser
+      ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
+      : 'Pastor';
+    await updatePrayerRequestStatus(prId, 'praying', pastorName);
+  };
+
+  const handleMarkAnswered = async (prId: string) => {
+    await updatePrayerRequestStatus(prId, 'answered');
+  };
 
   if (isLoading && currentUser) {
     return (
@@ -549,7 +670,7 @@ export default function DashboardScreen() {
                 </View>
               </LinearGradient>
 
-              {/* CARD 3: CUIDADO PASTORAL (LUZ CORAL/ROSA) */}
+              {/* CARD 3: CUIDADO PASTORAL & PETICIONES (LUZ CORAL/ROSA) */}
               <LinearGradient
                 colors={['rgba(225, 29, 72, 0.35)', 'rgba(15, 23, 42, 0.85)']}
                 start={{ x: 0, y: 0 }}
@@ -558,7 +679,10 @@ export default function DashboardScreen() {
                 <TouchableOpacity
                   style={styles.glassCardHeader}
                   activeOpacity={0.8}
-                  onPress={() => setPrayerModalVisible(true)}>
+                  onPress={() => {
+                    setPrayerTab('list');
+                    setPrayerModalVisible(true);
+                  }}>
                   <View
                     style={[
                       styles.badgeGlowCircle,
@@ -570,10 +694,16 @@ export default function DashboardScreen() {
                     <Ionicons name="heart-half" size={24} color="#FB7185" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.glassCardTitle}>Cuidado Pastoral</Text>
-                    <Text style={styles.glassCardSubtitle}>Cumpleaños, oración y salud</Text>
+                    <Text style={styles.glassCardTitle}>Cuidado & Oración</Text>
+                    <Text style={styles.glassCardSubtitle}>Peticiones personales y cumpleaños</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                  {isPastor && pendingPrayersCount > 0 ? (
+                    <View style={styles.cardNotifyPill}>
+                      <Text style={styles.cardNotifyPillText}>{pendingPrayersCount} por orar</Text>
+                    </View>
+                  ) : (
+                    <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                  )}
                 </TouchableOpacity>
 
                 <View style={styles.subActionsRow}>
@@ -588,13 +718,16 @@ export default function DashboardScreen() {
                       ]}>
                       <Ionicons name="gift-outline" size={16} color="#FB7185" />
                     </View>
-                    <Text style={styles.subActionLabel}>Cumpleaños</Text>
+                    <Text style={styles.subActionLabel}>Cumpleaños ({birthdaysThisMonthCount})</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.subActionItem}
                     activeOpacity={0.8}
-                    onPress={() => setPrayerModalVisible(true)}>
+                    onPress={() => {
+                      setPrayerTab(isPastor ? 'list' : 'create');
+                      setPrayerModalVisible(true);
+                    }}>
                     <View
                       style={[
                         styles.subActionIconBox,
@@ -602,13 +735,18 @@ export default function DashboardScreen() {
                       ]}>
                       <Ionicons name="sparkles-outline" size={16} color="#FBBF24" />
                     </View>
-                    <Text style={styles.subActionLabel}>Oración</Text>
+                    <Text style={styles.subActionLabel}>
+                      {isPastor ? 'Ver Peticiones' : 'Mandar Petición'}
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.subActionItem}
                     activeOpacity={0.8}
-                    onPress={() => setPrayerModalVisible(true)}>
+                    onPress={() => {
+                      setPrayerTab('list');
+                      setPrayerModalVisible(true);
+                    }}>
                     <View
                       style={[
                         styles.subActionIconBox,
@@ -616,7 +754,7 @@ export default function DashboardScreen() {
                       ]}>
                       <Ionicons name="medkit-outline" size={16} color="#34D399" />
                     </View>
-                    <Text style={styles.subActionLabel}>Salud y cuidado</Text>
+                    <Text style={styles.subActionLabel}>Cuidado Pastoral</Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -776,78 +914,6 @@ export default function DashboardScreen() {
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
-
-              {/* CARD 5: DONACIONES Y REPORTES (LUZ ESMERALDA/DORADA) */}
-              <LinearGradient
-                colors={['rgba(5, 150, 105, 0.38)', 'rgba(15, 23, 42, 0.85)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.glassCard, { borderColor: 'rgba(52, 211, 153, 0.35)' }]}>
-                <TouchableOpacity
-                  style={styles.glassCardHeader}
-                  activeOpacity={0.8}
-                  onPress={() => router.push('/attendance' as any)}>
-                  <View
-                    style={[
-                      styles.badgeGlowCircle,
-                      {
-                        backgroundColor: 'rgba(245, 158, 11, 0.22)',
-                        borderColor: 'rgba(251, 191, 36, 0.5)',
-                      },
-                    ]}>
-                    <Ionicons name="trending-up" size={24} color="#FBBF24" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.glassCardTitle}>Donaciones y Reportes</Text>
-                    <Text style={styles.glassCardSubtitle}>Lo recogido en cada servicio y célula</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-                </TouchableOpacity>
-
-                <View style={styles.subActionsRow}>
-                  <TouchableOpacity
-                    style={styles.subActionItem}
-                    activeOpacity={0.8}
-                    onPress={() => router.push('/cells' as any)}>
-                    <View
-                      style={[
-                        styles.subActionIconBox,
-                        { backgroundColor: 'rgba(251, 191, 36, 0.2)' },
-                      ]}>
-                      <Ionicons name="wallet-outline" size={16} color="#FBBF24" />
-                    </View>
-                    <Text style={styles.subActionLabel}>Ofrendas Célula</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.subActionItem}
-                    activeOpacity={0.8}
-                    onPress={() => router.push('/attendance' as any)}>
-                    <View
-                      style={[
-                        styles.subActionIconBox,
-                        { backgroundColor: 'rgba(52, 211, 153, 0.2)' },
-                      ]}>
-                      <Ionicons name="bar-chart-outline" size={16} color="#34D399" />
-                    </View>
-                    <Text style={styles.subActionLabel}>Consolidación</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.subActionItem}
-                    activeOpacity={0.8}
-                    onPress={() => router.push('/members' as any)}>
-                    <View
-                      style={[
-                        styles.subActionIconBox,
-                        { backgroundColor: 'rgba(56, 189, 248, 0.2)' },
-                      ]}>
-                      <Ionicons name="people-outline" size={16} color="#38BDF8" />
-                    </View>
-                    <Text style={styles.subActionLabel}>Directorio</Text>
-                  </TouchableOpacity>
-                </View>
-              </LinearGradient>
             </View>
           )}
 
@@ -936,8 +1002,8 @@ export default function DashboardScreen() {
                                 const confirmed =
                                   typeof window !== 'undefined'
                                     ? window.confirm(
-                                        '¿Estás seguro de que deseas eliminar esta publicación?'
-                                      )
+                                      '¿Estás seguro de que deseas eliminar esta publicación?'
+                                    )
                                     : true;
                                 if (confirmed) {
                                   deletePastoralPost(post.id);
@@ -1142,7 +1208,7 @@ export default function DashboardScreen() {
       </Modal>
 
       {/* ========================================================= */}
-      {/* MODAL: CUMPLEAÑOS DEL MES                                 */}
+      {/* MODAL: CUMPLEAÑOS DE LOS MIEMBROS                         */}
       {/* ========================================================= */}
       <Modal visible={birthdayModalVisible} animationType="slide" transparent>
         <SafeAreaView style={styles.modalOverlay}>
@@ -1150,42 +1216,117 @@ export default function DashboardScreen() {
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Ionicons name="gift" size={22} color="#FB7185" />
-                <Text style={styles.modalTitle}>Cumpleaños del Mes</Text>
+                <Text style={styles.modalTitle}>Cumpleaños de la Iglesia</Text>
               </View>
               <TouchableOpacity onPress={() => setBirthdayModalVisible(false)}>
                 <Ionicons name="close-circle" size={26} color="#64748B" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-              <Text style={styles.careModalSubtitle}>
-                Hermanos y discípulos que celebran la vida este mes:
-              </Text>
+            {/* Selector de Filtro de Cumpleaños */}
+            <View style={styles.careFilterTabsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.careFilterTabBtn,
+                  birthdayFilterTab === 'month' && styles.careFilterTabBtnActive,
+                ]}
+                onPress={() => setBirthdayFilterTab('month')}>
+                <Text
+                  style={[
+                    styles.careFilterTabText,
+                    birthdayFilterTab === 'month' && styles.careFilterTabTextActive,
+                  ]}>
+                  Este Mes ({birthdaysThisMonthCount})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.careFilterTabBtn,
+                  birthdayFilterTab === 'next30' && styles.careFilterTabBtnActive,
+                ]}
+                onPress={() => setBirthdayFilterTab('next30')}>
+                <Text
+                  style={[
+                    styles.careFilterTabText,
+                    birthdayFilterTab === 'next30' && styles.careFilterTabTextActive,
+                  ]}>
+                  Próximos 30 días
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.careFilterTabBtn,
+                  birthdayFilterTab === 'all' && styles.careFilterTabBtnActive,
+                ]}
+                onPress={() => setBirthdayFilterTab('all')}>
+                <Text
+                  style={[
+                    styles.careFilterTabText,
+                    birthdayFilterTab === 'all' && styles.careFilterTabTextActive,
+                  ]}>
+                  Todos ({birthdaysList.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-              {upcomingBirthdays.length === 0 ? (
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+              {filteredBirthdays.length === 0 ? (
                 <View style={styles.emptyCareBox}>
                   <Ionicons name="calendar-outline" size={36} color="#64748B" />
                   <Text style={styles.emptyCareText}>
-                    No hay fechas de cumpleaños registradas para este mes. Puedes actualizar las fechas en el Directorio.
+                    No hay cumpleaños registrados con fecha de nacimiento para este criterio. Puedes ingresar o actualizar la fecha de nacimiento en el Directorio de miembros.
                   </Text>
                 </View>
               ) : (
-                upcomingBirthdays.map((m) => (
-                  <View key={m.id} style={styles.birthdayItemCard}>
-                    <View style={styles.birthdayIconBox}>
-                      <Ionicons name="balloon-outline" size={20} color="#FB7185" />
+                filteredBirthdays.map(({ member: m, day, month, isToday, daysUntil, ageTurning }) => (
+                  <View key={m.id} style={[styles.birthdayItemCard, isToday && styles.birthdayItemCardToday]}>
+                    <View style={[styles.birthdayIconBox, isToday && { backgroundColor: 'rgba(251, 191, 36, 0.25)', borderColor: '#F59E0B' }]}>
+                      <Text style={{ fontSize: 18 }}>{isToday ? '🎂' : '🎈'}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.birthdayMemberName}>
-                        {m.firstName} {m.lastName}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={styles.birthdayMemberName}>
+                          {m.firstName} {m.lastName}
+                        </Text>
+                        {isToday && (
+                          <View style={styles.todayBirthdayBadge}>
+                            <Text style={styles.todayBirthdayBadgeText}>¡HOY! 🎉</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.birthdayDateText}>
-                        🎂 {m.birthDate}
+                        🗓️ {day} de {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][month - 1]}
+                        {ageTurning ? ` · Cumple ${ageTurning} años` : ''}
                       </Text>
-                      {m.phone ? (
-                        <Text style={styles.birthdayPhoneText}>Tel: {m.phone}</Text>
-                      ) : null}
+                      <Text style={styles.birthdayCountdownText}>
+                        {isToday
+                          ? '✨ Celebrando hoy su cumpleaños'
+                          : daysUntil === 1
+                          ? '⏳ ¡Mañana es su cumpleaños!'
+                          : `⏳ Faltan ${daysUntil} días`}
+                      </Text>
                     </View>
+
+                    {m.phone ? (
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        <TouchableOpacity
+                          style={styles.birthdayWhatsAppBtn}
+                          onPress={() => {
+                            const clean = m.phone!.replace(/[^0-9]/g, '');
+                            const msg = encodeURIComponent(
+                              `¡Feliz Cumpleaños ${m.firstName}! 🎉🎂 Que el Señor te llene de salud, sabiduría y bendiciones en este nuevo año de vida. ¡Te mandamos un abrazo con mucho cariño desde la congregación IEC Caja de Agua! 🙏✨`
+                            );
+                            Linking.openURL(`https://wa.me/${clean}?text=${msg}`);
+                          }}>
+                          <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.birthdayCallBtn}
+                          onPress={() => Linking.openURL(`tel:${m.phone}`)}>
+                          <Ionicons name="call" size={14} color="#38BDF8" />
+                        </TouchableOpacity>
+                      </View>
+                    ) : null}
                   </View>
                 ))
               )}
@@ -1195,7 +1336,7 @@ export default function DashboardScreen() {
       </Modal>
 
       {/* ========================================================= */}
-      {/* MODAL: ORACIÓN Y CUIDADO PASTORAL                         */}
+      {/* MODAL: PETICIONES DE ORACIÓN & CUIDADO PASTORAL           */}
       {/* ========================================================= */}
       <Modal visible={prayerModalVisible} animationType="slide" transparent>
         <SafeAreaView style={styles.modalOverlay}>
@@ -1203,41 +1344,311 @@ export default function DashboardScreen() {
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Ionicons name="heart" size={22} color="#FB7185" />
-                <Text style={styles.modalTitle}>Cuidado Pastoral & Oración</Text>
+                <Text style={styles.modalTitle}>Peticiones de Oración</Text>
               </View>
               <TouchableOpacity onPress={() => setPrayerModalVisible(false)}>
                 <Ionicons name="close-circle" size={26} color="#64748B" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-              <View style={styles.careNoticeBox}>
-                <Ionicons name="sparkles" size={24} color="#38BDF8" />
-                <Text style={styles.careNoticeTitle}>&ldquo;La oración del justo es poderosa y eficaz&rdquo;</Text>
-                <Text style={styles.careNoticeDesc}>
-                  Santiago 5:16 — El equipo pastoral y los líderes de 12 están en continuo clamor por las familias, peticiones de salud, fortaleza y crecimiento de la iglesia.
+            {/* Pestañas: Ver Peticiones / Mandar Petición */}
+            <View style={styles.prayerTopTabsRow}>
+              <TouchableOpacity
+                style={[styles.prayerTopTabBtn, prayerTab === 'list' && styles.prayerTopTabBtnActive]}
+                onPress={() => setPrayerTab('list')}>
+                <Ionicons
+                  name="list"
+                  size={16}
+                  color={prayerTab === 'list' ? '#FFFFFF' : '#94A3B8'}
+                />
+                <Text style={[styles.prayerTopTabText, prayerTab === 'list' && styles.prayerTopTabTextActive]}>
+                  {isPastor ? 'Peticiones Recibidas' : 'Mis Peticiones'} ({visiblePrayerRequests.length})
                 </Text>
-              </View>
-
-              <Text style={[styles.modalInputLabel, { marginTop: 16 }]}>Cobertura Pastoral:</Text>
-              <View style={styles.coverageRow}>
-                <View style={[styles.coverageCard, { flex: 1 }]}>
-                  <Text style={styles.coverageTitle}>Pastores Principales</Text>
-                  <Text style={styles.coverageName}>Pastor Josué Rodríguez & Pastora Norelis de Rodríguez</Text>
-                  <Text style={styles.coverageSub}>Iglesia Emmanuel de Caja de Agua</Text>
-                </View>
-              </View>
+              </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.publishSubmitBtn}
-                activeOpacity={0.85}
-                onPress={() => {
-                  setPrayerModalVisible(false);
-                  setMainTab('interactiva');
-                }}>
-                <Ionicons name="chatbubbles" size={18} color="#FFFFFF" />
-                <Text style={styles.publishSubmitBtnText}>Ver Reflexiones y Devocionales</Text>
+                style={[styles.prayerTopTabBtn, prayerTab === 'create' && styles.prayerTopTabBtnActive]}
+                onPress={() => setPrayerTab('create')}>
+                <Ionicons
+                  name="add-circle"
+                  size={16}
+                  color={prayerTab === 'create' ? '#FFFFFF' : '#94A3B8'}
+                />
+                <Text style={[styles.prayerTopTabText, prayerTab === 'create' && styles.prayerTopTabTextActive]}>
+                  + Enviar Petición
+                </Text>
               </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+              {prayerTab === 'list' ? (
+                <View>
+                  {/* Banner Pastoral */}
+                  <View style={styles.careNoticeBox}>
+                    <Ionicons name="sparkles" size={20} color="#38BDF8" />
+                    <Text style={styles.careNoticeTitle}>&ldquo;La oración del justo es poderosa y eficaz&rdquo;</Text>
+                    <Text style={styles.careNoticeDesc}>
+                      Los Pastores Josué y Norelis presentan en el altar cada petición depositada por la congregación.
+                    </Text>
+                  </View>
+
+                  {/* Filtro por estado para Pastores */}
+                  {isPastor && (
+                    <View style={styles.prayerFilterChipsRow}>
+                      {[
+                        { id: 'all', label: 'Todas' },
+                        { id: 'pending', label: 'Pendientes' },
+                        { id: 'praying', label: 'Orando 🙏' },
+                        { id: 'answered', label: 'Atendidas' },
+                      ].map((f) => (
+                        <TouchableOpacity
+                          key={f.id}
+                          style={[
+                            styles.prayerFilterChip,
+                            prayerFilter === f.id && styles.prayerFilterChipActive,
+                          ]}
+                          onPress={() => setPrayerFilter(f.id as any)}>
+                          <Text
+                            style={[
+                              styles.prayerFilterChipText,
+                              prayerFilter === f.id && styles.prayerFilterChipTextActive,
+                            ]}>
+                            {f.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+
+                  {visiblePrayerRequests.length === 0 ? (
+                    <View style={styles.emptyCareBox}>
+                      <Ionicons name="heart-outline" size={38} color="#64748B" />
+                      <Text style={styles.emptyCareText}>
+                        {isPastor
+                          ? 'No hay peticiones de oración pendientes con este filtro.'
+                          : 'Aún no has enviado peticiones de oración a los pastores.'}
+                      </Text>
+                      {!isPastor && (
+                        <TouchableOpacity
+                          style={[styles.publishSubmitBtn, { marginTop: 12 }]}
+                          onPress={() => setPrayerTab('create')}>
+                          <Ionicons name="add" size={18} color="#FFFFFF" />
+                          <Text style={styles.publishSubmitBtnText}>Enviar mi primera petición</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : (
+                    visiblePrayerRequests.map((req) => {
+                      const isPending = req.status === 'pending';
+                      const isPraying = req.status === 'praying';
+                      const isAnswered = req.status === 'answered';
+
+                      return (
+                        <View key={req.id} style={styles.prayerCard}>
+                          <View style={styles.prayerCardHeader}>
+                            <View style={styles.prayerCategoryPill}>
+                              <Ionicons
+                                name={
+                                  req.category === 'salud'
+                                    ? 'medkit'
+                                    : req.category === 'familia'
+                                    ? 'people'
+                                    : req.category === 'finanzas'
+                                    ? 'cash'
+                                    : req.category === 'espiritual'
+                                    ? 'flame'
+                                    : 'heart'
+                                }
+                                size={12}
+                                color="#FB7185"
+                              />
+                              <Text style={styles.prayerCategoryPillText}>
+                                {req.category.toUpperCase()}
+                              </Text>
+                            </View>
+
+                            <View
+                              style={[
+                                styles.prayerStatusBadge,
+                                isPraying && styles.prayerStatusBadgePraying,
+                                isAnswered && styles.prayerStatusBadgeAnswered,
+                              ]}>
+                              <Text
+                                style={[
+                                  styles.prayerStatusBadgeText,
+                                  isPraying && styles.prayerStatusBadgeTextPraying,
+                                  isAnswered && styles.prayerStatusBadgeTextAnswered,
+                                ]}>
+                                {isPending ? '🟡 En espera' : isPraying ? '🙏 Orando' : '✅ Atendida'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <Text style={styles.prayerCardTitle}>{req.title}</Text>
+                          <Text style={styles.prayerCardDesc}>{req.description}</Text>
+
+                          <View style={styles.prayerMetaRow}>
+                            <Ionicons name="person-circle-outline" size={14} color="#94A3B8" />
+                            <Text style={styles.prayerMetaText}>
+                              De: <Text style={{ fontWeight: '700', color: '#F8FAFC' }}>{req.memberName}</Text>
+                              {req.isPrivateForPastors ? ' · (🔒 Privada para Pastores)' : ''}
+                            </Text>
+                          </View>
+
+                          {/* Notificación para el solicitante cuando los pastores oran */}
+                          {isPraying && req.prayingPastors && req.prayingPastors.length > 0 && (
+                            <View style={styles.prayingPastorsBanner}>
+                              <Ionicons name="shield-checkmark" size={14} color="#34D399" />
+                              <Text style={styles.prayingPastorsBannerText}>
+                                Orando activamente: {req.prayingPastors.join(', ')}
+                              </Text>
+                            </View>
+                          )}
+
+                          {/* Acciones para Pastores */}
+                          {isPastor && (
+                            <View style={styles.prayerPastorActionsRow}>
+                              {isPending && (
+                                <TouchableOpacity
+                                  style={styles.prayActionBtn}
+                                  onPress={() => handleMarkPraying(req.id)}>
+                                  <Ionicons name="heart" size={14} color="#FFFFFF" />
+                                  <Text style={styles.prayActionBtnText}>Orar por ella 🙏</Text>
+                                </TouchableOpacity>
+                              )}
+
+                              {!isAnswered && (
+                                <TouchableOpacity
+                                  style={styles.answerActionBtn}
+                                  onPress={() => handleMarkAnswered(req.id)}>
+                                  <Ionicons name="checkmark-done" size={14} color="#10B981" />
+                                  <Text style={styles.answerActionBtnText}>Atendida</Text>
+                                </TouchableOpacity>
+                              )}
+
+                              {req.memberPhone && (
+                                <TouchableOpacity
+                                  style={styles.prayerWhatsAppBtn}
+                                  onPress={() => {
+                                    const clean = req.memberPhone!.replace(/[^0-9]/g, '');
+                                    const text = encodeURIComponent(
+                                      `Hola ${req.memberName}, te saludamos los pastores de la iglesia. Queremos que sepas que estamos orando por tu petición: "${req.title}". ¡Dios tiene el control y su paz sobrepasa todo entendimiento! 🙏✨`
+                                    );
+                                    Linking.openURL(`https://wa.me/${clean}?text=${text}`);
+                                  }}>
+                                  <Ionicons name="logo-whatsapp" size={14} color="#22C55E" />
+                                  <Text style={styles.prayerWhatsAppBtnText}>Escribir</Text>
+                                </TouchableOpacity>
+                              )}
+
+                              <TouchableOpacity
+                                style={styles.prayerDeleteBtn}
+                                onPress={() => deletePrayerRequest(req.id)}>
+                                <Ionicons name="trash-outline" size={14} color="#EF4444" />
+                              </TouchableOpacity>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+              ) : (
+                /* FORMULARIO DE NUEVA PETICIÓN */
+                <View style={styles.prayerForm}>
+                  <Text style={styles.formHeaderTitle}>Deposita tu petición ante Dios</Text>
+                  <Text style={styles.formHeaderSub}>
+                    Esta petición será recibida de forma directa por el Pastor Josué Rodríguez y la Pastora Norelis para su intercesión.
+                  </Text>
+
+                  {/* Categoría */}
+                  <Text style={styles.modalInputLabel}>Área de la Petición *</Text>
+                  <View style={styles.categorySelectRow}>
+                    {[
+                      { id: 'salud', label: 'Salud 🏥' },
+                      { id: 'familia', label: 'Familia 👨‍👩‍👧' },
+                      { id: 'finanzas', label: 'Provisión 💼' },
+                      { id: 'espiritual', label: 'Espiritual 🕊️' },
+                      { id: 'otro', label: 'Otro ✨' },
+                    ].map((c) => (
+                      <TouchableOpacity
+                        key={c.id}
+                        style={[
+                          styles.categorySelectChip,
+                          prayerCategory === c.id && styles.categorySelectChipActive,
+                        ]}
+                        onPress={() => setPrayerCategory(c.id as any)}>
+                        <Text
+                          style={[
+                            styles.categorySelectChipText,
+                            prayerCategory === c.id && styles.categorySelectChipTextActive,
+                          ]}>
+                          {c.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Título / Motivo */}
+                  <Text style={styles.modalInputLabel}>Motivo o Título *</Text>
+                  <TextInput
+                    style={styles.modalTextInput}
+                    placeholder="Ej: Sanidad para mi abuela, Empleo para mi esposo..."
+                    placeholderTextColor="#64748B"
+                    value={prayerTitle}
+                    onChangeText={setPrayerTitle}
+                  />
+
+                  {/* Descripción */}
+                  <Text style={styles.modalInputLabel}>Detalle de la Petición *</Text>
+                  <TextInput
+                    style={[styles.modalTextInput, { height: 90, textAlignVertical: 'top' }]}
+                    placeholder="Escribe los detalles para que podamos presentarlo en el altar con precisión..."
+                    placeholderTextColor="#64748B"
+                    value={prayerDesc}
+                    onChangeText={setPrayerDesc}
+                    multiline
+                  />
+
+                  {/* Teléfono de contacto */}
+                  <Text style={styles.modalInputLabel}>Teléfono de Contacto (opcional)</Text>
+                  <TextInput
+                    style={styles.modalTextInput}
+                    placeholder={currentUser?.phone || 'Ej: 0412-1234567'}
+                    placeholderTextColor="#64748B"
+                    value={prayerPhone}
+                    onChangeText={setPrayerPhone}
+                    keyboardType="phone-pad"
+                  />
+
+                  {/* Switch de Privacidad */}
+                  <View style={styles.privacyRow}>
+                    <View style={{ flex: 1, marginRight: 10 }}>
+                      <Text style={styles.privacyTitle}>🔒 Petición Confidencial</Text>
+                      <Text style={styles.privacySub}>
+                        Solo los Pastores Principales podrán ver el contenido de tu petición.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={prayerPrivate}
+                      onValueChange={setPrayerPrivate}
+                      trackColor={{ false: '#334155', true: '#FB7185' }}
+                      thumbColor="#FFFFFF"
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.publishSubmitBtn, isSubmittingPrayer && { opacity: 0.6 }]}
+                    activeOpacity={0.85}
+                    disabled={isSubmittingPrayer}
+                    onPress={handleSendPrayerRequest}>
+                    <Ionicons name="paper-plane" size={18} color="#FFFFFF" />
+                    <Text style={styles.publishSubmitBtnText}>
+                      {isSubmittingPrayer ? 'Enviando...' : 'Enviar Petición a los Pastores'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </ScrollView>
           </View>
         </SafeAreaView>
@@ -2102,5 +2513,361 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#94A3B8',
     marginTop: 1,
+  },
+
+  // ESTILOS NUEVOS PARA CUIDADO & PETICIONES DE ORACIÓN
+  cardNotifyPill: {
+    backgroundColor: '#E11D48',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  cardNotifyPillText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  careFilterTabsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  careFilterTabBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  careFilterTabBtnActive: {
+    backgroundColor: 'rgba(251, 113, 133, 0.25)',
+    borderColor: '#FB7185',
+  },
+  careFilterTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  careFilterTabTextActive: {
+    color: '#FDA4AF',
+  },
+  birthdayItemCardToday: {
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    borderColor: 'rgba(251, 191, 36, 0.4)',
+  },
+  todayBirthdayBadge: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  todayBirthdayBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  birthdayCountdownText: {
+    fontSize: 11,
+    color: '#38BDF8',
+    marginTop: 1,
+    fontWeight: '600',
+  },
+  birthdayWhatsAppBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#22C55E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  birthdayCallBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Pestañas Peticiones de Oración
+  prayerTopTabsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  prayerTopTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  prayerTopTabBtnActive: {
+    backgroundColor: 'rgba(244, 63, 94, 0.25)',
+    borderColor: '#FB7185',
+  },
+  prayerTopTabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  prayerTopTabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+
+  // Filtros de peticiones
+  prayerFilterChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 12,
+    marginBottom: 10,
+  },
+  prayerFilterChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  prayerFilterChipActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    borderColor: '#38BDF8',
+  },
+  prayerFilterChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  prayerFilterChipTextActive: {
+    color: '#38BDF8',
+  },
+
+  // Tarjeta de Petición
+  prayerCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  prayerCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  prayerCategoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(251, 113, 133, 0.15)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  prayerCategoryPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FDA4AF',
+  },
+  prayerStatusBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  prayerStatusBadgePraying: {
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    borderColor: 'rgba(59, 130, 246, 0.4)',
+  },
+  prayerStatusBadgeAnswered: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+  },
+  prayerStatusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FBBF24',
+  },
+  prayerStatusBadgeTextPraying: {
+    color: '#60A5FA',
+  },
+  prayerStatusBadgeTextAnswered: {
+    color: '#34D399',
+  },
+  prayerCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  prayerCardDesc: {
+    fontSize: 13,
+    color: '#CBD5E1',
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  prayerMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 8,
+  },
+  prayerMetaText: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  prayingPastorsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderRadius: 10,
+    padding: 8,
+    marginBottom: 8,
+  },
+  prayingPastorsBannerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#34D399',
+  },
+  prayerPastorActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  prayActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  prayActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  answerActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  answerActionBtnText: {
+    color: '#34D399',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  prayerWhatsAppBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  prayerWhatsAppBtnText: {
+    color: '#22C55E',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  prayerDeleteBtn: {
+    padding: 6,
+    marginLeft: 'auto',
+  },
+
+  // Formulario de Petición
+  prayerForm: {
+    marginTop: 4,
+  },
+  formHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  formHeaderSub: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 4,
+    marginBottom: 14,
+    lineHeight: 17,
+  },
+  categorySelectRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  categorySelectChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  categorySelectChipActive: {
+    backgroundColor: 'rgba(244, 63, 94, 0.25)',
+    borderColor: '#FB7185',
+  },
+  categorySelectChipText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  categorySelectChipTextActive: {
+    color: '#FDA4AF',
+    fontWeight: '800',
+  },
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  privacyTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  privacySub: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+    lineHeight: 15,
   },
 });

@@ -316,3 +316,21 @@ export interface PastoralPost {
   createdAt: string;
 }
 
+export type PrayerCategory = 'salud' | 'familia' | 'finanzas' | 'espiritual' | 'otro';
+export type PrayerStatus = 'pending' | 'praying' | 'answered';
+
+export interface PrayerRequest {
+  id: string;
+  memberId: string;
+  memberName: string;
+  memberPhone?: string;
+  category: PrayerCategory;
+  title: string;
+  description: string;
+  isPrivateForPastors: boolean;
+  status: PrayerStatus;
+  prayingPastors?: string[]; // Nombres de pastores que han marcado "Orando"
+  createdAt: string; // ISO
+}
+
+

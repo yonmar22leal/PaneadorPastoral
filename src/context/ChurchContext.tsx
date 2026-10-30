@@ -19,6 +19,9 @@ import {
   ServiceScheduleItem,
   VolunteerRoster,
   PastoralPost,
+  PrayerRequest,
+  PrayerStatus,
+  PrayerCategory,
 } from '../types/church';
 import {
   churchServicesSchedule,
@@ -39,7 +42,36 @@ function generateUUID(): string {
 const STORAGE_CURRENT_USER = '@planeador_current_user_v1';
 const STORAGE_MINISTRIES = '@planeador_ministries_v1';
 const STORAGE_PASTORAL_POSTS = '@planeador_pastoral_posts_v1';
+const STORAGE_PRAYER_REQUESTS = '@planeador_prayer_requests_v1';
 const CHURCH_ID = '11111111-1111-1111-1111-111111111111';
+
+const defaultPrayerRequests: PrayerRequest[] = [
+  {
+    id: 'pr-1',
+    memberId: 'demo-1',
+    memberName: 'Hermana Carmen Gómez',
+    memberPhone: '+58 412-5550192',
+    category: 'salud',
+    title: 'Recuperación de cirugía de mi madre',
+    description: 'Pido oración por mi mamá Rosa, fue operada de la vesícula y pedimos al Señor pronta recuperación y fortaleza.',
+    isPrivateForPastors: false,
+    status: 'praying',
+    prayingPastors: ['Pastor Josué Rodríguez', 'Pastora Norelis de Rodríguez'],
+    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+  },
+  {
+    id: 'pr-2',
+    memberId: 'demo-2',
+    memberName: 'Carlos Mendoza',
+    memberPhone: '+58 414-9988776',
+    category: 'finanzas',
+    title: 'Nueva oportunidad laboral y provisión',
+    description: 'Estoy en proceso de entrevistas para un nuevo empleo. Pido respaldo en oración a los pastores.',
+    isPrivateForPastors: true,
+    status: 'pending',
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+  },
+];
 
 const defaultPastoralPosts: PastoralPost[] = [
   {
@@ -186,6 +218,13 @@ interface ChurchContextType {
   addPastoralPost: (post: Omit<PastoralPost, 'id' | 'likes' | 'createdAt'>) => Promise<string>;
   toggleLikePost: (postId: string) => Promise<void>;
   deletePastoralPost: (postId: string) => Promise<void>;
+
+  // Peticiones de Oración & Cuidado Pastoral
+  prayerRequests: PrayerRequest[];
+  addPrayerRequest: (req: Omit<PrayerRequest, 'id' | 'createdAt' | 'status' | 'prayingPastors'>) => Promise<string>;
+  updatePrayerRequestStatus: (id: string, status: PrayerStatus, pastorName?: string) => Promise<void>;
+  deletePrayerRequest: (id: string) => Promise<void>;
+
   isLoading: boolean;
   refreshData: () => Promise<void>;
 
@@ -261,6 +300,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   const [leaderAttendanceReports, setLeaderAttendanceReports] = useState<LeaderAttendanceReport[]>([]);
   const [cellMeetingReports, setCellMeetingReports] = useState<CellMeetingReport[]>([]);
   const [pastoralPosts, setPastoralPosts] = useState<PastoralPost[]>(defaultPastoralPosts);
+  const [prayerRequests, setPrayerRequests] = useState<PrayerRequest[]>(defaultPrayerRequests);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // 1. CARGA DE SESIÓN DE USUARIO, MINISTERIOS Y MENSAJES PASTORALES DESDE ASYNCSTORAGE
@@ -300,6 +340,14 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           const parsedPosts = JSON.parse(storedPosts);
           if (Array.isArray(parsedPosts) && parsedPosts.length > 0) {
             setPastoralPosts(parsedPosts);
+          }
+        }
+
+        const storedPrayers = await AsyncStorage.getItem(STORAGE_PRAYER_REQUESTS);
+        if (storedPrayers) {
+          const parsedPrayers = JSON.parse(storedPrayers);
+          if (Array.isArray(parsedPrayers) && parsedPrayers.length > 0) {
+            setPrayerRequests(parsedPrayers);
           }
         }
       } catch (e) {
@@ -620,6 +668,28 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         setMinistries(mappedMin);
         AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(mappedMin)).catch(() => {});
       }
+
+      // J. Peticiones de Oración de Supabase (si existe la tabla)
+      try {
+        const { data: prData } = await supabase.from('prayer_requests').select('*');
+        if (prData && prData.length > 0) {
+          const mappedPr: PrayerRequest[] = prData.map((p) => ({
+            id: p.id,
+            memberId: p.member_id || '',
+            memberName: p.member_name || '',
+            memberPhone: p.member_phone || undefined,
+            category: p.category || 'otro',
+            title: p.title || '',
+            description: p.description || '',
+            isPrivateForPastors: p.is_private_for_pastors ?? false,
+            status: p.status || 'pending',
+            prayingPastors: p.praying_pastors || [],
+            createdAt: p.created_at || new Date().toISOString(),
+          }));
+          setPrayerRequests(mappedPr);
+          AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(mappedPr)).catch(() => {});
+        }
+      } catch {}
     } catch (e) {
       console.warn('Supabase data load error:', e);
     } finally {
@@ -2004,6 +2074,93 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => {});
   };
 
+  const addPrayerRequest = async (
+    req: Omit<PrayerRequest, 'id' | 'createdAt' | 'status' | 'prayingPastors'>
+  ): Promise<string> => {
+    const newId = generateUUID();
+    const newReq: PrayerRequest = {
+      ...req,
+      id: newId,
+      status: 'pending',
+      prayingPastors: [],
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [newReq, ...prayerRequests];
+    setPrayerRequests(updated);
+    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => {});
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('prayer_requests').insert({
+          id: newId,
+          church_id: CHURCH_ID,
+          member_id: newReq.memberId,
+          member_name: newReq.memberName,
+          member_phone: newReq.memberPhone || null,
+          category: newReq.category,
+          title: newReq.title,
+          description: newReq.description,
+          is_private_for_pastors: newReq.isPrivateForPastors,
+          status: 'pending',
+        });
+      } catch (e) {
+        // Silencioso si la tabla aún no se ha creado
+      }
+    }
+    return newId;
+  };
+
+  const updatePrayerRequestStatus = async (
+    id: string,
+    status: PrayerStatus,
+    pastorName?: string
+  ): Promise<void> => {
+    const updated = prayerRequests.map((pr) => {
+      if (pr.id !== id) return pr;
+      const currentPastors = pr.prayingPastors || [];
+      const newPastors =
+        pastorName && !currentPastors.includes(pastorName)
+          ? [...currentPastors, pastorName]
+          : currentPastors;
+      return {
+        ...pr,
+        status,
+        prayingPastors: newPastors,
+      };
+    });
+    setPrayerRequests(updated);
+    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => {});
+
+    if (isSupabaseConfigured) {
+      try {
+        const target = updated.find((p) => p.id === id);
+        await supabase
+          .from('prayer_requests')
+          .update({
+            status,
+            praying_pastors: target?.prayingPastors || [],
+          })
+          .eq('id', id);
+      } catch (e) {
+        // Silencioso si no está en Supabase
+      }
+    }
+  };
+
+  const deletePrayerRequest = async (id: string): Promise<void> => {
+    const updated = prayerRequests.filter((pr) => pr.id !== id);
+    setPrayerRequests(updated);
+    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => {});
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('prayer_requests').delete().eq('id', id);
+      } catch (e) {
+        // Silencioso si no está en Supabase
+      }
+    }
+  };
+
   return (
     <ChurchContext.Provider
       value={{
@@ -2022,6 +2179,10 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         addPastoralPost,
         toggleLikePost,
         deletePastoralPost,
+        prayerRequests,
+        addPrayerRequest,
+        updatePrayerRequestStatus,
+        deletePrayerRequest,
         canManageEvents,
         canUserEditFullEvent,
         servicesSchedule,
