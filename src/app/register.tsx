@@ -31,7 +31,7 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [gender, setGender] = useState<'M' | 'F'>('M');
   const [birthDate, setBirthDate] = useState('');
   const [password, setPassword] = useState('');
@@ -75,18 +75,18 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
       return;
     }
 
-    if (!email.trim()) {
-      const msg = 'Por favor ingresa tu correo electrónico para tu cuenta.';
+    if (!username.trim()) {
+      const msg = 'Por favor ingresa un nombre de usuario para tu cuenta.';
       setErrorMessage(msg);
-      Alert.alert('Correo Requerido', msg);
+      Alert.alert('Usuario Requerido', msg);
       return;
     }
 
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      const msg = 'Por favor ingresa un correo electrónico válido (ejemplo: usuario@correo.com).';
+    const cleanUsername = username.trim().toLowerCase();
+    if (cleanUsername.length < 3) {
+      const msg = 'El nombre de usuario debe tener al menos 3 caracteres.';
       setErrorMessage(msg);
-      Alert.alert('Correo Inválido', msg);
+      Alert.alert('Usuario Inválido', msg);
       return;
     }
 
@@ -122,7 +122,8 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phone: phone.trim(),
-        email: cleanEmail,
+        username: cleanUsername,
+        email: `${cleanUsername}@iglesia.local`,
         role: 'member',
         network,
         gender,
@@ -180,29 +181,19 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <DoodleBackground>
         <View style={styles.topBar}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={22} color="#0F172A" />
+          <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.8}>
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.topBarTitle}>Inscripción de Miembro</Text>
-          <View style={{ width: 36 }} />
+          <View style={{ width: 38 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Banner Explanatory */}
-          <View style={styles.g12Banner}>
-            <View style={styles.g12IconCircle}>
-              <Ionicons name="git-network" size={24} color="#2563EB" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.g12BannerTitle}>Estructura y Visión G12</Text>
-              <Text style={styles.g12BannerText}>
-                Cada miembro pertenece a una <Text style={{ fontWeight: '700' }}>Red</Text> y cuenta con el cuidado directo de un <Text style={{ fontWeight: '700' }}>Líder de 12</Text>.
-              </Text>
-            </View>
-          </View>
+
 
           {/* STEP 1: LEADER SELECTION (G12) */}
           <View style={styles.sectionCard}>
@@ -350,16 +341,16 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
               </Text>
             )}
 
-            <Text style={styles.fieldLabel}>Correo Electrónico (Tu usuario de acceso) *</Text>
+            <Text style={styles.fieldLabel}>Nombre de Usuario (Para iniciar sesión) *</Text>
             <TextInput
               style={styles.input}
-              placeholder="daniel.mendoza@email.com"
+              placeholder="Ej: danielmendoza o daniel22"
               placeholderTextColor="#94A3B8"
-              keyboardType="email-address"
               autoCapitalize="none"
-              value={email}
+              autoCorrect={false}
+              value={username}
               onChangeText={(text) => {
-                setEmail(text);
+                setUsername(text.replace(/\s+/g, '').toLowerCase());
                 if (errorMessage) setErrorMessage(null);
               }}
             />
@@ -462,30 +453,36 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#070A14',
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F1F5F9',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#0284C7',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 3,
   },
   topBarTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
   scrollContent: {
     paddingHorizontal: 20,

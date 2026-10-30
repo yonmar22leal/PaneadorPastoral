@@ -259,7 +259,7 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}>
-            <Ionicons name="arrow-back" size={22} color="#0F172A" />
+            <Ionicons name="arrow-back" size={22} color="#ffffffff" />
           </TouchableOpacity>
           <Text style={styles.topBarTitle}>Mi Perfil & Configuración</Text>
           <TouchableOpacity style={styles.logoutTopBtn} onPress={handleLogoutConfirm}>

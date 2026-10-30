@@ -106,13 +106,13 @@ export default function LoginScreen({ onGoRegister }: LoginScreenProps = {}) {
             </View>
           )}
 
-          {/* Email Input */}
-          <Text style={styles.inputLabel}>Correo Electrónico</Text>
+          {/* Identifier Input (Username or Email) */}
+          <Text style={styles.inputLabel}>Usuario o Correo Electrónico</Text>
           <View style={styles.inputWrapper}>
-            <Ionicons name="mail-outline" size={20} color="#64748B" />
+            <Ionicons name="person-outline" size={20} color="#64748B" />
             <TextInput
               style={styles.textInput}
-              placeholder="pastor@iglesia.org"
+              placeholder="Ej: yonmar22 o pastor@iglesia.org"
               placeholderTextColor="#94A3B8"
               keyboardType="email-address"
               autoCapitalize="none"

@@ -1,7 +1,11 @@
+import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 import { CellGroup, CellMeetingReport, CellPersonItem, ChurchNetwork } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import {
@@ -17,7 +21,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DoodleBackground } from '@/components/doodle-background';
 
 let personIdCounter = 0;
 function getNextPersonId(prefix: string): string {
@@ -54,6 +57,8 @@ export default function CellsScreen() {
   );
   const [sheetNetworkFilter, setSheetNetworkFilter] = useState<'all' | 'juvenil' | 'adulta'>('all');
   const [sheetSearchQuery, setSheetSearchQuery] = useState('');
+  const [sheetModalVisible, setSheetModalVisible] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
 
   // Modal 1: Crear Célula
   const [modalVisible, setModalVisible] = useState(false);
@@ -254,8 +259,8 @@ export default function CellsScreen() {
       reportStatus === 'no_realizo'
         ? 'NO REALIZÓ'
         : reportStatus === 'no_asistio_nadie'
-        ? 'NO ASISTIÓ NADIE'
-        : reportTopic.trim() || 'El tiempo de la sequía a terminado';
+          ? 'NO ASISTIÓ NADIE'
+          : reportTopic.trim() || 'El tiempo de la sequía a terminado';
 
     await addCellMeetingReport({
       cellId: selectedCellForReport.id,
@@ -506,8 +511,8 @@ export default function CellsScreen() {
         const topicStyle = isNoAsistio
           ? 'color: #DC2626; font-weight: bold;'
           : isNoRealizo
-          ? 'color: #EA580C; font-weight: bold;'
-          : 'color: #334155;';
+            ? 'color: #EA580C; font-weight: bold;'
+            : 'color: #334155;';
 
         const guestStyle =
           (rep.visitorsCount || 0) > 0
@@ -516,50 +521,35 @@ export default function CellsScreen() {
 
         const row = `
           <tr style="${rowBg}">
-            <td style="text-align: center; color: #94A3B8; border: 1px solid #CBD5E1; padding: 6px;">${
-              isFirst ? group.leaderIndex : ''
-            }</td>
-            <td style="font-weight: bold; background-color: #F8FAFC; border: 1px solid #CBD5E1; padding: 6px;">${
-              isFirst ? group.leaderName : ''
-            }</td>
-            <td style="text-align: center; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px;">${
-              isFirst ? group.cellsCount : ''
-            }</td>
+            <td style="text-align: center; color: #94A3B8; border: 1px solid #CBD5E1; padding: 6px;">${isFirst ? group.leaderIndex : ''
+          }</td>
+            <td style="font-weight: bold; background-color: #F8FAFC; border: 1px solid #CBD5E1; padding: 6px;">${isFirst ? group.leaderName : ''
+          }</td>
+            <td style="text-align: center; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px;">${isFirst ? group.cellsCount : ''
+          }</td>
             <td style="font-weight: 600; border: 1px solid #CBD5E1; padding: 6px;">${rep.cellLeaderName}</td>
-            <td style="border: 1px solid #CBD5E1; padding: 6px; color: ${
-              !rep.assistantName || rep.assistantName === 'No tiene' ? '#94A3B8' : '#0F172A'
-            };">${rep.assistantName || 'No tiene'}</td>
+            <td style="border: 1px solid #CBD5E1; padding: 6px; color: ${!rep.assistantName || rep.assistantName === 'No tiene' ? '#94A3B8' : '#0F172A'
+          };">${rep.assistantName || 'No tiene'}</td>
             <td style="border: 1px solid #CBD5E1; padding: 6px;">${rep.hostName || ''}</td>
-            <td style="border: 1px solid #CBD5E1; padding: 6px; ${topicStyle}">${
-          rep.topic || rep.notes || 'Sin registrar'
-        }</td>
-            <td style="text-align: center; color: #64748B; border: 1px solid #CBD5E1; padding: 6px;">${
-              rep.date ? rep.date.split('-').reverse().join('/') : ''
-            }</td>
-            <td style="text-align: center; border: 1px solid #CBD5E1; padding: 6px;">${
-              rep.membersCount || 0
-            }</td>
-            <td style="text-align: center; border: 1px solid #CBD5E1; padding: 6px; ${guestStyle}">${
-          rep.visitorsCount || 0
-        }</td>
-            <td style="text-align: center; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${
-              (rep.conversionsCount || 0) > 0 ? '#7C3AED' : '#0F172A'
-            };">${rep.conversionsCount || 0}</td>
-            <td style="text-align: right; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${
-              vesCash > 0 ? '#0F172A' : '#EA580C'
-            }; background-color: ${vesCash === 0 ? '#FFEDD5' : 'transparent'};">${
-          vesCash > 0 ? `Bs. ${vesCash.toLocaleString()}` : '0'
-        }</td>
-            <td style="text-align: right; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${
-              usdCash > 0 ? '#0F172A' : '#EA580C'
-            }; background-color: ${usdCash === 0 ? '#FFEDD5' : 'transparent'};">${
-          usdCash > 0 ? `$${usdCash.toLocaleString()}` : '0'
-        }</td>
-            <td style="text-align: right; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${
-              pmCash > 0 ? '#0F172A' : '#EA580C'
-            }; background-color: ${pmCash === 0 ? '#FFEDD5' : 'transparent'};">${
-          pmCash > 0 ? `Bs. ${pmCash.toLocaleString()}` : '0'
-        }</td>
+            <td style="border: 1px solid #CBD5E1; padding: 6px; ${topicStyle}">${rep.topic || rep.notes || 'Sin registrar'
+          }</td>
+            <td style="text-align: center; color: #64748B; border: 1px solid #CBD5E1; padding: 6px;">${rep.date ? rep.date.split('-').reverse().join('/') : ''
+          }</td>
+            <td style="text-align: center; border: 1px solid #CBD5E1; padding: 6px;">${rep.membersCount || 0
+          }</td>
+            <td style="text-align: center; border: 1px solid #CBD5E1; padding: 6px; ${guestStyle}">${rep.visitorsCount || 0
+          }</td>
+            <td style="text-align: center; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${(rep.conversionsCount || 0) > 0 ? '#7C3AED' : '#0F172A'
+          };">${rep.conversionsCount || 0}</td>
+            <td style="text-align: right; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${vesCash > 0 ? '#0F172A' : '#EA580C'
+          }; background-color: ${vesCash === 0 ? '#FFEDD5' : 'transparent'};">${vesCash > 0 ? `Bs. ${vesCash.toLocaleString()}` : '0'
+          }</td>
+            <td style="text-align: right; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${usdCash > 0 ? '#0F172A' : '#EA580C'
+          }; background-color: ${usdCash === 0 ? '#FFEDD5' : 'transparent'};">${usdCash > 0 ? `$${usdCash.toLocaleString()}` : '0'
+          }</td>
+            <td style="text-align: right; font-weight: bold; border: 1px solid #CBD5E1; padding: 6px; color: ${pmCash > 0 ? '#0F172A' : '#EA580C'
+          }; background-color: ${pmCash === 0 ? '#FFEDD5' : 'transparent'};">${pmCash > 0 ? `Bs. ${pmCash.toLocaleString()}` : '0'
+          }</td>
           </tr>`;
         rowsHtml.push(row);
       });
@@ -646,26 +636,21 @@ export default function CellsScreen() {
               <td style="border: 1px solid #CBD5E1;"></td>
               <td style="border: 1px solid #CBD5E1;"></td>
               <td style="border: 1px solid #CBD5E1;"></td>
-              <td style="text-align: center; font-weight: bold; border: 1px solid #CBD5E1;">${
-                groupedSheetData.totalMembers
-              }</td>
-              <td style="text-align: center; font-weight: bold; background-color: #DCFCE7; color: #15803D; border: 1px solid #CBD5E1;">${
-                groupedSheetData.totalVisitors
-              }</td>
-              <td style="text-align: center; font-weight: bold; color: #7C3AED; border: 1px solid #CBD5E1;">${
-                groupedSheetData.totalConversions
-              }</td>
-              <td style="text-align: right; font-weight: bold; color: #047857; border: 1px solid #CBD5E1;">${
-                groupedSheetData.totalOfferingVes > 0
-                  ? `Bs. ${groupedSheetData.totalOfferingVes.toLocaleString()}`
-                  : 'Bs. 0'
-              }</td>
+              <td style="text-align: center; font-weight: bold; border: 1px solid #CBD5E1;">${groupedSheetData.totalMembers
+      }</td>
+              <td style="text-align: center; font-weight: bold; background-color: #DCFCE7; color: #15803D; border: 1px solid #CBD5E1;">${groupedSheetData.totalVisitors
+      }</td>
+              <td style="text-align: center; font-weight: bold; color: #7C3AED; border: 1px solid #CBD5E1;">${groupedSheetData.totalConversions
+      }</td>
+              <td style="text-align: right; font-weight: bold; color: #047857; border: 1px solid #CBD5E1;">${groupedSheetData.totalOfferingVes > 0
+        ? `Bs. ${groupedSheetData.totalOfferingVes.toLocaleString()}`
+        : 'Bs. 0'
+      }</td>
               <td style="text-align: right; font-weight: bold; color: #047857; border: 1px solid #CBD5E1;">$${groupedSheetData.totalOfferingUsd.toLocaleString()}</td>
-              <td style="text-align: right; font-weight: bold; color: #047857; border: 1px solid #CBD5E1;">${
-                groupedSheetData.totalOfferingPm > 0
-                  ? `Bs. ${groupedSheetData.totalOfferingPm.toLocaleString()}`
-                  : 'Bs. 0'
-              }</td>
+              <td style="text-align: right; font-weight: bold; color: #047857; border: 1px solid #CBD5E1;">${groupedSheetData.totalOfferingPm > 0
+        ? `Bs. ${groupedSheetData.totalOfferingPm.toLocaleString()}`
+        : 'Bs. 0'
+      }</td>
             </tr>
           </tfoot>
         </table>
@@ -768,6 +753,33 @@ export default function CellsScreen() {
     return `\uFEFF${header}\n${rows.join('\n')}\n${totalsRow}`;
   };
 
+  const toggleOrientation = async () => {
+    try {
+      if (isLandscape) {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        setIsLandscape(false);
+      } else {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
+        setIsLandscape(true);
+      }
+    } catch (e) {
+      console.log('Orientation toggle note:', e);
+      setIsLandscape(!isLandscape);
+    }
+  };
+
+  const handleOpenSheetModal = async () => {
+    setSheetModalVisible(true);
+  };
+
+  const handleCloseSheetModal = async () => {
+    try {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    } catch { }
+    setIsLandscape(false);
+    setSheetModalVisible(false);
+  };
+
   const handleExportExcel = async () => {
     const htmlExcelContent = generateStyledExcelHTML();
     const filename = `Planilla_Celulas_${new Date().toISOString().slice(0, 10)}.xls`;
@@ -787,19 +799,100 @@ export default function CellsScreen() {
         URL.revokeObjectURL(url);
         Alert.alert(
           'Excel Descargado',
-          `Se descargó la planilla en formato Excel (${filename}) con los colores, recuadro amarillo y formato idéntico a la plantilla.`
+          `Se descargó la planilla en formato Excel (${filename}) con el diseño, colores y totales exactos.`
         );
       } catch (e) {
         console.warn('Error downloading Excel on web:', e);
       }
     } else {
       try {
-        await Share.share({
-          message: generateExcelCSV(),
-          title: 'Planilla de Células (Excel)',
+        const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+        await FileSystem.writeAsStringAsync(fileUri, htmlExcelContent, {
+          encoding: FileSystem.EncodingType.UTF8,
         });
-      } catch {
-        Alert.alert('Compartir', 'No se pudo abrir el menú de compartir.');
+
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'application/vnd.ms-excel',
+            dialogTitle: 'Descargar / Guardar Planilla Excel',
+            UTI: 'com.microsoft.excel.xls',
+          });
+        }
+      } catch (err) {
+        console.warn('Error guardando Excel:', err);
+      }
+    }
+  };
+
+  const handleShareSheetExcel = async () => {
+    const htmlExcelContent = generateStyledExcelHTML();
+    const filename = `Planilla_Celulas_${new Date().toISOString().slice(0, 10)}.xls`;
+
+    if (Platform.OS === 'web') {
+      try {
+        const blob = new Blob([htmlExcelContent], {
+          type: 'application/vnd.ms-excel;charset=utf-8;',
+        });
+        const file = new File([blob], filename, { type: 'application/vnd.ms-excel' });
+
+        if (
+          typeof navigator !== 'undefined' &&
+          navigator.canShare &&
+          navigator.canShare({ files: [file] })
+        ) {
+          await navigator.share({
+            files: [file],
+            title: 'Planilla de Células (Excel)',
+            text: 'Planilla Consolidada de Células - Iglesia Emmanuel de Caja de Agua',
+          });
+          return;
+        }
+      } catch (e) {
+        console.log('Web share not supported for files, falling back to download:', e);
+      }
+
+      // Descarga directa en web como fallback
+      try {
+        const blob = new Blob([htmlExcelContent], {
+          type: 'application/vnd.ms-excel;charset=utf-8;',
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        Alert.alert(
+          'Excel Descargado',
+          `Se generó y descargó el archivo Excel (${filename}) para que puedas enviarlo por WhatsApp o correo.`
+        );
+      } catch (err) {
+        console.warn('Error en web share Excel:', err);
+      }
+    } else {
+      // Dispositivos Móviles nativos (Android / iOS): Envía archivo .xls real para abrirlo en Excel/WhatsApp
+      try {
+        const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+        await FileSystem.writeAsStringAsync(fileUri, htmlExcelContent, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'application/vnd.ms-excel',
+            dialogTitle: 'Compartir Planilla de Células (Excel)',
+            UTI: 'com.microsoft.excel.xls',
+          });
+        } else {
+          Alert.alert('Compartir', 'No hay una aplicación disponible para compartir archivos en este dispositivo.');
+        }
+      } catch (err) {
+        console.warn('Error al compartir Excel:', err);
+        Alert.alert('Error', 'No se pudo generar el archivo Excel para compartir.');
       }
     }
   };
@@ -818,25 +911,24 @@ Total Células Reportadas: ${groupedSheetData.totalCells}
 
 📋 *Líderes 12 y Células:*
 ${groupedSheetData.leaderGroups
-  .map(
-    (g) =>
-      `• *${g.leaderName}* (${g.cellsCount} cél): ${g.reports
-        .map((r) => {
-          const usd = r.offeringDetails?.usdCash || (!r.offeringDetails ? r.offering || 0 : 0);
-          const ves = r.offeringDetails?.vesCash || 0;
-          const pm = r.offeringDetails?.pagoMovilAmount || 0;
-          const offParts = [];
-          if (usd > 0) offParts.push(`$${usd}`);
-          if (ves > 0) offParts.push(`Bs.${ves}`);
-          if (pm > 0) offParts.push(`PM:${pm}`);
-          const offStr = offParts.length > 0 ? ` | Ofrenda: ${offParts.join(', ')}` : '';
-          return `${r.cellLeaderName} [${r.membersCount}M / ${r.visitorsCount}I / ${
-            r.conversionsCount || 0
-          }A${offStr}]`;
-        })
-        .join(', ')}`
-  )
-  .join('\n')}`;
+        .map(
+          (g) =>
+            `• *${g.leaderName}* (${g.cellsCount} cél): ${g.reports
+              .map((r) => {
+                const usd = r.offeringDetails?.usdCash || (!r.offeringDetails ? r.offering || 0 : 0);
+                const ves = r.offeringDetails?.vesCash || 0;
+                const pm = r.offeringDetails?.pagoMovilAmount || 0;
+                const offParts = [];
+                if (usd > 0) offParts.push(`$${usd}`);
+                if (ves > 0) offParts.push(`Bs.${ves}`);
+                if (pm > 0) offParts.push(`PM:${pm}`);
+                const offStr = offParts.length > 0 ? ` | Ofrenda: ${offParts.join(', ')}` : '';
+                return `${r.cellLeaderName} [${r.membersCount}M / ${r.visitorsCount}I / ${r.conversionsCount || 0
+                  }A${offStr}]`;
+              })
+              .join(', ')}`
+        )
+        .join('\n')}`;
 
     try {
       await Share.share({
@@ -864,1635 +956,1750 @@ ${groupedSheetData.leaderGroups
   const totalReportedMembers = myCellReports.reduce((acc, r) => acc + (r.membersCount || 0), 0);
   const totalReportedVisitors = myCellReports.reduce((acc, r) => acc + (r.visitorsCount || 0), 0);
 
+  const renderSheetTableContent = () => (
+    <View style={styles.sheetTable}>
+      {/* Table Header Row */}
+      <View style={styles.tableHeaderRow}>
+        <View style={[styles.thCell, { width: 38 }]}>
+          <Text style={styles.thText}>#</Text>
+        </View>
+        <View style={[styles.thCell, { width: 135 }]}>
+          <Text style={styles.thText}>Líder 12</Text>
+        </View>
+        <View style={[styles.thCell, { width: 75 }]}>
+          <Text style={styles.thText}>Cant. Células</Text>
+        </View>
+        <View style={[styles.thCell, { width: 140 }]}>
+          <Text style={styles.thText}>Líder de Célula</Text>
+        </View>
+        <View style={[styles.thCell, { width: 130 }]}>
+          <Text style={styles.thText}>Asistente</Text>
+        </View>
+        <View style={[styles.thCell, { width: 130 }]}>
+          <Text style={styles.thText}>Anfitrión (a)</Text>
+        </View>
+        <View style={[styles.thCell, { width: 180 }]}>
+          <Text style={styles.thText}>Palabra Predicada</Text>
+        </View>
+        <View style={[styles.thCell, { width: 85 }]}>
+          <Text style={styles.thText}>Fecha</Text>
+        </View>
+        <View style={[styles.thCell, { width: 70 }]}>
+          <Text style={styles.thText}>Miembros</Text>
+        </View>
+        <View style={[styles.thCell, { width: 70 }]}>
+          <Text style={styles.thText}>Invitados</Text>
+        </View>
+        <View style={[styles.thCell, { width: 75 }]}>
+          <Text style={styles.thText}>Aceptó Cristo</Text>
+        </View>
+        <View style={[styles.thCell, { width: 85 }]}>
+          <Text style={styles.thText}>Ofrenda Bs.</Text>
+        </View>
+        <View style={[styles.thCell, { width: 75 }]}>
+          <Text style={styles.thText}>Ofrenda $</Text>
+        </View>
+        <View style={[styles.thCell, { width: 85 }]}>
+          <Text style={styles.thText}>Pago Móvil</Text>
+        </View>
+      </View>
+
+      {/* Table Body: Grouped by Líder 12 */}
+      {groupedSheetData.leaderGroups.map((group) => {
+        return (
+          <Fragment key={group.leaderName}>
+            {group.reports.map((rep, rIndex) => {
+              const isFirstOfLeader = rIndex === 0;
+              const isNoAsistio =
+                rep.status === 'no_asistio_nadie' ||
+                (rep.topic && rep.topic.toUpperCase().includes('NO ASISTIÓ'));
+              const isNoRealizo =
+                rep.status === 'no_realizo' ||
+                (rep.topic && rep.topic.toUpperCase().includes('NO REALIZÓ'));
+
+              return (
+                <View
+                  key={rep.id}
+                  style={[
+                    styles.tableDataRow,
+                    isNoRealizo && styles.rowNoRealizo,
+                  ]}>
+                  {/* Columna #: Número del líder */}
+                  <View style={[styles.tdCell, { width: 38 }]}>
+                    <Text style={styles.tdTextMuted}>
+                      {isFirstOfLeader ? group.leaderIndex : ''}
+                    </Text>
+                  </View>
+
+                  {/* Columna Líder 12 */}
+                  <View
+                    style={[
+                      styles.tdCell,
+                      { width: 135 },
+                      isFirstOfLeader && styles.leaderCellGrouped,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.tdTextBold,
+                        !isFirstOfLeader && { color: '#94A3B8', fontSize: 11 },
+                      ]}
+                      numberOfLines={1}>
+                      {isFirstOfLeader ? group.leaderName : ''}
+                    </Text>
+                  </View>
+
+                  {/* Columna Cant. de Células */}
+                  <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
+                    <Text style={styles.tdTextCenterBold}>
+                      {isFirstOfLeader ? group.cellsCount : ''}
+                    </Text>
+                  </View>
+
+                  {/* Líder de Célula */}
+                  <View style={[styles.tdCell, { width: 140 }]}>
+                    <Text style={styles.tdText} numberOfLines={1}>
+                      {rep.cellLeaderName}
+                    </Text>
+                  </View>
+
+                  {/* Asistente */}
+                  <View style={[styles.tdCell, { width: 130 }]}>
+                    <Text
+                      style={[
+                        styles.tdText,
+                        (!rep.assistantName ||
+                          rep.assistantName.toLowerCase() === 'no tiene') &&
+                        styles.tdTextMuted,
+                      ]}
+                      numberOfLines={1}>
+                      {rep.assistantName || 'No tiene'}
+                    </Text>
+                  </View>
+
+                  {/* Anfitrión (a) */}
+                  <View style={[styles.tdCell, { width: 130 }]}>
+                    <Text style={styles.tdText} numberOfLines={1}>
+                      {rep.hostName}
+                    </Text>
+                  </View>
+
+                  {/* Palabra Predicada */}
+                  <View style={[styles.tdCell, { width: 180 }]}>
+                    <Text
+                      style={[
+                        styles.tdText,
+                        isNoAsistio && styles.tdTextDanger,
+                        isNoRealizo && styles.tdTextWarning,
+                      ]}
+                      numberOfLines={1}>
+                      {rep.topic || rep.notes || 'Sin registrar'}
+                    </Text>
+                  </View>
+
+                  {/* Fecha */}
+                  <View style={[styles.tdCell, { width: 85, alignItems: 'center' }]}>
+                    <Text style={styles.tdTextCenterMuted}>
+                      {rep.date ? rep.date.split('-').reverse().join('/') : ''}
+                    </Text>
+                  </View>
+
+                  {/* Miembros */}
+                  <View style={[styles.tdCell, { width: 70, alignItems: 'center' }]}>
+                    <Text style={styles.tdTextCenter}>{rep.membersCount}</Text>
+                  </View>
+
+                  {/* Invitados (Verde si > 0, Rojo si 0) */}
+                  <View
+                    style={[
+                      styles.tdCell,
+                      { width: 70, alignItems: 'center' },
+                      rep.visitorsCount > 0 ? styles.cellGreen : styles.cellRed,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.tdTextCenterBold,
+                        rep.visitorsCount > 0 ? styles.textGreen : styles.textRed,
+                      ]}>
+                      {rep.visitorsCount}
+                    </Text>
+                  </View>
+
+                  {/* Aceptó a Cristo */}
+                  <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
+                    <Text
+                      style={[
+                        styles.tdTextCenterBold,
+                        (rep.conversionsCount || 0) > 0 && { color: '#7C3AED' },
+                      ]}>
+                      {rep.conversionsCount || 0}
+                    </Text>
+                  </View>
+
+                  {/* Ofrenda Bs. */}
+                  <View
+                    style={[
+                      styles.tdCell,
+                      { width: 85, alignItems: 'flex-end', paddingRight: 8 },
+                      ((rep.offeringDetails?.vesCash || 0) === 0 || isNoRealizo) && styles.cellOrange,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.tdTextBold,
+                        (rep.offeringDetails?.vesCash || 0) === 0 || isNoRealizo
+                          ? styles.textOrange
+                          : { color: '#0F172A' },
+                      ]}>
+                      {rep.offeringDetails?.vesCash
+                        ? `Bs. ${rep.offeringDetails.vesCash.toLocaleString()}`
+                        : '0'}
+                    </Text>
+                  </View>
+
+                  {/* Ofrenda $ */}
+                  <View
+                    style={[
+                      styles.tdCell,
+                      { width: 75, alignItems: 'flex-end', paddingRight: 8 },
+                      ((rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0)) === 0 || isNoRealizo) && styles.cellOrange,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.tdTextBold,
+                        (rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0)) === 0 || isNoRealizo
+                          ? styles.textOrange
+                          : { color: '#0F172A' },
+                      ]}>
+                      {(() => {
+                        const usdVal =
+                          rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0);
+                        return usdVal > 0 ? `$${usdVal.toLocaleString()}` : '0';
+                      })()}
+                    </Text>
+                  </View>
+
+                  {/* Pago Móvil */}
+                  <View
+                    style={[
+                      styles.tdCell,
+                      { width: 85, alignItems: 'flex-end', paddingRight: 8 },
+                      ((rep.offeringDetails?.pagoMovilAmount || 0) === 0 || isNoRealizo) && styles.cellOrange,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.tdTextBold,
+                        (rep.offeringDetails?.pagoMovilAmount || 0) === 0 || isNoRealizo
+                          ? styles.textOrange
+                          : { color: '#0F172A' },
+                      ]}>
+                      {rep.offeringDetails?.pagoMovilAmount
+                        ? `Bs. ${rep.offeringDetails.pagoMovilAmount.toLocaleString()}`
+                        : '0'}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+
+            {/* Fila de Subtotal del Líder 12 si tiene más de 1 célula o discípulos */}
+            {group.reports.length > 1 && (
+              <View style={styles.tableGroupSubtotalRow}>
+                <View style={[styles.tdCell, { width: 38 }]} />
+                <View
+                  style={[
+                    styles.tdCell,
+                    { width: 135, backgroundColor: '#EFF6FF' },
+                  ]}>
+                  <Text
+                    style={[styles.tdTextBold, { color: '#1E3A8A' }]}
+                    numberOfLines={1}>
+                    Total {group.leaderName}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.tdCell,
+                    { width: 75, alignItems: 'center', backgroundColor: '#EFF6FF' },
+                  ]}>
+                  <Text style={[styles.tdTextCenterBold, { color: '#1E3A8A' }]}>
+                    {group.cellsCount} cél
+                  </Text>
+                </View>
+                <View style={[styles.tdCell, { width: 140 }]} />
+                <View style={[styles.tdCell, { width: 130 }]} />
+                <View style={[styles.tdCell, { width: 130 }]} />
+                <View
+                  style={[
+                    styles.tdCell,
+                    { width: 180, justifyContent: 'center', paddingRight: 8 },
+                  ]}>
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: '700',
+                      color: '#64748B',
+                      textAlign: 'right',
+                    }}>
+                    Subtotal {group.leaderName}:
+                  </Text>
+                </View>
+                <View style={[styles.tdCell, { width: 85 }]} />
+
+                {/* Total Miembros del Grupo */}
+                <View
+                  style={[
+                    styles.tdCell,
+                    { width: 70, alignItems: 'center', backgroundColor: '#F8FAFC' },
+                  ]}>
+                  <Text style={styles.tdTextCenterBold}>
+                    {group.totals.members}
+                  </Text>
+                </View>
+
+                {/* Total Invitados del Grupo */}
+                <View
+                  style={[
+                    styles.tdCell,
+                    { width: 70, alignItems: 'center', backgroundColor: '#DCFCE7' },
+                  ]}>
+                  <Text
+                    style={[styles.tdTextCenterBold, { color: '#15803D' }]}>
+                    {group.totals.visitors}
+                  </Text>
+                </View>
+
+                {/* Total Conversiones del Grupo */}
+                <View
+                  style={[
+                    styles.tdCell,
+                    { width: 75, alignItems: 'center', backgroundColor: '#F3E8FF' },
+                  ]}>
+                  <Text
+                    style={[styles.tdTextCenterBold, { color: '#7C3AED' }]}>
+                    {group.totals.conversions}
+                  </Text>
+                </View>
+
+                {/* Total Ofrenda Bs. del Grupo */}
+                <View
+                  style={[
+                    styles.tdCell,
+                    {
+                      width: 85,
+                      alignItems: 'flex-end',
+                      paddingRight: 8,
+                      backgroundColor: '#F8FAFC',
+                    },
+                  ]}>
+                  <Text style={[styles.tdTextBold, { color: '#0F172A' }]}>
+                    {group.totals.offeringVes > 0
+                      ? `Bs. ${group.totals.offeringVes.toLocaleString()}`
+                      : '0'}
+                  </Text>
+                </View>
+
+                {/* Total Ofrenda $ del Grupo */}
+                <View
+                  style={[
+                    styles.tdCell,
+                    {
+                      width: 75,
+                      alignItems: 'flex-end',
+                      paddingRight: 8,
+                      backgroundColor: '#F8FAFC',
+                    },
+                  ]}>
+                  <Text style={[styles.tdTextBold, { color: '#0F172A' }]}>
+                    {group.totals.offeringUsd > 0
+                      ? `$${group.totals.offeringUsd.toLocaleString()}`
+                      : '0'}
+                  </Text>
+                </View>
+
+                {/* Total Pago Móvil del Grupo */}
+                <View
+                  style={[
+                    styles.tdCell,
+                    {
+                      width: 85,
+                      alignItems: 'flex-end',
+                      paddingRight: 8,
+                      backgroundColor: '#F8FAFC',
+                    },
+                  ]}>
+                  <Text style={[styles.tdTextBold, { color: '#0F172A' }]}>
+                    {group.totals.offeringPm > 0
+                      ? `Bs. ${group.totals.offeringPm.toLocaleString()}`
+                      : '0'}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </Fragment>
+        );
+      })}
+
+      {/* Fila de Totales (Exacta a la fila 54 del Excel) */}
+      <View style={styles.tableTotalsRow}>
+        <View style={[styles.tdCell, { width: 38 }]} />
+        <View style={[styles.tdCell, { width: 135, alignItems: 'center' }]}>
+          <Text style={styles.totalsLabel}>TOTALES</Text>
+        </View>
+        {/* Total Células: Recuadro Amarillo */}
+        <View
+          style={[
+            styles.tdCell,
+            styles.totalYellowCell,
+            { width: 75, alignItems: 'center' },
+          ]}>
+          <Text style={styles.totalYellowText}>
+            {groupedSheetData.totalCells}
+          </Text>
+        </View>
+        <View style={[styles.tdCell, { width: 140 }]} />
+        <View style={[styles.tdCell, { width: 130 }]} />
+        <View style={[styles.tdCell, { width: 130 }]} />
+        <View style={[styles.tdCell, { width: 180 }]} />
+        <View style={[styles.tdCell, { width: 85 }]} />
+
+        {/* Total Miembros */}
+        <View style={[styles.tdCell, { width: 70, alignItems: 'center' }]}>
+          <Text style={styles.totalsNum}>{groupedSheetData.totalMembers}</Text>
+        </View>
+
+        {/* Total Invitados */}
+        <View style={[styles.tdCell, { width: 70, alignItems: 'center' }]}>
+          <Text style={styles.totalsNum}>{groupedSheetData.totalVisitors}</Text>
+        </View>
+
+        {/* Total Aceptó a Cristo */}
+        <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
+          <Text style={[styles.totalsNum, { color: '#7C3AED' }]}>
+            {groupedSheetData.totalConversions}
+          </Text>
+        </View>
+
+        {/* Total Ofrenda Bs. */}
+        <View
+          style={[
+            styles.tdCell,
+            { width: 85, alignItems: 'flex-end', paddingRight: 8 },
+          ]}>
+          <Text style={[styles.totalsNum, { color: '#047857' }]}>
+            {groupedSheetData.totalOfferingVes > 0
+              ? `Bs. ${groupedSheetData.totalOfferingVes.toLocaleString()}`
+              : 'Bs. 0'}
+          </Text>
+        </View>
+
+        {/* Total Ofrenda $ */}
+        <View
+          style={[
+            styles.tdCell,
+            { width: 75, alignItems: 'flex-end', paddingRight: 8 },
+          ]}>
+          <Text style={[styles.totalsNum, { color: '#047857' }]}>
+            {`$${groupedSheetData.totalOfferingUsd.toLocaleString()}`}
+          </Text>
+        </View>
+
+        {/* Total Pago Móvil */}
+        <View
+          style={[
+            styles.tdCell,
+            { width: 85, alignItems: 'flex-end', paddingRight: 8 },
+          ]}>
+          <Text style={[styles.totalsNum, { color: '#047857' }]}>
+            {groupedSheetData.totalOfferingPm > 0
+              ? `Bs. ${groupedSheetData.totalOfferingPm.toLocaleString()}`
+              : 'Bs. 0'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <StatusBar style="light" />
       <DoodleBackground>
 
-      {/* Top Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
-          activeOpacity={0.8}>
-          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
+        {/* Top Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
+            activeOpacity={0.8}>
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
 
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <View style={styles.badgeRow}>
-            <Ionicons name="git-network" size={14} color="#2563EB" />
-            <Text style={styles.badgeText}>Discipulado G12</Text>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <View style={styles.badgeRow}>
+              <Ionicons name="git-network" size={14} color="#2563EB" />
+              <Text style={styles.badgeText}>Discipulado G12</Text>
+            </View>
+            <Text style={styles.headerTitle}>Gestión Celular</Text>
+            <Text style={styles.headerSubtitle}>
+              Cobertura espiritual • {myFullName}
+            </Text>
           </View>
-          <Text style={styles.headerTitle}>Gestión Celular</Text>
-          <Text style={styles.headerSubtitle}>
-            Cobertura espiritual • {myFullName}
-          </Text>
+
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleOpenModal}
+            activeOpacity={0.85}>
+            <Ionicons name="add" size={18} color="#FFFFFF" />
+            <Text style={styles.addButtonText}>Nueva</Text>
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleOpenModal}
-          activeOpacity={0.85}>
-          <Ionicons name="add" size={18} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Nueva</Text>
-        </TouchableOpacity>
-      </View>
+        {/* View Switcher Tabs */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'cells' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('cells')}
+            activeOpacity={0.8}>
+            <Ionicons
+              name="git-network"
+              size={16}
+              color={activeTab === 'cells' ? '#1E3A8A' : '#64748B'}
+            />
+            <Text
+              style={[styles.tabButtonText, activeTab === 'cells' && styles.tabButtonTextActive]}>
+              Mis Células ({cellGroups.length})
+            </Text>
+          </TouchableOpacity>
 
-      {/* View Switcher Tabs */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'cells' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('cells')}
-          activeOpacity={0.8}>
-          <Ionicons
-            name="git-network"
-            size={16}
-            color={activeTab === 'cells' ? '#1E3A8A' : '#64748B'}
-          />
-          <Text
-            style={[styles.tabButtonText, activeTab === 'cells' && styles.tabButtonTextActive]}>
-            Mis Células ({cellGroups.length})
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'reports' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('reports')}
+            activeOpacity={0.8}>
+            <Ionicons
+              name="document-text"
+              size={16}
+              color={activeTab === 'reports' ? '#1E3A8A' : '#64748B'}
+            />
+            <Text
+              style={[styles.tabButtonText, activeTab === 'reports' && styles.tabButtonTextActive]}>
+              Reportes ({myCellReports.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'reports' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('reports')}
-          activeOpacity={0.8}>
-          <Ionicons
-            name="document-text"
-            size={16}
-            color={activeTab === 'reports' ? '#1E3A8A' : '#64748B'}
-          />
-          <Text
-            style={[styles.tabButtonText, activeTab === 'reports' && styles.tabButtonTextActive]}>
-            Reportes ({myCellReports.length})
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* ========================================================= */}
-        {/* TAB 1: LIST OF CELLS                                      */}
-        {/* ========================================================= */}
-        {activeTab === 'cells' && (
-          <View>
-            {/* Info Banner on Multiplication */}
-            <View style={styles.explanationBanner}>
-              <Ionicons name="information-circle" size={22} color="#1E3A8A" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.explanationTitle}>Multiplicación Celular</Text>
-                <Text style={styles.explanationText}>
-                  Como líder de 12, tú realizas una célula y tus discípulos multiplican las demás bajo tu cobertura.
-                </Text>
-              </View>
-            </View>
-
-            {/* Metric Summary Card */}
-            <View style={styles.metricsRow}>
-              <View style={[styles.metricCard, { borderLeftColor: '#3B82F6' }]}>
-                <Text style={styles.metricNumber}>{cellGroups.length}</Text>
-                <Text style={styles.metricLabel}>Total Células</Text>
-                <Text style={styles.metricSub}>1 tuya + {Math.max(0, cellGroups.length - 1)} de discípulos</Text>
-              </View>
-
-              <View style={[styles.metricCard, { borderLeftColor: '#10B981' }]}>
-                <Text style={styles.metricNumber}>
-                  {cellGroups.reduce((acc, c) => acc + (c.membersCount || 0), 0)}
-                </Text>
-                <Text style={styles.metricLabel}>Asistentes Promedio</Text>
-                <Text style={styles.metricSub}>Almas consolidadas</Text>
-              </View>
-            </View>
-
-            {/* Empty State */}
-            {cellGroups.length === 0 && (
-              <View style={styles.emptyContainer}>
-                <View style={styles.emptyIconCircle}>
-                  <Ionicons name="people" size={40} color="#94A3B8" />
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* ========================================================= */}
+          {/* TAB 1: LIST OF CELLS                                      */}
+          {/* ========================================================= */}
+          {activeTab === 'cells' && (
+            <View>
+              {/* Info Banner on Multiplication */}
+              <View style={styles.explanationBanner}>
+                <Ionicons name="information-circle" size={22} color="#1E3A8A" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.explanationTitle}>Multiplicación Celular</Text>
+                  <Text style={styles.explanationText}>
+                    Como líder de 12, tú realizas una célula y tus discípulos multiplican las demás bajo tu cobertura.
+                  </Text>
                 </View>
-                <Text style={styles.emptyTitle}>Aún no has registrado células</Text>
-                <Text style={styles.emptySubtitle}>
-                  Agrega tu célula principal o las células que dirigen tus discípulos para que tu pastor tenga el reporte general.
-                </Text>
-                <TouchableOpacity
-                  style={styles.emptyButton}
-                  onPress={handleOpenModal}
-                  activeOpacity={0.85}>
-                  <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
-                  <Text style={styles.emptyButtonText}>Registrar Célula</Text>
-                </TouchableOpacity>
               </View>
-            )}
 
-            {/* List of Cells: Su propia célula primero, luego las de sus discípulos */}
-            {[...cellGroups]
-              .sort((a, b) => {
-                const cleanUser = myFullName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
-                const aClean = a.cellLeaderName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
-                const bClean = b.cellLeaderName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
-                const aMine = aClean === cleanUser || aClean.includes(cleanUser);
-                const bMine = bClean === cleanUser || bClean.includes(cleanUser);
-                if (aMine && !bMine) return -1;
-                if (!aMine && bMine) return 1;
-                return 0;
-              })
-              .map((cell) => {
-              // 1. ¿Quién dirige la célula?
-              // Comparamos el nombre del líder de la célula con el usuario logueado actualmente
-              const cleanUser = myFullName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
-              const cleanCellLeader = cell.cellLeaderName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
-              const isDirectlyLed = cleanUser.length > 0 && cleanCellLeader === cleanUser;
+              {/* Metric Summary Card */}
+              <View style={styles.metricsRow}>
+                <View style={[styles.metricCard, { borderLeftColor: '#3B82F6' }]}>
+                  <Text style={styles.metricNumber}>{cellGroups.length}</Text>
+                  <Text style={styles.metricLabel}>Total Células</Text>
+                  <Text style={styles.metricSub}>1 tuya + {Math.max(0, cellGroups.length - 1)} de discípulos</Text>
+                </View>
 
-              // 2. Cobertura efectiva de la célula
-              let effectiveCoverage = cell.leaderName;
-              if (
-                cleanCellLeader.includes('yonmar') &&
-                (!effectiveCoverage || effectiveCoverage.toLowerCase().includes('yonmar'))
-              ) {
-                effectiveCoverage = 'Pastor Josué Rodríguez';
-              }
+                <View style={[styles.metricCard, { borderLeftColor: '#10B981' }]}>
+                  <Text style={styles.metricNumber}>
+                    {cellGroups.reduce((acc, c) => acc + (c.membersCount || 0), 0)}
+                  </Text>
+                  <Text style={styles.metricLabel}>Asistentes Promedio</Text>
+                  <Text style={styles.metricSub}>Almas consolidadas</Text>
+                </View>
+              </View>
 
-              // ¿El usuario logueado es la cobertura de esta célula?
-              const isUnderMyCoverage =
-                cell.leaderId === currentUser?.id ||
-                effectiveCoverage.toLowerCase().includes(currentUser?.firstName.toLowerCase() || '');
+              {/* Empty State */}
+              {cellGroups.length === 0 && (
+                <View style={styles.emptyContainer}>
+                  <View style={styles.emptyIconCircle}>
+                    <Ionicons name="people" size={40} color="#94A3B8" />
+                  </View>
+                  <Text style={styles.emptyTitle}>Aún no has registrado células</Text>
+                  <Text style={styles.emptySubtitle}>
+                    Agrega tu célula principal o las células que dirigen tus discípulos para que tu pastor tenga el reporte general.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.emptyButton}
+                    onPress={handleOpenModal}
+                    activeOpacity={0.85}>
+                    <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.emptyButtonText}>Registrar Célula</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
-              return (
-                <View key={cell.id} style={styles.cellCard}>
-                  <View style={styles.cellHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cellName}>Célula de {cell.cellLeaderName}</Text>
-                      <Text style={styles.cellLeaderRole}>
-                        {isDirectlyLed
-                          ? '👑 Dirigida personalmente por ti'
-                          : `🌱 Dirigida por tu discípulo: ${cell.cellLeaderName}`}
-                      </Text>
-                      <Text style={styles.cellCoverageText}>
-                        {isUnderMyCoverage
-                          ? `🛡️ Bajo tu cobertura pastoral (${effectiveCoverage})`
-                          : `🛡️ Bajo cobertura de: ${effectiveCoverage}`}
-                      </Text>
+              {/* List of Cells: Su propia célula primero, luego las de sus discípulos */}
+              {[...cellGroups]
+                .sort((a, b) => {
+                  const cleanUser = myFullName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
+                  const aClean = a.cellLeaderName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
+                  const bClean = b.cellLeaderName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
+                  const aMine = aClean === cleanUser || aClean.includes(cleanUser);
+                  const bMine = bClean === cleanUser || bClean.includes(cleanUser);
+                  if (aMine && !bMine) return -1;
+                  if (!aMine && bMine) return 1;
+                  return 0;
+                })
+                .map((cell) => {
+                  // 1. ¿Quién dirige la célula?
+                  // Comparamos el nombre del líder de la célula con el usuario logueado actualmente
+                  const cleanUser = myFullName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
+                  const cleanCellLeader = cell.cellLeaderName.trim().toLowerCase().replace(/^(pastor|pastora|líder)\s+/i, '');
+                  const isDirectlyLed = cleanUser.length > 0 && cleanCellLeader === cleanUser;
+
+                  // 2. Cobertura efectiva de la célula
+                  let effectiveCoverage = cell.leaderName;
+                  if (
+                    cleanCellLeader.includes('yonmar') &&
+                    (!effectiveCoverage || effectiveCoverage.toLowerCase().includes('yonmar'))
+                  ) {
+                    effectiveCoverage = 'Pastor Josué Rodríguez';
+                  }
+
+                  // ¿El usuario logueado es la cobertura de esta célula?
+                  const isUnderMyCoverage =
+                    cell.leaderId === currentUser?.id ||
+                    effectiveCoverage.toLowerCase().includes(currentUser?.firstName.toLowerCase() || '');
+
+                  return (
+                    <View key={cell.id} style={styles.cellCard}>
+                      <View style={styles.cellHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.cellName}>Célula de {cell.cellLeaderName}</Text>
+                          <Text style={styles.cellLeaderRole}>
+                            {isDirectlyLed
+                              ? '👑 Dirigida personalmente por ti'
+                              : `🌱 Dirigida por tu discípulo: ${cell.cellLeaderName}`}
+                          </Text>
+                          <Text style={styles.cellCoverageText}>
+                            {isUnderMyCoverage
+                              ? `🛡️ Bajo tu cobertura pastoral (${effectiveCoverage})`
+                              : `🛡️ Bajo cobertura de: ${effectiveCoverage}`}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Cell Details Grid */}
+                      <View style={styles.detailsGrid}>
+                        <View style={styles.detailItem}>
+                          <Ionicons name="person" size={15} color="#2563EB" />
+                          <Text style={styles.detailText}>
+                            <Text style={{ fontWeight: '700' }}>Líder: </Text>
+                            {cell.cellLeaderName}
+                          </Text>
+                        </View>
+
+                        <View style={styles.detailItem}>
+                          <Ionicons name="home-outline" size={15} color="#059669" />
+                          <Text style={styles.detailText}>
+                            <Text style={{ fontWeight: '700' }}>Anfitrión: </Text>
+                            {cell.hostName}
+                          </Text>
+                        </View>
+
+                        {cell.assistantName && (
+                          <View style={styles.detailItem}>
+                            <Ionicons name="sparkles-outline" size={15} color="#F59E0B" />
+                            <Text style={styles.detailText}>
+                              <Text style={{ fontWeight: '700' }}>Asistente: </Text>
+                              {cell.assistantName}
+                            </Text>
+                          </View>
+                        )}
+
+                        <View style={styles.detailItem}>
+                          <Ionicons name="calendar-outline" size={15} color="#64748B" />
+                          <Text style={styles.detailText}>
+                            {cell.dayOfWeek} a las {cell.time}
+                          </Text>
+                        </View>
+
+                        {cell.address && (
+                          <View style={styles.detailItem}>
+                            <Ionicons name="location-outline" size={15} color="#64748B" />
+                            <Text style={styles.detailText}>{cell.address}</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {cell.notes && (
+                        <View style={styles.cellNotes}>
+                          <Text style={styles.cellNotesText}>{cell.notes}</Text>
+                        </View>
+                      )}
+
+                      {/* Card Action Footer */}
+                      <View style={styles.cardFooter}>
+                        <View style={styles.membersCountPill}>
+                          <Ionicons name="people" size={14} color="#059669" />
+                          <Text style={styles.membersCountText}>
+                            {cell.membersCount || 0} personas
+                          </Text>
+                        </View>
+
+                        {/* Report Meeting Button */}
+                        <TouchableOpacity
+                          style={styles.reportCellBtn}
+                          onPress={() => handleOpenReportModal(cell)}
+                          activeOpacity={0.85}>
+                          <Ionicons name="clipboard-outline" size={15} color="#FFFFFF" />
+                          <Text style={styles.reportCellBtnText}>Reportar Reunión</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
+                  );
+                })}
+            </View>
+          )}
+
+          {/* ========================================================= */}
+          {/* TAB 2: CELL MEETING REPORTS                               */}
+          {/* ========================================================= */}
+          {activeTab === 'reports' && (
+            <View>
+              {/* Reports Financial & Growth Metrics */}
+              <View style={styles.multiOfferingSummaryCard}>
+                <Text style={styles.offeringSummaryTitle}>💰 Ofrendas Recolectadas en Células</Text>
+                <View style={styles.offeringBreakdownRow}>
+                  <View style={styles.offeringBadgeItem}>
+                    <Text style={styles.offeringBadgeLbl}>💵 Dólares Efectivo:</Text>
+                    <Text style={styles.offeringBadgeVal}>${totalUsdOffering.toFixed(2)}</Text>
                   </View>
 
-                  {/* Cell Details Grid */}
-                  <View style={styles.detailsGrid}>
-                    <View style={styles.detailItem}>
-                      <Ionicons name="person" size={15} color="#2563EB" />
-                      <Text style={styles.detailText}>
-                        <Text style={{ fontWeight: '700' }}>Líder: </Text>
-                        {cell.cellLeaderName}
-                      </Text>
-                    </View>
-
-                    <View style={styles.detailItem}>
-                      <Ionicons name="home-outline" size={15} color="#059669" />
-                      <Text style={styles.detailText}>
-                        <Text style={{ fontWeight: '700' }}>Anfitrión: </Text>
-                        {cell.hostName}
-                      </Text>
-                    </View>
-
-                    {cell.assistantName && (
-                      <View style={styles.detailItem}>
-                        <Ionicons name="sparkles-outline" size={15} color="#F59E0B" />
-                        <Text style={styles.detailText}>
-                          <Text style={{ fontWeight: '700' }}>Asistente: </Text>
-                          {cell.assistantName}
-                        </Text>
-                      </View>
-                    )}
-
-                    <View style={styles.detailItem}>
-                      <Ionicons name="calendar-outline" size={15} color="#64748B" />
-                      <Text style={styles.detailText}>
-                        {cell.dayOfWeek} a las {cell.time}
-                      </Text>
-                    </View>
-
-                    {cell.address && (
-                      <View style={styles.detailItem}>
-                        <Ionicons name="location-outline" size={15} color="#64748B" />
-                        <Text style={styles.detailText}>{cell.address}</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {cell.notes && (
-                    <View style={styles.cellNotes}>
-                      <Text style={styles.cellNotesText}>{cell.notes}</Text>
+                  {totalVesOffering > 0 && (
+                    <View style={styles.offeringBadgeItem}>
+                      <Text style={styles.offeringBadgeLbl}>🇻🇪 Bs. Efectivo:</Text>
+                      <Text style={styles.offeringBadgeVal}>Bs. {totalVesOffering.toFixed(2)}</Text>
                     </View>
                   )}
 
-                  {/* Card Action Footer */}
-                  <View style={styles.cardFooter}>
-                    <View style={styles.membersCountPill}>
-                      <Ionicons name="people" size={14} color="#059669" />
-                      <Text style={styles.membersCountText}>
-                        {cell.membersCount || 0} personas
-                      </Text>
+                  {totalPmOffering > 0 && (
+                    <View style={styles.offeringBadgeItem}>
+                      <Text style={styles.offeringBadgeLbl}>📲 Pago Móvil:</Text>
+                      <Text style={styles.offeringBadgeVal}>Bs. {totalPmOffering.toFixed(2)}</Text>
                     </View>
-
-                    {/* Report Meeting Button */}
-                    <TouchableOpacity
-                      style={styles.reportCellBtn}
-                      onPress={() => handleOpenReportModal(cell)}
-                      activeOpacity={0.85}>
-                      <Ionicons name="clipboard-outline" size={15} color="#FFFFFF" />
-                      <Text style={styles.reportCellBtnText}>Reportar Reunión</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        {/* ========================================================= */}
-        {/* TAB 2: CELL MEETING REPORTS                               */}
-        {/* ========================================================= */}
-        {activeTab === 'reports' && (
-          <View>
-            {/* Reports Financial & Growth Metrics */}
-            <View style={styles.multiOfferingSummaryCard}>
-              <Text style={styles.offeringSummaryTitle}>💰 Ofrendas Recolectadas en Células</Text>
-              <View style={styles.offeringBreakdownRow}>
-                <View style={styles.offeringBadgeItem}>
-                  <Text style={styles.offeringBadgeLbl}>💵 Dólares Efectivo:</Text>
-                  <Text style={styles.offeringBadgeVal}>${totalUsdOffering.toFixed(2)}</Text>
+                  )}
                 </View>
 
-                {totalVesOffering > 0 && (
-                  <View style={styles.offeringBadgeItem}>
-                    <Text style={styles.offeringBadgeLbl}>🇻🇪 Bs. Efectivo:</Text>
-                    <Text style={styles.offeringBadgeVal}>Bs. {totalVesOffering.toFixed(2)}</Text>
-                  </View>
-                )}
-
-                {totalPmOffering > 0 && (
-                  <View style={styles.offeringBadgeItem}>
-                    <Text style={styles.offeringBadgeLbl}>📲 Pago Móvil:</Text>
-                    <Text style={styles.offeringBadgeVal}>Bs. {totalPmOffering.toFixed(2)}</Text>
-                  </View>
-                )}
+                <View style={styles.offeringAttendanceDivider} />
+                <View style={styles.offeringAttendanceRow}>
+                  <Text style={styles.offeringAttendanceText}>
+                    👥 <Text style={{ fontWeight: '700' }}>{totalReportedMembers}</Text> miembros reportados • ✨ <Text style={{ fontWeight: '700' }}>{totalReportedVisitors}</Text> invitados nuevos
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.offeringAttendanceDivider} />
-              <View style={styles.offeringAttendanceRow}>
-                <Text style={styles.offeringAttendanceText}>
-                  👥 <Text style={{ fontWeight: '700' }}>{totalReportedMembers}</Text> miembros reportados • ✨ <Text style={{ fontWeight: '700' }}>{totalReportedVisitors}</Text> invitados nuevos
+              {/* Destination / Inbox Banner */}
+              <View style={styles.inboxBanner}>
+                <Ionicons name="paper-plane" size={16} color="#2563EB" />
+                <Text style={styles.inboxBannerText}>
+                  {currentUser?.role === 'senior_pastor'
+                    ? 'Bandeja Pastoral: Mostrando reportes recibidos de las células y discípulos.'
+                    : `Tus reportes son enviados directamente a tu pastor/líder encargado: ${leaderInCharge.name}.`}
                 </Text>
               </View>
-            </View>
 
-            {/* Destination / Inbox Banner */}
-            <View style={styles.inboxBanner}>
-              <Ionicons name="paper-plane" size={16} color="#2563EB" />
-              <Text style={styles.inboxBannerText}>
-                {currentUser?.role === 'senior_pastor'
-                  ? 'Bandeja Pastoral: Mostrando reportes recibidos de las células y discípulos.'
-                  : `Tus reportes son enviados directamente a tu pastor/líder encargado: ${leaderInCharge.name}.`}
-              </Text>
-            </View>
-
-            {/* View Mode Toggle: Planilla Consolidada vs Fichas Detalladas */}
-            <View style={styles.viewModeToggleRow}>
-              <TouchableOpacity
-                style={[
-                  styles.viewModeBtn,
-                  reportsViewMode === 'sheet' && styles.viewModeBtnActiveGreen,
-                ]}
-                onPress={() => setReportsViewMode('sheet')}
-                activeOpacity={0.8}>
-                <Ionicons
-                  name="grid"
-                  size={15}
-                  color={reportsViewMode === 'sheet' ? '#FFFFFF' : '#15803D'}
-                />
-                <Text
+              {/* View Mode Toggle: Planilla Consolidada vs Fichas Detalladas */}
+              <View style={styles.viewModeToggleRow}>
+                <TouchableOpacity
                   style={[
-                    styles.viewModeBtnText,
-                    reportsViewMode === 'sheet' && styles.viewModeBtnTextActive,
-                  ]}>
-                  Planilla Excel (Consolidado)
-                </Text>
-              </TouchableOpacity>
+                    styles.viewModeBtn,
+                    reportsViewMode === 'sheet' && styles.viewModeBtnActiveGreen,
+                  ]}
+                  onPress={() => setReportsViewMode('sheet')}
+                  activeOpacity={0.8}>
+                  <Ionicons
+                    name="grid"
+                    size={15}
+                    color={reportsViewMode === 'sheet' ? '#FFFFFF' : '#15803D'}
+                  />
+                  <Text
+                    style={[
+                      styles.viewModeBtnText,
+                      reportsViewMode === 'sheet' && styles.viewModeBtnTextActive,
+                    ]}>
+                    Planilla Excel (Consolidado)
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.viewModeBtn,
-                  reportsViewMode === 'cards' && styles.viewModeBtnActiveBlue,
-                ]}
-                onPress={() => setReportsViewMode('cards')}
-                activeOpacity={0.8}>
-                <Ionicons
-                  name="albums-outline"
-                  size={15}
-                  color={reportsViewMode === 'cards' ? '#FFFFFF' : '#2563EB'}
-                />
-                <Text
+                <TouchableOpacity
                   style={[
-                    styles.viewModeBtnText,
-                    reportsViewMode === 'cards' && styles.viewModeBtnTextActive,
-                  ]}>
-                  Fichas Individuales
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {reportsViewMode === 'sheet' ? (
-              <View>
-                {/* Control Panel: Header, Redes y Buscador */}
-                <View style={styles.sheetControlsCard}>
-                  <View style={styles.sheetHeaderBanner}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.sheetHeaderTitle}>
-                        Planilla Consolidada de Células
-                      </Text>
-                      <Text style={styles.sheetHeaderSubtitle}>
-                        {groupedSheetData.totalCells} Células • {groupedSheetData.leaderGroups.length} Líderes de 12
-                      </Text>
-                    </View>
-
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
-                      <TouchableOpacity
-                        style={[styles.sheetShareBtn, { backgroundColor: '#15803D' }]}
-                        onPress={handleExportExcel}
-                        activeOpacity={0.8}>
-                        <Ionicons name="download-outline" size={14} color="#FFFFFF" />
-                        <Text style={styles.sheetShareBtnText}>Descargar Excel</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.sheetShareBtn, { backgroundColor: '#2563EB' }]}
-                        onPress={handleShareSheetSummary}
-                        activeOpacity={0.8}>
-                        <Ionicons name="share-social-outline" size={14} color="#FFFFFF" />
-                        <Text style={styles.sheetShareBtnText}>Compartir</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-
-
-                  {/* Buscador dentro de la planilla */}
-                  <View style={styles.sheetSearchBox}>
-                    <Ionicons name="search" size={16} color="#94A3B8" />
-                    <TextInput
-                      style={styles.sheetSearchInput}
-                      placeholder="Buscar por líder 12, célula, anfitrión o palabra..."
-                      placeholderTextColor="#94A3B8"
-                      value={sheetSearchQuery}
-                      onChangeText={setSheetSearchQuery}
-                    />
-                    {sheetSearchQuery.length > 0 && (
-                      <TouchableOpacity onPress={() => setSheetSearchQuery('')}>
-                        <Ionicons name="close-circle" size={16} color="#94A3B8" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-
-                {/* Tabla Planilla estilo Excel */}
-                {filteredReportsForSheet.length === 0 ? (
-                  <View style={styles.emptyContainer}>
-                    <View style={[styles.emptyIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                      <Ionicons name="receipt-outline" size={38} color="#D97706" />
-                    </View>
-                    <Text style={styles.emptyTitle}>Sin reportes en esta selección</Text>
-                    <Text style={styles.emptySubtitle}>
-                      No se encontraron reportes celulares para los filtros o búsqueda especificada.
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={styles.sheetTableWrapper}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                      <View style={styles.sheetTable}>
-                        {/* Table Header Row */}
-                        <View style={styles.tableHeaderRow}>
-                          <View style={[styles.thCell, { width: 38 }]}>
-                            <Text style={styles.thText}>#</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 135 }]}>
-                            <Text style={styles.thText}>Líder 12</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 75 }]}>
-                            <Text style={styles.thText}>Cant. Células</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 140 }]}>
-                            <Text style={styles.thText}>Líder de Célula</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 130 }]}>
-                            <Text style={styles.thText}>Asistente</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 130 }]}>
-                            <Text style={styles.thText}>Anfitrión (a)</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 180 }]}>
-                            <Text style={styles.thText}>Palabra Predicada</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 85 }]}>
-                            <Text style={styles.thText}>Fecha</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 70 }]}>
-                            <Text style={styles.thText}>Miembros</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 70 }]}>
-                            <Text style={styles.thText}>Invitados</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 75 }]}>
-                            <Text style={styles.thText}>Aceptó Cristo</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 85 }]}>
-                            <Text style={styles.thText}>Ofrenda Bs.</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 75 }]}>
-                            <Text style={styles.thText}>Ofrenda $</Text>
-                          </View>
-                          <View style={[styles.thCell, { width: 85 }]}>
-                            <Text style={styles.thText}>Pago Móvil</Text>
-                          </View>
-                        </View>
-
-                        {/* Table Body: Grouped by Líder 12 */}
-                        {groupedSheetData.leaderGroups.map((group) => {
-                          return (
-                            <Fragment key={group.leaderName}>
-                              {group.reports.map((rep, rIndex) => {
-                                const isFirstOfLeader = rIndex === 0;
-                                const isNoAsistio =
-                                  rep.status === 'no_asistio_nadie' ||
-                                  (rep.topic && rep.topic.toUpperCase().includes('NO ASISTIÓ'));
-                                const isNoRealizo =
-                                  rep.status === 'no_realizo' ||
-                                  (rep.topic && rep.topic.toUpperCase().includes('NO REALIZÓ'));
-
-                                return (
-                                  <View
-                                    key={rep.id}
-                                    style={[
-                                      styles.tableDataRow,
-                                      isNoRealizo && styles.rowNoRealizo,
-                                    ]}>
-                                    {/* Columna #: Número del líder */}
-                                    <View style={[styles.tdCell, { width: 38 }]}>
-                                      <Text style={styles.tdTextMuted}>
-                                        {isFirstOfLeader ? group.leaderIndex : ''}
-                                      </Text>
-                                    </View>
-
-                                    {/* Columna Líder 12 */}
-                                    <View
-                                      style={[
-                                        styles.tdCell,
-                                        { width: 135 },
-                                        isFirstOfLeader && styles.leaderCellGrouped,
-                                      ]}>
-                                      <Text
-                                        style={[
-                                          styles.tdTextBold,
-                                          !isFirstOfLeader && { color: '#94A3B8', fontSize: 11 },
-                                        ]}
-                                        numberOfLines={1}>
-                                        {isFirstOfLeader ? group.leaderName : ''}
-                                      </Text>
-                                    </View>
-
-                                    {/* Columna Cant. de Células */}
-                                    <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
-                                      <Text style={styles.tdTextCenterBold}>
-                                        {isFirstOfLeader ? group.cellsCount : ''}
-                                      </Text>
-                                    </View>
-
-                                    {/* Líder de Célula */}
-                                    <View style={[styles.tdCell, { width: 140 }]}>
-                                      <Text style={styles.tdText} numberOfLines={1}>
-                                        {rep.cellLeaderName}
-                                      </Text>
-                                    </View>
-
-                                    {/* Asistente */}
-                                    <View style={[styles.tdCell, { width: 130 }]}>
-                                      <Text
-                                        style={[
-                                          styles.tdText,
-                                          (!rep.assistantName ||
-                                            rep.assistantName.toLowerCase() === 'no tiene') &&
-                                            styles.tdTextMuted,
-                                        ]}
-                                        numberOfLines={1}>
-                                        {rep.assistantName || 'No tiene'}
-                                      </Text>
-                                    </View>
-
-                                    {/* Anfitrión (a) */}
-                                    <View style={[styles.tdCell, { width: 130 }]}>
-                                      <Text style={styles.tdText} numberOfLines={1}>
-                                        {rep.hostName}
-                                      </Text>
-                                    </View>
-
-                                    {/* Palabra Predicada */}
-                                    <View style={[styles.tdCell, { width: 180 }]}>
-                                      <Text
-                                        style={[
-                                          styles.tdText,
-                                          isNoAsistio && styles.tdTextDanger,
-                                          isNoRealizo && styles.tdTextWarning,
-                                        ]}
-                                        numberOfLines={1}>
-                                        {rep.topic || rep.notes || 'Sin registrar'}
-                                      </Text>
-                                    </View>
-
-                                    {/* Fecha */}
-                                    <View style={[styles.tdCell, { width: 85, alignItems: 'center' }]}>
-                                      <Text style={styles.tdTextCenterMuted}>
-                                        {rep.date ? rep.date.split('-').reverse().join('/') : ''}
-                                      </Text>
-                                    </View>
-
-                                    {/* Miembros */}
-                                    <View style={[styles.tdCell, { width: 70, alignItems: 'center' }]}>
-                                      <Text style={styles.tdTextCenter}>{rep.membersCount}</Text>
-                                    </View>
-
-                                    {/* Invitados (Verde si > 0, Rojo si 0) */}
-                                    <View
-                                      style={[
-                                        styles.tdCell,
-                                        { width: 70, alignItems: 'center' },
-                                        rep.visitorsCount > 0 ? styles.cellGreen : styles.cellRed,
-                                      ]}>
-                                      <Text
-                                        style={[
-                                          styles.tdTextCenterBold,
-                                          rep.visitorsCount > 0 ? styles.textGreen : styles.textRed,
-                                        ]}>
-                                        {rep.visitorsCount}
-                                      </Text>
-                                    </View>
-
-                                    {/* Aceptó a Cristo */}
-                                    <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
-                                      <Text
-                                        style={[
-                                          styles.tdTextCenterBold,
-                                          (rep.conversionsCount || 0) > 0 && { color: '#7C3AED' },
-                                        ]}>
-                                        {rep.conversionsCount || 0}
-                                      </Text>
-                                    </View>
-
-                                    {/* Ofrenda Bs. */}
-                                    <View
-                                      style={[
-                                        styles.tdCell,
-                                        { width: 85, alignItems: 'flex-end', paddingRight: 8 },
-                                        ((rep.offeringDetails?.vesCash || 0) === 0 || isNoRealizo) && styles.cellOrange,
-                                      ]}>
-                                      <Text
-                                        style={[
-                                          styles.tdTextBold,
-                                          (rep.offeringDetails?.vesCash || 0) === 0 || isNoRealizo
-                                            ? styles.textOrange
-                                            : { color: '#0F172A' },
-                                        ]}>
-                                        {rep.offeringDetails?.vesCash
-                                          ? `Bs. ${rep.offeringDetails.vesCash.toLocaleString()}`
-                                          : '0'}
-                                      </Text>
-                                    </View>
-
-                                    {/* Ofrenda $ */}
-                                    <View
-                                      style={[
-                                        styles.tdCell,
-                                        { width: 75, alignItems: 'flex-end', paddingRight: 8 },
-                                        ((rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0)) === 0 || isNoRealizo) && styles.cellOrange,
-                                      ]}>
-                                      <Text
-                                        style={[
-                                          styles.tdTextBold,
-                                          (rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0)) === 0 || isNoRealizo
-                                            ? styles.textOrange
-                                            : { color: '#0F172A' },
-                                        ]}>
-                                        {(() => {
-                                          const usdVal =
-                                            rep.offeringDetails?.usdCash || (!rep.offeringDetails ? rep.offering || 0 : 0);
-                                          return usdVal > 0 ? `$${usdVal.toLocaleString()}` : '0';
-                                        })()}
-                                      </Text>
-                                    </View>
-
-                                    {/* Pago Móvil */}
-                                    <View
-                                      style={[
-                                        styles.tdCell,
-                                        { width: 85, alignItems: 'flex-end', paddingRight: 8 },
-                                        ((rep.offeringDetails?.pagoMovilAmount || 0) === 0 || isNoRealizo) && styles.cellOrange,
-                                      ]}>
-                                      <Text
-                                        style={[
-                                          styles.tdTextBold,
-                                          (rep.offeringDetails?.pagoMovilAmount || 0) === 0 || isNoRealizo
-                                            ? styles.textOrange
-                                            : { color: '#0F172A' },
-                                        ]}>
-                                        {rep.offeringDetails?.pagoMovilAmount
-                                          ? `Bs. ${rep.offeringDetails.pagoMovilAmount.toLocaleString()}`
-                                          : '0'}
-                                      </Text>
-                                    </View>
-                                  </View>
-                                );
-                              })}
-
-                              {/* Fila de Subtotal del Líder 12 si tiene más de 1 célula o discípulos */}
-                              {group.reports.length > 1 && (
-                                <View style={styles.tableGroupSubtotalRow}>
-                                  <View style={[styles.tdCell, { width: 38 }]} />
-                                  <View
-                                    style={[
-                                      styles.tdCell,
-                                      { width: 135, backgroundColor: '#EFF6FF' },
-                                    ]}>
-                                    <Text
-                                      style={[styles.tdTextBold, { color: '#1E3A8A' }]}
-                                      numberOfLines={1}>
-                                      Total {group.leaderName}
-                                    </Text>
-                                  </View>
-                                  <View
-                                    style={[
-                                      styles.tdCell,
-                                      { width: 75, alignItems: 'center', backgroundColor: '#EFF6FF' },
-                                    ]}>
-                                    <Text style={[styles.tdTextCenterBold, { color: '#1E3A8A' }]}>
-                                      {group.cellsCount} cél
-                                    </Text>
-                                  </View>
-                                  <View style={[styles.tdCell, { width: 140 }]} />
-                                  <View style={[styles.tdCell, { width: 130 }]} />
-                                  <View style={[styles.tdCell, { width: 130 }]} />
-                                  <View
-                                    style={[
-                                      styles.tdCell,
-                                      { width: 180, justifyContent: 'center', paddingRight: 8 },
-                                    ]}>
-                                    <Text
-                                      style={{
-                                        fontSize: 10,
-                                        fontWeight: '700',
-                                        color: '#64748B',
-                                        textAlign: 'right',
-                                      }}>
-                                      Subtotal {group.leaderName}:
-                                    </Text>
-                                  </View>
-                                  <View style={[styles.tdCell, { width: 85 }]} />
-
-                                  {/* Total Miembros del Grupo */}
-                                  <View
-                                    style={[
-                                      styles.tdCell,
-                                      { width: 70, alignItems: 'center', backgroundColor: '#F8FAFC' },
-                                    ]}>
-                                    <Text style={styles.tdTextCenterBold}>
-                                      {group.totals.members}
-                                    </Text>
-                                  </View>
-
-                                  {/* Total Invitados del Grupo */}
-                                  <View
-                                    style={[
-                                      styles.tdCell,
-                                      { width: 70, alignItems: 'center', backgroundColor: '#DCFCE7' },
-                                    ]}>
-                                    <Text
-                                      style={[styles.tdTextCenterBold, { color: '#15803D' }]}>
-                                      {group.totals.visitors}
-                                    </Text>
-                                  </View>
-
-                                  {/* Total Conversiones del Grupo */}
-                                  <View
-                                    style={[
-                                      styles.tdCell,
-                                      { width: 75, alignItems: 'center', backgroundColor: '#F3E8FF' },
-                                    ]}>
-                                    <Text
-                                      style={[styles.tdTextCenterBold, { color: '#7C3AED' }]}>
-                                      {group.totals.conversions}
-                                    </Text>
-                                  </View>
-
-                                  {/* Total Ofrenda Bs. del Grupo */}
-                                  <View
-                                    style={[
-                                      styles.tdCell,
-                                      {
-                                        width: 85,
-                                        alignItems: 'flex-end',
-                                        paddingRight: 8,
-                                        backgroundColor: '#F8FAFC',
-                                      },
-                                    ]}>
-                                    <Text style={[styles.tdTextBold, { color: '#0F172A' }]}>
-                                      {group.totals.offeringVes > 0
-                                        ? `Bs. ${group.totals.offeringVes.toLocaleString()}`
-                                        : '0'}
-                                    </Text>
-                                  </View>
-
-                                  {/* Total Ofrenda $ del Grupo */}
-                                  <View
-                                    style={[
-                                      styles.tdCell,
-                                      {
-                                        width: 75,
-                                        alignItems: 'flex-end',
-                                        paddingRight: 8,
-                                        backgroundColor: '#F8FAFC',
-                                      },
-                                    ]}>
-                                    <Text style={[styles.tdTextBold, { color: '#0F172A' }]}>
-                                      {group.totals.offeringUsd > 0
-                                        ? `$${group.totals.offeringUsd.toLocaleString()}`
-                                        : '0'}
-                                    </Text>
-                                  </View>
-
-                                  {/* Total Pago Móvil del Grupo */}
-                                  <View
-                                    style={[
-                                      styles.tdCell,
-                                      {
-                                        width: 85,
-                                        alignItems: 'flex-end',
-                                        paddingRight: 8,
-                                        backgroundColor: '#F8FAFC',
-                                      },
-                                    ]}>
-                                    <Text style={[styles.tdTextBold, { color: '#0F172A' }]}>
-                                      {group.totals.offeringPm > 0
-                                        ? `Bs. ${group.totals.offeringPm.toLocaleString()}`
-                                        : '0'}
-                                    </Text>
-                                  </View>
-                                </View>
-                              )}
-                            </Fragment>
-                          );
-                        })}
-
-                        {/* Fila de Totales (Exacta a la fila 54 del Excel) */}
-                        <View style={styles.tableTotalsRow}>
-                          <View style={[styles.tdCell, { width: 38 }]} />
-                          <View style={[styles.tdCell, { width: 135, alignItems: 'center' }]}>
-                            <Text style={styles.totalsLabel}>TOTALES</Text>
-                          </View>
-                          {/* Total Células: Recuadro Amarillo */}
-                          <View
-                            style={[
-                              styles.tdCell,
-                              styles.totalYellowCell,
-                              { width: 75, alignItems: 'center' },
-                            ]}>
-                            <Text style={styles.totalYellowText}>
-                              {groupedSheetData.totalCells}
-                            </Text>
-                          </View>
-                          <View style={[styles.tdCell, { width: 140 }]} />
-                          <View style={[styles.tdCell, { width: 130 }]} />
-                          <View style={[styles.tdCell, { width: 130 }]} />
-                          <View style={[styles.tdCell, { width: 180 }]} />
-                          <View style={[styles.tdCell, { width: 85 }]} />
-
-                          {/* Total Miembros */}
-                          <View style={[styles.tdCell, { width: 70, alignItems: 'center' }]}>
-                            <Text style={styles.totalsNum}>{groupedSheetData.totalMembers}</Text>
-                          </View>
-
-                          {/* Total Invitados */}
-                          <View style={[styles.tdCell, { width: 70, alignItems: 'center' }]}>
-                            <Text style={styles.totalsNum}>{groupedSheetData.totalVisitors}</Text>
-                          </View>
-
-                          {/* Total Aceptó a Cristo */}
-                          <View style={[styles.tdCell, { width: 75, alignItems: 'center' }]}>
-                            <Text style={[styles.totalsNum, { color: '#7C3AED' }]}>
-                              {groupedSheetData.totalConversions}
-                            </Text>
-                          </View>
-
-                          {/* Total Ofrenda Bs. */}
-                          <View
-                            style={[
-                              styles.tdCell,
-                              { width: 85, alignItems: 'flex-end', paddingRight: 8 },
-                            ]}>
-                            <Text style={[styles.totalsNum, { color: '#047857' }]}>
-                              {groupedSheetData.totalOfferingVes > 0
-                                ? `Bs. ${groupedSheetData.totalOfferingVes.toLocaleString()}`
-                                : 'Bs. 0'}
-                            </Text>
-                          </View>
-
-                          {/* Total Ofrenda $ */}
-                          <View
-                            style={[
-                              styles.tdCell,
-                              { width: 75, alignItems: 'flex-end', paddingRight: 8 },
-                            ]}>
-                            <Text style={[styles.totalsNum, { color: '#047857' }]}>
-                              {`$${groupedSheetData.totalOfferingUsd.toLocaleString()}`}
-                            </Text>
-                          </View>
-
-                          {/* Total Pago Móvil */}
-                          <View
-                            style={[
-                              styles.tdCell,
-                              { width: 85, alignItems: 'flex-end', paddingRight: 8 },
-                            ]}>
-                            <Text style={[styles.totalsNum, { color: '#047857' }]}>
-                              {groupedSheetData.totalOfferingPm > 0
-                                ? `Bs. ${groupedSheetData.totalOfferingPm.toLocaleString()}`
-                                : 'Bs. 0'}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    </ScrollView>
-                  </View>
-                )}
+                    styles.viewModeBtn,
+                    reportsViewMode === 'cards' && styles.viewModeBtnActiveBlue,
+                  ]}
+                  onPress={() => setReportsViewMode('cards')}
+                  activeOpacity={0.8}>
+                  <Ionicons
+                    name="albums-outline"
+                    size={15}
+                    color={reportsViewMode === 'cards' ? '#FFFFFF' : '#2563EB'}
+                  />
+                  <Text
+                    style={[
+                      styles.viewModeBtnText,
+                      reportsViewMode === 'cards' && styles.viewModeBtnTextActive,
+                    ]}>
+                    Fichas Individuales
+                  </Text>
+                </TouchableOpacity>
               </View>
-            ) : myCellReports.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <View style={[styles.emptyIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                  <Ionicons name="receipt-outline" size={38} color="#D97706" />
-                </View>
-                <Text style={styles.emptyTitle}>Sin reportes de reunión aún</Text>
-                <Text style={styles.emptySubtitle}>
-                  Ve a la pestaña &ldquo;Mis Células&rdquo; y presiona el botón &ldquo;Reportar Reunión&rdquo; en cualquiera de tus células para reportar miembros, invitados con nombre y edad, y ofrenda múltiple.
-                </Text>
-              </View>
-            ) : (
-              myCellReports.map((rep) => (
-                <View key={rep.id} style={styles.reportCard}>
-                  <View style={styles.reportHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.reportTitle}>Célula de {rep.cellLeaderName}</Text>
-                      <Text style={styles.reportDateText}>
-                        Fecha de la reunión: {rep.date}
-                      </Text>
-                      <View style={styles.recipientBadgeRow}>
-                        <Ionicons name="paper-plane-outline" size={12} color="#2563EB" />
-                        <Text style={styles.recipientBadgeText}>
-                          Enviado a: <Text style={{ fontWeight: '700' }}>{rep.recipientLeaderName || leaderInCharge.name}</Text>
+
+              {reportsViewMode === 'sheet' ? (
+                <View>
+                  {/* Control Panel: Header, Redes y Buscador */}
+                  <View style={styles.sheetControlsCard}>
+                    <View style={styles.sheetHeaderBanner}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.sheetHeaderTitle}>
+                          Planilla
+                        </Text>
+                        <Text style={styles.sheetHeaderSubtitle}>
+                          {groupedSheetData.totalCells} Células • {groupedSheetData.leaderGroups.length} Líderes de 12
                         </Text>
                       </View>
+
+                      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <TouchableOpacity
+                          style={[styles.sheetShareBtn, { backgroundColor: '#7C3AED' }]}
+                          onPress={handleOpenSheetModal}
+                          activeOpacity={0.8}>
+                          <Ionicons name="scan-outline" size={14} color="#FFFFFF" />
+                          <Text style={styles.sheetShareBtnText}>Ver Completa</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.sheetShareBtn, { backgroundColor: '#0284C7' }]}
+                          onPress={handleShareSheetExcel}
+                          activeOpacity={0.8}>
+                          <Ionicons name="share-social-outline" size={14} color="#FFFFFF" />
+                          <Text style={styles.sheetShareBtnText}>Compartir Excel</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.sheetShareBtn, { backgroundColor: '#15803D' }]}
+                          onPress={handleExportExcel}
+                          activeOpacity={0.8}>
+                          <Ionicons name="download-outline" size={14} color="#FFFFFF" />
+                          <Text style={styles.sheetShareBtnText}>Descargar</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                      {(currentUser?.id === rep.recipientLeaderId || currentUser?.role === 'senior_pastor') && (
-                        <View style={styles.receivedBadge}>
-                          <Ionicons name="checkmark-done" size={11} color="#059669" />
-                          <Text style={styles.receivedBadgeText}>Recibido</Text>
-                        </View>
+
+
+
+                    {/* Buscador dentro de la planilla */}
+                    <View style={styles.sheetSearchBox}>
+                      <Ionicons name="search" size={16} color="#94A3B8" />
+                      <TextInput
+                        style={styles.sheetSearchInput}
+                        placeholder="Buscar por líder 12, célula, anfitrión o palabra..."
+                        placeholderTextColor="#94A3B8"
+                        value={sheetSearchQuery}
+                        onChangeText={setSheetSearchQuery}
+                      />
+                      {sheetSearchQuery.length > 0 && (
+                        <TouchableOpacity onPress={() => setSheetSearchQuery('')}>
+                          <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                        </TouchableOpacity>
                       )}
                     </View>
                   </View>
 
-                  {/* Pre-registered cell data recap */}
-                  <View style={styles.reportRecapGrid}>
-                    <View style={styles.recapItem}>
-                      <Text style={styles.recapLabel}>🏠 Anfitrión:</Text>
-                      <Text style={styles.recapVal}>{rep.hostName}</Text>
-                    </View>
-                    {rep.assistantName && (
-                      <View style={styles.recapItem}>
-                        <Text style={styles.recapLabel}>🤝 Asistente:</Text>
-                        <Text style={styles.recapVal}>{rep.assistantName}</Text>
+                  {/* Tabla Planilla estilo Excel */}
+                  {filteredReportsForSheet.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                      <View style={[styles.emptyIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                        <Ionicons name="receipt-outline" size={38} color="#D97706" />
                       </View>
-                    )}
-                  </View>
-
-                  {/* Miembros Asistentes (con Nombre y Edad) */}
-                  <View style={styles.peopleSectionCard}>
-                    <View style={styles.peopleSectionHeader}>
-                      <Ionicons name="people" size={15} color="#2563EB" />
-                      <Text style={styles.peopleSectionTitle}>
-                        Miembros Asistentes ({rep.membersCount}):
+                      <Text style={styles.emptyTitle}>Sin reportes en esta selección</Text>
+                      <Text style={styles.emptySubtitle}>
+                        No se encontraron reportes celulares para los filtros o búsqueda especificada.
                       </Text>
                     </View>
-                    {rep.membersList && rep.membersList.length > 0 ? (
-                      <View style={styles.peopleChipsWrap}>
-                        {rep.membersList.map((m) => (
-                          <View key={m.id} style={styles.personChip}>
-                            <Text style={styles.personChipName}>{m.name}</Text>
-                            {m.age ? (
-                              <Text style={styles.personChipAge}>({m.age} años)</Text>
-                            ) : null}
+                  ) : (
+                    <View style={styles.sheetTableWrapper}>
+                      <TouchableOpacity
+                        style={styles.sheetExpandBanner}
+                        onPress={handleOpenSheetModal}
+                        activeOpacity={0.85}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                          <Ionicons name="expand-outline" size={18} color="#38BDF8" />
+                          <Text style={styles.sheetExpandBannerText}>
+                            Toca aquí para ver en pantalla completa y rotar a horizontal
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color="#38BDF8" />
+                      </TouchableOpacity>
+
+                      <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                        {renderSheetTableContent()}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+              ) : myCellReports.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <View style={[styles.emptyIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                    <Ionicons name="receipt-outline" size={38} color="#D97706" />
+                  </View>
+                  <Text style={styles.emptyTitle}>Sin reportes de reunión aún</Text>
+                  <Text style={styles.emptySubtitle}>
+                    Ve a la pestaña &ldquo;Mis Células&rdquo; y presiona el botón &ldquo;Reportar Reunión&rdquo; en cualquiera de tus células para reportar miembros, invitados con nombre y edad, y ofrenda múltiple.
+                  </Text>
+                </View>
+              ) : (
+                myCellReports.map((rep) => (
+                  <View key={rep.id} style={styles.reportCard}>
+                    <View style={styles.reportHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.reportTitle}>Célula de {rep.cellLeaderName}</Text>
+                        <Text style={styles.reportDateText}>
+                          Fecha de la reunión: {rep.date}
+                        </Text>
+                        <View style={styles.recipientBadgeRow}>
+                          <Ionicons name="paper-plane-outline" size={12} color="#2563EB" />
+                          <Text style={styles.recipientBadgeText}>
+                            Enviado a: <Text style={{ fontWeight: '700' }}>{rep.recipientLeaderName || leaderInCharge.name}</Text>
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                        {(currentUser?.id === rep.recipientLeaderId || currentUser?.role === 'senior_pastor') && (
+                          <View style={styles.receivedBadge}>
+                            <Ionicons name="checkmark-done" size={11} color="#059669" />
+                            <Text style={styles.receivedBadgeText}>Recibido</Text>
                           </View>
-                        ))}
+                        )}
                       </View>
-                    ) : (
-                      <Text style={styles.peopleCountFallback}>
-                        {rep.membersCount} miembros asistentes reportados
-                      </Text>
-                    )}
-                  </View>
+                    </View>
 
-                  {/* Invitados Nuevos (con Nombre y Edad) */}
-                  {rep.visitorsCount > 0 && (
-                    <View style={[styles.peopleSectionCard, { backgroundColor: '#FAF5FF', borderColor: '#E9D5FF' }]}>
+                    {/* Pre-registered cell data recap */}
+                    <View style={styles.reportRecapGrid}>
+                      <View style={styles.recapItem}>
+                        <Text style={styles.recapLabel}>🏠 Anfitrión:</Text>
+                        <Text style={styles.recapVal}>{rep.hostName}</Text>
+                      </View>
+                      {rep.assistantName && (
+                        <View style={styles.recapItem}>
+                          <Text style={styles.recapLabel}>🤝 Asistente:</Text>
+                          <Text style={styles.recapVal}>{rep.assistantName}</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Miembros Asistentes (con Nombre y Edad) */}
+                    <View style={styles.peopleSectionCard}>
                       <View style={styles.peopleSectionHeader}>
-                        <Ionicons name="sparkles" size={15} color="#7C3AED" />
-                        <Text style={[styles.peopleSectionTitle, { color: '#6D28D9' }]}>
-                          Invitados Nuevos ({rep.visitorsCount}):
+                        <Ionicons name="people" size={15} color="#2563EB" />
+                        <Text style={styles.peopleSectionTitle}>
+                          Miembros Asistentes ({rep.membersCount}):
                         </Text>
                       </View>
-                      {rep.visitorsList && rep.visitorsList.length > 0 ? (
+                      {rep.membersList && rep.membersList.length > 0 ? (
                         <View style={styles.peopleChipsWrap}>
-                          {rep.visitorsList.map((v) => (
-                            <View key={v.id} style={[styles.personChip, { backgroundColor: '#EDE9FE', borderColor: '#DDD6FE' }]}>
-                              <Text style={[styles.personChipName, { color: '#5B21B6' }]}>{v.name}</Text>
-                              {v.age ? (
-                                <Text style={[styles.personChipAge, { color: '#7C3AED' }]}>({v.age} años)</Text>
+                          {rep.membersList.map((m) => (
+                            <View key={m.id} style={styles.personChip}>
+                              <Text style={styles.personChipName}>{m.name}</Text>
+                              {m.age ? (
+                                <Text style={styles.personChipAge}>({m.age} años)</Text>
                               ) : null}
                             </View>
                           ))}
                         </View>
                       ) : (
                         <Text style={styles.peopleCountFallback}>
-                          {rep.visitorsCount} invitados nuevos
+                          {rep.membersCount} miembros asistentes reportados
                         </Text>
                       )}
                     </View>
-                  )}
 
-                  {/* Desglose de Ofrenda Múltiple */}
-                  <View style={styles.offeringBreakdownCard}>
-                    <Text style={styles.offeringBreakdownHeader}>Desglose de Ofrenda:</Text>
-                    <View style={styles.offeringItemsRow}>
-                      {rep.offeringDetails?.usdCash ? (
-                        <View style={styles.offeringItemPill}>
-                          <Text style={styles.offeringItemText}>
-                            💵 Dólares: <Text style={{ fontWeight: '800' }}>${rep.offeringDetails.usdCash.toFixed(2)}</Text>
+                    {/* Invitados Nuevos (con Nombre y Edad) */}
+                    {rep.visitorsCount > 0 && (
+                      <View style={[styles.peopleSectionCard, { backgroundColor: '#FAF5FF', borderColor: '#E9D5FF' }]}>
+                        <View style={styles.peopleSectionHeader}>
+                          <Ionicons name="sparkles" size={15} color="#7C3AED" />
+                          <Text style={[styles.peopleSectionTitle, { color: '#6D28D9' }]}>
+                            Invitados Nuevos ({rep.visitorsCount}):
                           </Text>
                         </View>
-                      ) : null}
-
-                      {rep.offeringDetails?.vesCash ? (
-                        <View style={styles.offeringItemPill}>
-                          <Text style={styles.offeringItemText}>
-                            🇻🇪 Bs. Efectivo: <Text style={{ fontWeight: '800' }}>Bs. {rep.offeringDetails.vesCash.toFixed(2)}</Text>
+                        {rep.visitorsList && rep.visitorsList.length > 0 ? (
+                          <View style={styles.peopleChipsWrap}>
+                            {rep.visitorsList.map((v) => (
+                              <View key={v.id} style={[styles.personChip, { backgroundColor: '#EDE9FE', borderColor: '#DDD6FE' }]}>
+                                <Text style={[styles.personChipName, { color: '#5B21B6' }]}>{v.name}</Text>
+                                {v.age ? (
+                                  <Text style={[styles.personChipAge, { color: '#7C3AED' }]}>({v.age} años)</Text>
+                                ) : null}
+                              </View>
+                            ))}
+                          </View>
+                        ) : (
+                          <Text style={styles.peopleCountFallback}>
+                            {rep.visitorsCount} invitados nuevos
                           </Text>
-                        </View>
-                      ) : null}
+                        )}
+                      </View>
+                    )}
 
-                      {rep.offeringDetails?.pagoMovilAmount ? (
-                        <View style={styles.offeringItemPill}>
-                          <Text style={styles.offeringItemText}>
-                            📲 Pago Móvil: <Text style={{ fontWeight: '800' }}>Bs. {rep.offeringDetails.pagoMovilAmount.toFixed(2)}</Text>
-                            {rep.offeringDetails.pagoMovilReference ? ` (Ref: ${rep.offeringDetails.pagoMovilReference})` : ''}
-                          </Text>
-                        </View>
-                      ) : null}
+                    {/* Desglose de Ofrenda Múltiple */}
+                    <View style={styles.offeringBreakdownCard}>
+                      <Text style={styles.offeringBreakdownHeader}>Desglose de Ofrenda:</Text>
+                      <View style={styles.offeringItemsRow}>
+                        {rep.offeringDetails?.usdCash ? (
+                          <View style={styles.offeringItemPill}>
+                            <Text style={styles.offeringItemText}>
+                              💵 Dólares: <Text style={{ fontWeight: '800' }}>${rep.offeringDetails.usdCash.toFixed(2)}</Text>
+                            </Text>
+                          </View>
+                        ) : null}
 
-                      {!rep.offeringDetails?.usdCash && !rep.offeringDetails?.vesCash && !rep.offeringDetails?.pagoMovilAmount && rep.offering > 0 && (
-                        <View style={styles.offeringItemPill}>
-                          <Text style={styles.offeringItemText}>
-                            Total Ofrenda: <Text style={{ fontWeight: '800' }}>${rep.offering.toFixed(2)}</Text>
-                          </Text>
-                        </View>
+                        {rep.offeringDetails?.vesCash ? (
+                          <View style={styles.offeringItemPill}>
+                            <Text style={styles.offeringItemText}>
+                              🇻🇪 Bs. Efectivo: <Text style={{ fontWeight: '800' }}>Bs. {rep.offeringDetails.vesCash.toFixed(2)}</Text>
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {rep.offeringDetails?.pagoMovilAmount ? (
+                          <View style={styles.offeringItemPill}>
+                            <Text style={styles.offeringItemText}>
+                              📲 Pago Móvil: <Text style={{ fontWeight: '800' }}>Bs. {rep.offeringDetails.pagoMovilAmount.toFixed(2)}</Text>
+                              {rep.offeringDetails.pagoMovilReference ? ` (Ref: ${rep.offeringDetails.pagoMovilReference})` : ''}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {!rep.offeringDetails?.usdCash && !rep.offeringDetails?.vesCash && !rep.offeringDetails?.pagoMovilAmount && rep.offering > 0 && (
+                          <View style={styles.offeringItemPill}>
+                            <Text style={styles.offeringItemText}>
+                              Total Ofrenda: <Text style={{ fontWeight: '800' }}>${rep.offering.toFixed(2)}</Text>
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Notes / Observaciones */}
+                    {rep.notes && (
+                      <View style={styles.reportNotesBox}>
+                        <Text style={styles.reportNotesLabel}>Observaciones:</Text>
+                        <Text style={styles.reportNotesText}>&ldquo;{rep.notes}&rdquo;</Text>
+                      </View>
+                    )}
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+
+          <View style={{ height: 60 }} />
+        </ScrollView>
+
+        {/* ========================================================= */}
+        {/* MODAL 1: REGISTRAR NUEVA CÉLULA                           */}
+        {/* ========================================================= */}
+        <Modal visible={modalVisible} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>Registrar Célula</Text>
+                  <Text style={styles.modalSubtitle}>Grupo celular bajo tu liderazgo</Text>
+                </View>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Ionicons name="close-circle" size={28} color="#94A3B8" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
+                {/* Leader in Charge Pill */}
+                <View style={styles.leaderPill}>
+                  <Ionicons name="shield-checkmark" size={18} color="#1E3A8A" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.leaderPillTitle}>
+                      {cellLeaderType === 'myself'
+                        ? 'Líder de Cobertura de tu Célula:'
+                        : 'Líder de Cobertura (Tú):'}
+                    </Text>
+                    <Text style={styles.leaderPillName}>
+                      {cellLeaderType === 'myself'
+                        ? `${leaderInCharge.name} (Tu Pastor)`
+                        : `${myFullName} (Tú)`}
+                    </Text>
+                  </View>
+                </View>
+
+
+
+                {/* Who leads this cell? (Myself vs Disciple) */}
+                <Text style={styles.inputLabel}>¿Quién dirige esta célula? *</Text>
+                <View style={styles.leaderTypeToggleRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.leaderTypeBtn,
+                      cellLeaderType === 'myself' && styles.leaderTypeBtnActive,
+                    ]}
+                    onPress={() => handleSelectLeaderType('myself')}>
+                    <Ionicons
+                      name="person"
+                      size={16}
+                      color={cellLeaderType === 'myself' ? '#FFFFFF' : '#475569'}
+                    />
+                    <Text
+                      style={[
+                        styles.leaderTypeText,
+                        cellLeaderType === 'myself' && styles.leaderTypeTextActive,
+                      ]}>
+                      Yo mismo
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.leaderTypeBtn,
+                      cellLeaderType === 'disciple' && styles.leaderTypeBtnActive,
+                    ]}
+                    onPress={() => handleSelectLeaderType('disciple')}>
+                    <Ionicons
+                      name="people"
+                      size={16}
+                      color={cellLeaderType === 'disciple' ? '#FFFFFF' : '#475569'}
+                    />
+                    <Text
+                      style={[
+                        styles.leaderTypeText,
+                        cellLeaderType === 'disciple' && styles.leaderTypeTextActive,
+                      ]}>
+                      Uno de mis Discípulos
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Cell Leader Input */}
+                {cellLeaderType === 'disciple' && (
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={styles.inputLabel}>Nombre del Líder de Célula (Discípulo) *</Text>
+
+                    {myDisciples.length > 0 && (
+                      <View style={styles.discipleChipsRow}>
+                        <Text style={styles.miniHint}>Sugerir de tus discípulos:</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                          {myDisciples.map((d) => (
+                            <TouchableOpacity
+                              key={d.id}
+                              style={[
+                                styles.discipleChip,
+                                cellLeaderName === `${d.firstName} ${d.lastName}` &&
+                                styles.discipleChipActive,
+                              ]}
+                              onPress={() => setCellLeaderName(`${d.firstName} ${d.lastName}`)}>
+                              <Text
+                                style={[
+                                  styles.discipleChipText,
+                                  cellLeaderName === `${d.firstName} ${d.lastName}` &&
+                                  styles.discipleChipTextActive,
+                                ]}>
+                                {d.firstName} {d.lastName}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="Escribe el nombre del líder de célula"
+                      placeholderTextColor="#94A3B8"
+                      value={cellLeaderName}
+                      onChangeText={setCellLeaderName}
+                    />
+                  </View>
+                )}
+
+                {/* Host */}
+                <Text style={styles.inputLabel}>Anfitrión (Dueño de la Casa) *</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Ej: Familia Morales / Hno. Roberto Valbuena"
+                  placeholderTextColor="#94A3B8"
+                  value={hostName}
+                  onChangeText={setHostName}
+                />
+
+                {/* Assistant */}
+                <Text style={styles.inputLabel}>Asistente / Timoteo (Opcional)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Nombre de quien le asiste en la célula"
+                  placeholderTextColor="#94A3B8"
+                  value={assistantName}
+                  onChangeText={setAssistantName}
+                />
+
+                {/* Address */}
+                <Text style={styles.inputLabel}>Dirección / Casa</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Ej: Urb. Las Mercedes, Calle 4, Casa #12"
+                  placeholderTextColor="#94A3B8"
+                  value={address}
+                  onChangeText={setAddress}
+                />
+
+                {/* Day of Week Selector */}
+                <Text style={styles.inputLabel}>Día de la Semana *</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayScroll}>
+                  {days.map((d) => (
+                    <TouchableOpacity
+                      key={d}
+                      style={[styles.dayPill, dayOfWeek === d && styles.dayPillActive]}
+                      onPress={() => setDayOfWeek(d)}>
+                      <Text
+                        style={[styles.dayPillText, dayOfWeek === d && styles.dayPillTextActive]}>
+                        {d}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {/* Time */}
+                <Text style={styles.inputLabel}>Hora de Inicio *</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Ej: 7:00 PM o 19:00"
+                  placeholderTextColor="#94A3B8"
+                  value={time}
+                  onChangeText={setTime}
+                />
+
+                {/* Notes */}
+                <Text style={styles.inputLabel}>Observaciones / Notas</Text>
+                <TextInput
+                  style={[styles.modalInput, { height: 60 }]}
+                  placeholder="Peticiones o notas de este grupo celular..."
+                  placeholderTextColor="#94A3B8"
+                  multiline
+                  value={notes}
+                  onChangeText={setNotes}
+                />
+
+                {/* Submit Modal Button */}
+                <TouchableOpacity
+                  style={styles.modalSubmitButton}
+                  onPress={handleCreateCell}
+                  activeOpacity={0.85}>
+                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                  <Text style={styles.modalSubmitText}>Guardar Célula en mi Red</Text>
+                </TouchableOpacity>
+
+                <View style={{ height: 40 }} />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ========================================================= */}
+        {/* MODAL 2: REPORTE DE REUNIÓN DE CÉLULA                     */}
+        {/* Con Miembros e Invitados (Nombre y Edad) y Ofrenda Múltiple */}
+        {/* ========================================================= */}
+        <Modal visible={reportModalVisible} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>Reporte de Célula</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Reporte de reunión semanal con asistentes y ofrendas
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setReportModalVisible(false)}>
+                  <Ionicons name="close-circle" size={28} color="#94A3B8" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
+                {selectedCellForReport && (
+                  <View style={styles.reportCellDetailsCard}>
+                    <Text style={styles.reportCellTitle}>
+                      Célula de {selectedCellForReport.cellLeaderName}
+                    </Text>
+                    <View style={styles.reportCellMetaRow}>
+                      <Text style={styles.reportCellMetaText}>
+                        🏠 Anfitrión: <Text style={{ fontWeight: '700' }}>{selectedCellForReport.hostName}</Text>
+                      </Text>
+                      {selectedCellForReport.assistantName && (
+                        <Text style={styles.reportCellMetaText}>
+                          🤝 Asistente: <Text style={{ fontWeight: '700' }}>{selectedCellForReport.assistantName}</Text>
+                        </Text>
                       )}
                     </View>
                   </View>
+                )}
 
-                  {/* Notes / Observaciones */}
-                  {rep.notes && (
-                    <View style={styles.reportNotesBox}>
-                      <Text style={styles.reportNotesLabel}>Observaciones:</Text>
-                      <Text style={styles.reportNotesText}>&ldquo;{rep.notes}&rdquo;</Text>
-                    </View>
-                  )}
+                {/* Destinatario del Reporte */}
+                <View style={styles.recipientBanner}>
+                  <Ionicons name="paper-plane" size={16} color="#2563EB" />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={styles.recipientBannerTitle}>Líder Encargado (Recibe este Reporte):</Text>
+                    <Text style={styles.recipientBannerName}>
+                      {leaderInCharge.name} (Cobertura Pastoral)
+                    </Text>
+                  </View>
                 </View>
-              ))
-            )}
-          </View>
-        )}
 
-        <View style={{ height: 60 }} />
-      </ScrollView>
+                {/* Fecha de la Reunión */}
+                <Text style={styles.inputLabel}>Fecha de la Reunión (YYYY-MM-DD) *</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={reportDate}
+                  onChangeText={setReportDate}
+                  placeholder="2026-10-21"
+                  placeholderTextColor="#94A3B8"
+                />
 
-      {/* ========================================================= */}
-      {/* MODAL 1: REGISTRAR NUEVA CÉLULA                           */}
-      {/* ========================================================= */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Registrar Célula</Text>
-                <Text style={styles.modalSubtitle}>Grupo celular bajo tu liderazgo</Text>
-              </View>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close-circle" size={28} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
-              {/* Leader in Charge Pill */}
-              <View style={styles.leaderPill}>
-                <Ionicons name="shield-checkmark" size={18} color="#1E3A8A" />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.leaderPillTitle}>
-                    {cellLeaderType === 'myself'
-                      ? 'Líder de Cobertura de tu Célula:'
-                      : 'Líder de Cobertura (Tú):'}
-                  </Text>
-                  <Text style={styles.leaderPillName}>
-                    {cellLeaderType === 'myself'
-                      ? `${leaderInCharge.name} (Tu Pastor)`
-                      : `${myFullName} (Tú)`}
-                  </Text>
-                </View>
-              </View>
-
-
-
-              {/* Who leads this cell? (Myself vs Disciple) */}
-              <Text style={styles.inputLabel}>¿Quién dirige esta célula? *</Text>
-              <View style={styles.leaderTypeToggleRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.leaderTypeBtn,
-                    cellLeaderType === 'myself' && styles.leaderTypeBtnActive,
-                  ]}
-                  onPress={() => handleSelectLeaderType('myself')}>
-                  <Ionicons
-                    name="person"
-                    size={16}
-                    color={cellLeaderType === 'myself' ? '#FFFFFF' : '#475569'}
-                  />
-                  <Text
-                    style={[
-                      styles.leaderTypeText,
-                      cellLeaderType === 'myself' && styles.leaderTypeTextActive,
-                    ]}>
-                    Yo mismo
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.leaderTypeBtn,
-                    cellLeaderType === 'disciple' && styles.leaderTypeBtnActive,
-                  ]}
-                  onPress={() => handleSelectLeaderType('disciple')}>
-                  <Ionicons
-                    name="people"
-                    size={16}
-                    color={cellLeaderType === 'disciple' ? '#FFFFFF' : '#475569'}
-                  />
-                  <Text
-                    style={[
-                      styles.leaderTypeText,
-                      cellLeaderType === 'disciple' && styles.leaderTypeTextActive,
-                    ]}>
-                    Uno de mis Discípulos
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Cell Leader Input */}
-              {cellLeaderType === 'disciple' && (
-                <View style={{ marginTop: 10 }}>
-                  <Text style={styles.inputLabel}>Nombre del Líder de Célula (Discípulo) *</Text>
-
-                  {myDisciples.length > 0 && (
-                    <View style={styles.discipleChipsRow}>
-                      <Text style={styles.miniHint}>Sugerir de tus discípulos:</Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {myDisciples.map((d) => (
-                          <TouchableOpacity
-                            key={d.id}
-                            style={[
-                              styles.discipleChip,
-                              cellLeaderName === `${d.firstName} ${d.lastName}` &&
-                              styles.discipleChipActive,
-                            ]}
-                            onPress={() => setCellLeaderName(`${d.firstName} ${d.lastName}`)}>
-                            <Text
-                              style={[
-                                styles.discipleChipText,
-                                cellLeaderName === `${d.firstName} ${d.lastName}` &&
-                                styles.discipleChipTextActive,
-                              ]}>
-                              {d.firstName} {d.lastName}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="Escribe el nombre del líder de célula"
-                    placeholderTextColor="#94A3B8"
-                    value={cellLeaderName}
-                    onChangeText={setCellLeaderName}
-                  />
-                </View>
-              )}
-
-              {/* Host */}
-              <Text style={styles.inputLabel}>Anfitrión (Dueño de la Casa) *</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Ej: Familia Morales / Hno. Roberto Valbuena"
-                placeholderTextColor="#94A3B8"
-                value={hostName}
-                onChangeText={setHostName}
-              />
-
-              {/* Assistant */}
-              <Text style={styles.inputLabel}>Asistente / Timoteo (Opcional)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Nombre de quien le asiste en la célula"
-                placeholderTextColor="#94A3B8"
-                value={assistantName}
-                onChangeText={setAssistantName}
-              />
-
-              {/* Address */}
-              <Text style={styles.inputLabel}>Dirección / Casa</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Ej: Urb. Las Mercedes, Calle 4, Casa #12"
-                placeholderTextColor="#94A3B8"
-                value={address}
-                onChangeText={setAddress}
-              />
-
-              {/* Day of Week Selector */}
-              <Text style={styles.inputLabel}>Día de la Semana *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayScroll}>
-                {days.map((d) => (
+                {/* Estado de la Célula */}
+                <Text style={styles.inputLabel}>Estado de la Célula</Text>
+                <View style={styles.statusOptionRow}>
                   <TouchableOpacity
-                    key={d}
-                    style={[styles.dayPill, dayOfWeek === d && styles.dayPillActive]}
-                    onPress={() => setDayOfWeek(d)}>
+                    style={[
+                      styles.statusOptionBtn,
+                      reportStatus === 'realizada' && styles.statusOptionBtnActiveGreen,
+                    ]}
+                    onPress={() => setReportStatus('realizada')}>
                     <Text
-                      style={[styles.dayPillText, dayOfWeek === d && styles.dayPillTextActive]}>
-                      {d}
+                      style={[
+                        styles.statusOptionText,
+                        reportStatus === 'realizada' && styles.statusOptionTextActive,
+                      ]}>
+                      ✅ Realizada
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
 
-              {/* Time */}
-              <Text style={styles.inputLabel}>Hora de Inicio *</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Ej: 7:00 PM o 19:00"
-                placeholderTextColor="#94A3B8"
-                value={time}
-                onChangeText={setTime}
-              />
-
-              {/* Notes */}
-              <Text style={styles.inputLabel}>Observaciones / Notas</Text>
-              <TextInput
-                style={[styles.modalInput, { height: 60 }]}
-                placeholder="Peticiones o notas de este grupo celular..."
-                placeholderTextColor="#94A3B8"
-                multiline
-                value={notes}
-                onChangeText={setNotes}
-              />
-
-              {/* Submit Modal Button */}
-              <TouchableOpacity
-                style={styles.modalSubmitButton}
-                onPress={handleCreateCell}
-                activeOpacity={0.85}>
-                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                <Text style={styles.modalSubmitText}>Guardar Célula en mi Red</Text>
-              </TouchableOpacity>
-
-              <View style={{ height: 40 }} />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ========================================================= */}
-      {/* MODAL 2: REPORTE DE REUNIÓN DE CÉLULA                     */}
-      {/* Con Miembros e Invitados (Nombre y Edad) y Ofrenda Múltiple */}
-      {/* ========================================================= */}
-      <Modal visible={reportModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Reporte de Célula</Text>
-                <Text style={styles.modalSubtitle}>
-                  Reporte de reunión semanal con asistentes y ofrendas
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setReportModalVisible(false)}>
-                <Ionicons name="close-circle" size={28} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
-              {selectedCellForReport && (
-                <View style={styles.reportCellDetailsCard}>
-                  <Text style={styles.reportCellTitle}>
-                    Célula de {selectedCellForReport.cellLeaderName}
-                  </Text>
-                  <View style={styles.reportCellMetaRow}>
-                    <Text style={styles.reportCellMetaText}>
-                      🏠 Anfitrión: <Text style={{ fontWeight: '700' }}>{selectedCellForReport.hostName}</Text>
-                    </Text>
-                    {selectedCellForReport.assistantName && (
-                      <Text style={styles.reportCellMetaText}>
-                        🤝 Asistente: <Text style={{ fontWeight: '700' }}>{selectedCellForReport.assistantName}</Text>
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {/* Destinatario del Reporte */}
-              <View style={styles.recipientBanner}>
-                <Ionicons name="paper-plane" size={16} color="#2563EB" />
-                <View style={{ flex: 1, marginLeft: 8 }}>
-                  <Text style={styles.recipientBannerTitle}>Líder Encargado (Recibe este Reporte):</Text>
-                  <Text style={styles.recipientBannerName}>
-                    {leaderInCharge.name} (Cobertura Pastoral)
-                  </Text>
-                </View>
-              </View>
-
-              {/* Fecha de la Reunión */}
-              <Text style={styles.inputLabel}>Fecha de la Reunión (YYYY-MM-DD) *</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={reportDate}
-                onChangeText={setReportDate}
-                placeholder="2026-10-21"
-                placeholderTextColor="#94A3B8"
-              />
-
-              {/* Estado de la Célula */}
-              <Text style={styles.inputLabel}>Estado de la Célula</Text>
-              <View style={styles.statusOptionRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.statusOptionBtn,
-                    reportStatus === 'realizada' && styles.statusOptionBtnActiveGreen,
-                  ]}
-                  onPress={() => setReportStatus('realizada')}>
-                  <Text
-                    style={[
-                      styles.statusOptionText,
-                      reportStatus === 'realizada' && styles.statusOptionTextActive,
-                    ]}>
-                    ✅ Realizada
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.statusOptionBtn,
-                    reportStatus === 'no_asistio_nadie' && styles.statusOptionBtnActiveRed,
-                  ]}
-                  onPress={() => {
-                    setReportStatus('no_asistio_nadie');
-                    setReportTopic('NO ASISTIÓ NADIE');
-                  }}>
-                  <Text
-                    style={[
-                      styles.statusOptionText,
-                      reportStatus === 'no_asistio_nadie' && styles.statusOptionTextActive,
-                    ]}>
-                    ⚠️ No asistió nadie
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.statusOptionBtn,
-                    reportStatus === 'no_realizo' && styles.statusOptionBtnActiveOrange,
-                  ]}
-                  onPress={() => {
-                    setReportStatus('no_realizo');
-                    setReportTopic('NO REALIZÓ');
-                  }}>
-                  <Text
-                    style={[
-                      styles.statusOptionText,
-                      reportStatus === 'no_realizo' && styles.statusOptionTextActive,
-                    ]}>
-                    ⛔ No realizó
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Palabra Predicada (Tema) */}
-              {reportStatus === 'realizada' && (
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={styles.inputLabel}>Palabra Predicada (Tema semanal) *</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    value={reportTopic}
-                    onChangeText={setReportTopic}
-                    placeholder="Ej: El tiempo de la sequía a terminado"
-                    placeholderTextColor="#94A3B8"
-                  />
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
-                    {[
-                      'El tiempo de la sequía a terminado',
-                      'Hoy es día de buenas nuevas',
-                      'Nuevo Linaje',
-                      'Un camino hacia la bendición',
-                    ].map((tema) => (
-                      <TouchableOpacity
-                        key={tema}
-                        style={styles.topicChip}
-                        onPress={() => setReportTopic(tema)}>
-                        <Text style={styles.topicChipText}>+ {tema}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* Aceptó a Cristo / Decisiones */}
-              {reportStatus === 'realizada' && (
-                <View style={styles.conversionsBox}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.conversionsTitle}>✝️ Aceptó a Cristo / Nuevas Decisiones</Text>
-                    <Text style={styles.miniHint}>
-                      Personas que recibieron o reconciliaron con Jesús:
-                    </Text>
-                  </View>
-                  <View style={styles.conversionsCounterRow}>
-                    <TouchableOpacity
-                      style={styles.counterBtn}
-                      onPress={() => {
-                        const current = parseInt(reportConversions, 10) || 0;
-                        if (current > 0) setReportConversions(String(current - 1));
-                      }}>
-                      <Ionicons name="remove" size={16} color="#475569" />
-                    </TouchableOpacity>
-                    <TextInput
-                      style={styles.counterInput}
-                      keyboardType="numeric"
-                      value={reportConversions}
-                      onChangeText={setReportConversions}
-                    />
-                    <TouchableOpacity
-                      style={[styles.counterBtn, { backgroundColor: '#7C3AED' }]}
-                      onPress={() => {
-                        const current = parseInt(reportConversions, 10) || 0;
-                        setReportConversions(String(current + 1));
-                      }}>
-                      <Ionicons name="add" size={16} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* -------------------------------------------------- */}
-              {/* SECCIÓN 1: MIEMBROS ASISTENTES CON NOMBRE Y EDAD   */}
-              {/* -------------------------------------------------- */}
-              <View style={styles.formSectionContainer}>
-                <View style={styles.sectionHeaderRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.sectionFormTitle}>1. Miembros Asistentes ({membersList.length})</Text>
-                    <Text style={styles.miniHint}>Escribe el nombre y la edad de cada miembro que asistió:</Text>
-                  </View>
                   <TouchableOpacity
-                    style={styles.addItemBtn}
-                    onPress={() => handleAddMemberItem()}
-                    activeOpacity={0.8}>
-                    <Ionicons name="add" size={16} color="#FFFFFF" />
-                    <Text style={styles.addItemBtnText}>Agregar</Text>
+                    style={[
+                      styles.statusOptionBtn,
+                      reportStatus === 'no_asistio_nadie' && styles.statusOptionBtnActiveRed,
+                    ]}
+                    onPress={() => {
+                      setReportStatus('no_asistio_nadie');
+                      setReportTopic('NO ASISTIÓ NADIE');
+                    }}>
+                    <Text
+                      style={[
+                        styles.statusOptionText,
+                        reportStatus === 'no_asistio_nadie' && styles.statusOptionTextActive,
+                      ]}>
+                      ⚠️ No asistió nadie
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.statusOptionBtn,
+                      reportStatus === 'no_realizo' && styles.statusOptionBtnActiveOrange,
+                    ]}
+                    onPress={() => {
+                      setReportStatus('no_realizo');
+                      setReportTopic('NO REALIZÓ');
+                    }}>
+                    <Text
+                      style={[
+                        styles.statusOptionText,
+                        reportStatus === 'no_realizo' && styles.statusOptionTextActive,
+                      ]}>
+                      ⛔ No realizó
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Disciple suggestions */}
-                {myDisciples.length > 0 && (
-                  <View style={{ marginBottom: 8 }}>
-                    <Text style={styles.suggestionTitle}>Sugerir de mis discípulos directos:</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      {myDisciples.map((d) => (
+                {/* Palabra Predicada (Tema) */}
+                {reportStatus === 'realizada' && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={styles.inputLabel}>Palabra Predicada (Tema semanal) *</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      value={reportTopic}
+                      onChangeText={setReportTopic}
+                      placeholder="Ej: El tiempo de la sequía a terminado"
+                      placeholderTextColor="#94A3B8"
+                    />
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
+                      {[
+                        'El tiempo de la sequía a terminado',
+                        'Hoy es día de buenas nuevas',
+                        'Nuevo Linaje',
+                        'Un camino hacia la bendición',
+                      ].map((tema) => (
                         <TouchableOpacity
-                          key={d.id}
-                          style={styles.suggestionChip}
-                          onPress={() => handleAddMemberItem(`${d.firstName} ${d.lastName}`)}>
-                          <Text style={styles.suggestionChipText}>+ {d.firstName} {d.lastName}</Text>
+                          key={tema}
+                          style={styles.topicChip}
+                          onPress={() => setReportTopic(tema)}>
+                          <Text style={styles.topicChipText}>+ {tema}</Text>
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
                   </View>
                 )}
 
-                {membersList.map((m, index) => (
-                  <View key={m.id} style={styles.personInputRow}>
-                    <View style={styles.personIndexCircle}>
-                      <Text style={styles.personIndexText}>{index + 1}</Text>
+                {/* Aceptó a Cristo / Decisiones */}
+                {reportStatus === 'realizada' && (
+                  <View style={styles.conversionsBox}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.conversionsTitle}>✝️ Aceptó a Cristo / Nuevas Decisiones</Text>
+                      <Text style={styles.miniHint}>
+                        Personas que recibieron o reconciliaron con Jesús:
+                      </Text>
                     </View>
-                    <TextInput
-                      style={[styles.modalInput, { flex: 2, marginRight: 6 }]}
-                      placeholder="Nombre y apellido"
-                      placeholderTextColor="#94A3B8"
-                      value={m.name}
-                      onChangeText={(val) => handleUpdateMemberItem(m.id, 'name', val)}
-                    />
-                    <TextInput
-                      style={[styles.modalInput, { width: 68, textAlign: 'center', marginRight: 6 }]}
-                      placeholder="Edad"
-                      placeholderTextColor="#94A3B8"
-                      keyboardType="numeric"
-                      value={m.age}
-                      onChangeText={(val) => handleUpdateMemberItem(m.id, 'age', val)}
-                    />
+                    <View style={styles.conversionsCounterRow}>
+                      <TouchableOpacity
+                        style={styles.counterBtn}
+                        onPress={() => {
+                          const current = parseInt(reportConversions, 10) || 0;
+                          if (current > 0) setReportConversions(String(current - 1));
+                        }}>
+                        <Ionicons name="remove" size={16} color="#475569" />
+                      </TouchableOpacity>
+                      <TextInput
+                        style={styles.counterInput}
+                        keyboardType="numeric"
+                        value={reportConversions}
+                        onChangeText={setReportConversions}
+                      />
+                      <TouchableOpacity
+                        style={[styles.counterBtn, { backgroundColor: '#7C3AED' }]}
+                        onPress={() => {
+                          const current = parseInt(reportConversions, 10) || 0;
+                          setReportConversions(String(current + 1));
+                        }}>
+                        <Ionicons name="add" size={16} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* -------------------------------------------------- */}
+                {/* SECCIÓN 1: MIEMBROS ASISTENTES CON NOMBRE Y EDAD   */}
+                {/* -------------------------------------------------- */}
+                <View style={styles.formSectionContainer}>
+                  <View style={styles.sectionHeaderRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sectionFormTitle}>1. Miembros Asistentes ({membersList.length})</Text>
+                      <Text style={styles.miniHint}>Escribe el nombre y la edad de cada miembro que asistió:</Text>
+                    </View>
                     <TouchableOpacity
-                      style={styles.removeRowBtn}
-                      onPress={() => handleRemoveMemberItem(m.id)}>
-                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      style={styles.addItemBtn}
+                      onPress={() => handleAddMemberItem()}
+                      activeOpacity={0.8}>
+                      <Ionicons name="add" size={16} color="#FFFFFF" />
+                      <Text style={styles.addItemBtnText}>Agregar</Text>
                     </TouchableOpacity>
                   </View>
-                ))}
-              </View>
 
-              {/* -------------------------------------------------- */}
-              {/* SECCIÓN 2: INVITADOS NUEVOS CON NOMBRE Y EDAD      */}
-              {/* -------------------------------------------------- */}
-              <View style={[styles.formSectionContainer, { borderColor: '#E9D5FF' }]}>
-                <View style={styles.sectionHeaderRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.sectionFormTitle, { color: '#6D28D9' }]}>
-                      2. Invitados Nuevos ({visitorsList.length})
-                    </Text>
-                    <Text style={styles.miniHint}>Personas alcanzadas o nuevas que asistieron:</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={[styles.addItemBtn, { backgroundColor: '#7C3AED' }]}
-                    onPress={handleAddVisitorItem}
-                    activeOpacity={0.8}>
-                    <Ionicons name="person-add" size={15} color="#FFFFFF" />
-                    <Text style={styles.addItemBtnText}>+ Invitado</Text>
-                  </TouchableOpacity>
-                </View>
+                  {/* Disciple suggestions */}
+                  {myDisciples.length > 0 && (
+                    <View style={{ marginBottom: 8 }}>
+                      <Text style={styles.suggestionTitle}>Sugerir de mis discípulos directos:</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        {myDisciples.map((d) => (
+                          <TouchableOpacity
+                            key={d.id}
+                            style={styles.suggestionChip}
+                            onPress={() => handleAddMemberItem(`${d.firstName} ${d.lastName}`)}>
+                            <Text style={styles.suggestionChipText}>+ {d.firstName} {d.lastName}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
 
-                {visitorsList.length === 0 ? (
-                  <TouchableOpacity
-                    style={styles.addFirstVisitorBox}
-                    onPress={handleAddVisitorItem}
-                    activeOpacity={0.7}>
-                    <Ionicons name="add-circle-outline" size={20} color="#7C3AED" />
-                    <Text style={styles.addFirstVisitorText}>
-                      ¿Tuviste invitados nuevos? Toca aquí para agregarlos
-                    </Text>
-                  </TouchableOpacity>
-                ) : (
-                  visitorsList.map((v, index) => (
-                    <View key={v.id} style={styles.personInputRow}>
-                      <View style={[styles.personIndexCircle, { backgroundColor: '#EDE9FE' }]}>
-                        <Text style={[styles.personIndexText, { color: '#6D28D9' }]}>{index + 1}</Text>
+                  {membersList.map((m, index) => (
+                    <View key={m.id} style={styles.personInputRow}>
+                      <View style={styles.personIndexCircle}>
+                        <Text style={styles.personIndexText}>{index + 1}</Text>
                       </View>
                       <TextInput
                         style={[styles.modalInput, { flex: 2, marginRight: 6 }]}
-                        placeholder="Nombre del invitado"
+                        placeholder="Nombre y apellido"
                         placeholderTextColor="#94A3B8"
-                        value={v.name}
-                        onChangeText={(val) => handleUpdateVisitorItem(v.id, 'name', val)}
+                        value={m.name}
+                        onChangeText={(val) => handleUpdateMemberItem(m.id, 'name', val)}
                       />
                       <TextInput
                         style={[styles.modalInput, { width: 68, textAlign: 'center', marginRight: 6 }]}
                         placeholder="Edad"
                         placeholderTextColor="#94A3B8"
                         keyboardType="numeric"
-                        value={v.age}
-                        onChangeText={(val) => handleUpdateVisitorItem(v.id, 'age', val)}
+                        value={m.age}
+                        onChangeText={(val) => handleUpdateMemberItem(m.id, 'age', val)}
                       />
                       <TouchableOpacity
                         style={styles.removeRowBtn}
-                        onPress={() => handleRemoveVisitorItem(v.id)}>
+                        onPress={() => handleRemoveMemberItem(m.id)}>
                         <Ionicons name="trash-outline" size={18} color="#EF4444" />
                       </TouchableOpacity>
                     </View>
-                  ))
-                )}
-              </View>
-
-              {/* -------------------------------------------------- */}
-              {/* SECCIÓN 3: OFRENDA MÚLTIPLE ($, BS Y PAGO MÓVIL)   */}
-              {/* -------------------------------------------------- */}
-              <View style={[styles.formSectionContainer, { borderColor: '#A7F3D0' }]}>
-                <Text style={[styles.sectionFormTitle, { color: '#047857' }]}>
-                  3. Ofrenda Recolectada (Múltiples Métodos)
-                </Text>
-                <Text style={styles.miniHint}>
-                  Puedes registrar en Dólares, Bolívares en efectivo y/o Pago Móvil:
-                </Text>
-
-                {/* Opción A: Dólares en Efectivo */}
-                <Text style={styles.subInputLabel}>💵 Dólares en Efectivo ($ USD):</Text>
-                <View style={styles.moneyInputWrapper}>
-                  <Text style={styles.currencySymbol}>$</Text>
-                  <TextInput
-                    style={styles.moneyInput}
-                    keyboardType="numeric"
-                    value={usdCash}
-                    onChangeText={setUsdCash}
-                    placeholder="0.00"
-                    placeholderTextColor="#94A3B8"
-                  />
+                  ))}
                 </View>
 
-                {/* Opción B: Bolívares en Efectivo */}
-                <Text style={styles.subInputLabel}>🇻🇪 Bolívares en Efectivo (Bs):</Text>
-                <View style={styles.moneyInputWrapper}>
-                  <Text style={[styles.currencySymbol, { color: '#2563EB' }]}>Bs.</Text>
-                  <TextInput
-                    style={styles.moneyInput}
-                    keyboardType="numeric"
-                    value={vesCash}
-                    onChangeText={setVesCash}
-                    placeholder="0.00"
-                    placeholderTextColor="#94A3B8"
-                  />
+                {/* -------------------------------------------------- */}
+                {/* SECCIÓN 2: INVITADOS NUEVOS CON NOMBRE Y EDAD      */}
+                {/* -------------------------------------------------- */}
+                <View style={[styles.formSectionContainer, { borderColor: '#E9D5FF' }]}>
+                  <View style={styles.sectionHeaderRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.sectionFormTitle, { color: '#6D28D9' }]}>
+                        2. Invitados Nuevos ({visitorsList.length})
+                      </Text>
+                      <Text style={styles.miniHint}>Personas alcanzadas o nuevas que asistieron:</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.addItemBtn, { backgroundColor: '#7C3AED' }]}
+                      onPress={handleAddVisitorItem}
+                      activeOpacity={0.8}>
+                      <Ionicons name="person-add" size={15} color="#FFFFFF" />
+                      <Text style={styles.addItemBtnText}>+ Invitado</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {visitorsList.length === 0 ? (
+                    <TouchableOpacity
+                      style={styles.addFirstVisitorBox}
+                      onPress={handleAddVisitorItem}
+                      activeOpacity={0.7}>
+                      <Ionicons name="add-circle-outline" size={20} color="#7C3AED" />
+                      <Text style={styles.addFirstVisitorText}>
+                        ¿Tuviste invitados nuevos? Toca aquí para agregarlos
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    visitorsList.map((v, index) => (
+                      <View key={v.id} style={styles.personInputRow}>
+                        <View style={[styles.personIndexCircle, { backgroundColor: '#EDE9FE' }]}>
+                          <Text style={[styles.personIndexText, { color: '#6D28D9' }]}>{index + 1}</Text>
+                        </View>
+                        <TextInput
+                          style={[styles.modalInput, { flex: 2, marginRight: 6 }]}
+                          placeholder="Nombre del invitado"
+                          placeholderTextColor="#94A3B8"
+                          value={v.name}
+                          onChangeText={(val) => handleUpdateVisitorItem(v.id, 'name', val)}
+                        />
+                        <TextInput
+                          style={[styles.modalInput, { width: 68, textAlign: 'center', marginRight: 6 }]}
+                          placeholder="Edad"
+                          placeholderTextColor="#94A3B8"
+                          keyboardType="numeric"
+                          value={v.age}
+                          onChangeText={(val) => handleUpdateVisitorItem(v.id, 'age', val)}
+                        />
+                        <TouchableOpacity
+                          style={styles.removeRowBtn}
+                          onPress={() => handleRemoveVisitorItem(v.id)}>
+                          <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
                 </View>
 
-                {/* Opción C: Pago Móvil (Monto + Referencia) */}
-                <Text style={styles.subInputLabel}>📲 Pago Móvil (PM):</Text>
-                <View style={styles.pagoMovilBox}>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={styles.pmMiniLabel}>Monto (Bs):</Text>
-                    <View style={styles.moneyInputWrapper}>
-                      <Text style={[styles.currencySymbol, { color: '#7C3AED' }]}>Bs.</Text>
+                {/* -------------------------------------------------- */}
+                {/* SECCIÓN 3: OFRENDA MÚLTIPLE ($, BS Y PAGO MÓVIL)   */}
+                {/* -------------------------------------------------- */}
+                <View style={[styles.formSectionContainer, { borderColor: '#A7F3D0' }]}>
+                  <Text style={[styles.sectionFormTitle, { color: '#047857' }]}>
+                    3. Ofrenda Recolectada (Múltiples Métodos)
+                  </Text>
+                  <Text style={styles.miniHint}>
+                    Puedes registrar en Dólares, Bolívares en efectivo y/o Pago Móvil:
+                  </Text>
+
+                  {/* Opción A: Dólares en Efectivo */}
+                  <Text style={styles.subInputLabel}>💵 Dólares en Efectivo ($ USD):</Text>
+                  <View style={styles.moneyInputWrapper}>
+                    <Text style={styles.currencySymbol}>$</Text>
+                    <TextInput
+                      style={styles.moneyInput}
+                      keyboardType="numeric"
+                      value={usdCash}
+                      onChangeText={setUsdCash}
+                      placeholder="0.00"
+                      placeholderTextColor="#94A3B8"
+                    />
+                  </View>
+
+                  {/* Opción B: Bolívares en Efectivo */}
+                  <Text style={styles.subInputLabel}>🇻🇪 Bolívares en Efectivo (Bs):</Text>
+                  <View style={styles.moneyInputWrapper}>
+                    <Text style={[styles.currencySymbol, { color: '#2563EB' }]}>Bs.</Text>
+                    <TextInput
+                      style={styles.moneyInput}
+                      keyboardType="numeric"
+                      value={vesCash}
+                      onChangeText={setVesCash}
+                      placeholder="0.00"
+                      placeholderTextColor="#94A3B8"
+                    />
+                  </View>
+
+                  {/* Opción C: Pago Móvil (Monto + Referencia) */}
+                  <Text style={styles.subInputLabel}>📲 Pago Móvil (PM):</Text>
+                  <View style={styles.pagoMovilBox}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.pmMiniLabel}>Monto (Bs):</Text>
+                      <View style={styles.moneyInputWrapper}>
+                        <Text style={[styles.currencySymbol, { color: '#7C3AED' }]}>Bs.</Text>
+                        <TextInput
+                          style={styles.moneyInput}
+                          keyboardType="numeric"
+                          value={pagoMovilAmount}
+                          onChangeText={setPagoMovilAmount}
+                          placeholder="0.00"
+                          placeholderTextColor="#94A3B8"
+                        />
+                      </View>
+                    </View>
+
+                    <View style={{ flex: 1.2 }}>
+                      <Text style={styles.pmMiniLabel}>Nº Referencia:</Text>
                       <TextInput
-                        style={styles.moneyInput}
-                        keyboardType="numeric"
-                        value={pagoMovilAmount}
-                        onChangeText={setPagoMovilAmount}
-                        placeholder="0.00"
+                        style={styles.modalInput}
+                        value={pagoMovilReference}
+                        onChangeText={setPagoMovilReference}
+                        placeholder="Ej: 8492"
                         placeholderTextColor="#94A3B8"
                       />
                     </View>
                   </View>
-
-                  <View style={{ flex: 1.2 }}>
-                    <Text style={styles.pmMiniLabel}>Nº Referencia:</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      value={pagoMovilReference}
-                      onChangeText={setPagoMovilReference}
-                      placeholder="Ej: 8492"
-                      placeholderTextColor="#94A3B8"
-                    />
-                  </View>
                 </View>
-              </View>
 
-              {/* Observaciones */}
-              <Text style={styles.inputLabel}>4. Observaciones de la Reunión</Text>
-              <TextInput
-                style={[styles.modalInput, { height: 75 }]}
-                placeholder="¿Cómo estuvo la presencia de Dios? ¿Hubo peticiones o decisiones de fe?"
-                placeholderTextColor="#94A3B8"
-                multiline
-                value={reportNotes}
-                onChangeText={setReportNotes}
-              />
+                {/* Observaciones */}
+                <Text style={styles.inputLabel}>4. Observaciones de la Reunión</Text>
+                <TextInput
+                  style={[styles.modalInput, { height: 75 }]}
+                  placeholder="¿Cómo estuvo la presencia de Dios? ¿Hubo peticiones o decisiones de fe?"
+                  placeholderTextColor="#94A3B8"
+                  multiline
+                  value={reportNotes}
+                  onChangeText={setReportNotes}
+                />
 
-              {/* Submit Report Button */}
+                {/* Submit Report Button */}
+                <TouchableOpacity
+                  style={[styles.modalSubmitButton, { backgroundColor: '#059669', marginTop: 16 }]}
+                  onPress={handleSubmitCellReport}
+                  activeOpacity={0.85}>
+                  <Ionicons name="cloud-upload" size={20} color="#FFFFFF" />
+                  <Text style={styles.modalSubmitText}>Enviar Reporte a mi Pastor</Text>
+                </TouchableOpacity>
+
+                <View style={{ height: 40 }} />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ========================================================= */}
+        {/* MODAL 3: PANTALLA COMPLETA / VISOR PLANILLA EXCEL         */}
+        {/* ========================================================= */}
+        <Modal
+          visible={sheetModalVisible}
+          animationType="slide"
+          onRequestClose={handleCloseSheetModal}
+          supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}>
+          <SafeAreaView style={styles.sheetModalContainer} edges={['top', 'bottom', 'left', 'right']}>
+            <StatusBar style="light" />
+            <View style={styles.sheetModalHeader}>
               <TouchableOpacity
-                style={[styles.modalSubmitButton, { backgroundColor: '#059669', marginTop: 16 }]}
-                onPress={handleSubmitCellReport}
-                activeOpacity={0.85}>
-                <Ionicons name="cloud-upload" size={20} color="#FFFFFF" />
-                <Text style={styles.modalSubmitText}>Enviar Reporte a mi Pastor</Text>
+                style={styles.sheetModalCloseBtn}
+                onPress={handleCloseSheetModal}
+                activeOpacity={0.8}>
+                <Ionicons name="close" size={22} color="#FFFFFF" />
               </TouchableOpacity>
 
-              <View style={{ height: 40 }} />
+              <View style={{ flex: 1, marginHorizontal: 12 }}>
+                <Text style={styles.sheetModalTitle} numberOfLines={1}>
+                  Planilla
+                </Text>
+                <Text style={styles.sheetModalSubtitle} numberOfLines={1}>
+                  {groupedSheetData.totalCells} Células • {groupedSheetData.leaderGroups.length} Líderes 12 • Modo {isLandscape ? 'Horizontal' : 'Vertical'}
+                </Text>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                <TouchableOpacity
+                  style={[
+                    styles.sheetModalActionBtn,
+                    isLandscape ? styles.sheetModalActionBtnActive : { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                  ]}
+                  onPress={toggleOrientation}
+                  activeOpacity={0.8}>
+                  <Ionicons
+                    name={isLandscape ? 'phone-portrait-outline' : 'phone-landscape-outline'}
+                    size={15}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.sheetModalActionBtnText}>
+                    {isLandscape ? 'Vertical' : 'Horizontal'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.sheetModalActionBtn, { backgroundColor: '#0284C7' }]}
+                  onPress={handleShareSheetExcel}
+                  activeOpacity={0.8}>
+                  <Ionicons name="share-social-outline" size={15} color="#FFFFFF" />
+                  <Text style={styles.sheetModalActionBtnText}>Compartir Excel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.sheetModalActionBtn, { backgroundColor: '#15803D' }]}
+                  onPress={handleExportExcel}
+                  activeOpacity={0.8}>
+                  <Ionicons name="download-outline" size={15} color="#FFFFFF" />
+                  <Text style={styles.sheetModalActionBtnText}>Descargar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* SubBar with totals and hint */}
+            <View style={styles.sheetModalSubBar}>
+              <Text style={styles.sheetModalHintText}>
+                {isLandscape
+                  ? '📱 Vista Horizontal: Tienes todo el ancho de pantalla para revisar los datos.'
+                  : '💡 Toca "Horizontal" o gira tu dispositivo para ver todas las columnas.'}
+              </Text>
+              <Text style={styles.sheetModalSubInfo}>
+                {groupedSheetData.totalMembers}M • {groupedSheetData.totalVisitors}I • ${groupedSheetData.totalOfferingUsd} • Bs. {(groupedSheetData.totalOfferingVes + groupedSheetData.totalOfferingPm).toLocaleString()}
+              </Text>
+            </View>
+
+            {/* 2D Scrollable Spreadsheet */}
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
+              showsVerticalScrollIndicator={true}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={true}
+                contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 10 }}>
+                {renderSheetTableContent()}
+              </ScrollView>
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
+          </SafeAreaView>
+        </Modal>
       </DoodleBackground>
     </SafeAreaView>
   );
@@ -3806,5 +4013,93 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     padding: 0,
+  },
+  sheetExpandBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginBottom: 12,
+    gap: 8,
+  },
+  sheetExpandBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
+  sheetModalContainer: {
+    flex: 1,
+    backgroundColor: '#070A14',
+  },
+  sheetModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  sheetModalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetModalTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  sheetModalSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  sheetModalActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  sheetModalActionBtnActive: {
+    backgroundColor: '#0284C7',
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+  },
+  sheetModalActionBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  sheetModalSubBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  sheetModalHintText: {
+    fontSize: 11,
+    color: '#38BDF8',
+    fontWeight: '600',
+  },
+  sheetModalSubInfo: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
   },
 });

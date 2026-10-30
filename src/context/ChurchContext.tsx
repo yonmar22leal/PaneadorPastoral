@@ -769,7 +769,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         const { data, error } = await supabase
           .from('members')
           .select('*')
-          .ilike('email', cleanIdentifier)
+          .or(`email.ilike.${cleanIdentifier},username.ilike.${cleanIdentifier}`)
           .limit(1);
 
         if (!error && data && data.length > 0) {

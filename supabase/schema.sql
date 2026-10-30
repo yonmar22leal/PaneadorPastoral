@@ -347,7 +347,6 @@ CREATE TABLE IF NOT EXISTS public.church_events (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE public.church_events ADD COLUMN IF NOT EXISTS ministries JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE IF EXISTS public.church_events DISABLE ROW LEVEL SECURITY;
 
 -- 16. Ministerios de la Iglesia (Alabanza, Audiovisual, Protocolo, etc.)
 CREATE TABLE IF NOT EXISTS public.ministries (
@@ -364,7 +363,6 @@ CREATE TABLE IF NOT EXISTS public.ministries (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE IF EXISTS public.ministries ADD COLUMN IF NOT EXISTS default_roles JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE IF EXISTS public.ministries DISABLE ROW LEVEL SECURITY;
 
 -- Insertar Ministerios Iniciales por defecto
 INSERT INTO public.ministries (id, church_id, name, description, coordinator_name, color, icon, default_roles)
@@ -375,33 +373,19 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- ==============================================================================
--- 5. PERMISOS Y SEGURIDAD (DESHABILITAR RLS Y CREAR POLÍTICAS ABIERTAS)
--- Permite que la app móvil (clave pública anon) pueda consultar y guardar
--- miembros, células, reportes, eventos y asistencias sin bloqueo de políticas 42501.
+-- 5. PERMISOS Y SEGURIDAD (HABILITAR RLS Y CREAR POLÍTICAS PERMISIVAS)
+-- Habilita Row Level Security (RLS) en todas las tablas para eliminar las advertencias
+-- de "UNRESTRICTED", y aplica políticas para 'anon' y 'authenticated' para que la
+-- app móvil opere fluidamente sin bloqueos de permisos 42501.
 -- ==============================================================================
 
--- 1. Desactivar RLS en todas las tablas
-ALTER TABLE IF EXISTS public.churches DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.church_services DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.families DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.members DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.kid_classrooms DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.kids DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.kid_check_ins DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.attendance_records DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.church_events DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.cell_groups DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.leader_attendance_reports DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.cell_meeting_reports DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.ministries DISABLE ROW LEVEL SECURITY;
-
--- 2. Conceder todos los permisos en el esquema public a anon, authenticated y service_role
+-- 1. Conceder todos los permisos en el esquema public a anon, authenticated y service_role
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
 
--- 3. Crear políticas permisivas abiertas universales (garantiza acceso incluso si Supabase mantiene RLS activo)
+-- 2. Habilitar RLS y configurar políticas universales en todas las tablas
 DO $$ 
 DECLARE
     tbl text;
@@ -409,17 +393,24 @@ DECLARE
       'churches', 'church_services', 'families', 'members',
       'kid_classrooms', 'kids', 'kid_check_ins', 'attendance_records',
       'church_events', 'cell_groups', 'leader_attendance_reports',
-      'cell_meeting_reports', 'ministries'
+      'cell_meeting_reports', 'ministries', 'service_plans',
+      'service_schedule_items', 'service_volunteers'
     ];
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP
+        -- Activar RLS en cada tabla (elimina la etiqueta roja/naranja UNRESTRICTED en Supabase)
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl);
+
+        -- Limpiar políticas anteriores si existían
         EXECUTE format('DROP POLICY IF EXISTS "allow_all_anon" ON public.%I', tbl);
         EXECUTE format('DROP POLICY IF EXISTS "allow_all_authenticated" ON public.%I', tbl);
         
+        -- Crear políticas universales para anon y authenticated
         EXECUTE format('CREATE POLICY "allow_all_anon" ON public.%I FOR ALL TO anon USING (true) WITH CHECK (true)', tbl);
         EXECUTE format('CREATE POLICY "allow_all_authenticated" ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)', tbl);
     END LOOP;
 END $$;
+
 
 
 
