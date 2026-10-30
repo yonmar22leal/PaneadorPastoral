@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS public.members (
 -- Asegurar que las columnas existan si la tabla ya había sido creada previamente
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS family_name TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS gender TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS birth_date TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS preferred_service_id TEXT REFERENCES public.church_services(id);
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS generation_level INT DEFAULT 1;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS is_leader_of_12 BOOLEAN DEFAULT FALSE;

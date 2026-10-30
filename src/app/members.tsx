@@ -55,6 +55,7 @@ export default function MembersScreen() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [managedMember, setManagedMember] = useState<Member | null>(null);
+  const [managedBirthDate, setManagedBirthDate] = useState('');
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [isBatchLeaderModalOpen, setIsBatchLeaderModalOpen] = useState(false);
   const [batchLeaderId, setBatchLeaderId] = useState<string>('');
@@ -228,6 +229,7 @@ export default function MembersScreen() {
   // Gestión Pastoral Individual
   const openManageModal = (member: Member) => {
     setManagedMember(member);
+    setManagedBirthDate(member.birthDate || '');
     setIsManageModalOpen(true);
   };
 
@@ -333,11 +335,11 @@ export default function MembersScreen() {
 
           <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={styles.headerTitle}>
-              {isPastor ? 'Directorio & Familias' : 'Mis 12 Discípulos'}
+              {isPastor ? 'Directorio' : 'Mis 12 Discípulos'}
             </Text>
             <Text style={styles.headerSubtitle}>
               {isPastor
-                ? 'Cuidado pastoral, bloqueo de acceso y cambio de líderes'
+                ? 'directorio, bloqueo de acceso y cambio de líderes'
                 : `Mi Equipo • Líder: ${currentUser?.firstName} ${currentUser?.lastName}`}
             </Text>
           </View>
@@ -359,13 +361,6 @@ export default function MembersScreen() {
                   size={16}
                   color={isSelectionMode ? '#DC2626' : '#2563EB'}
                 />
-                <Text
-                  style={[
-                    styles.selectModeBtnText,
-                    isSelectionMode && { color: '#DC2626' },
-                  ]}>
-                  {isSelectionMode ? 'Cancelar' : 'Seleccionar'}
-                </Text>
               </TouchableOpacity>
             )}
 
@@ -445,10 +440,8 @@ export default function MembersScreen() {
                 contentContainerStyle={styles.roleChipsContent}>
                 {[
                   { id: 'all', label: 'Todos' },
-                  { id: 'senior_pastor', label: 'Pastores Principales' },
                   { id: 'g12_leader', label: 'Líderes 12' },
                   { id: 'lider_144', label: 'Líderes 144' },
-                  { id: 'member', label: 'Miembros' },
                   { id: 'blocked', label: '⛔ Bloqueados' },
                 ].map((item) => (
                   <TouchableOpacity
@@ -1095,6 +1088,42 @@ export default function MembersScreen() {
                         ? 'Desbloquear y Reactivar Cuenta'
                         : 'Bloquear Acceso a la App'}
                     </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Fecha de Cumpleaños / Nacimiento */}
+                <View style={styles.manageSection}>
+                  <Text style={styles.manageSectionTitle}>Fecha de Cumpleaños / Nacimiento</Text>
+                  <Text style={[styles.currentLeaderLabel, { marginBottom: 6 }]}>
+                    Formato: <Text style={{ fontWeight: '700', color: '#F1F5F9' }}>YYYY-MM-DD (Ej: 1995-05-20)</Text>
+                  </Text>
+                  <TextInput
+                    style={[styles.formInput, { marginBottom: 8 }]}
+                    placeholder="YYYY-MM-DD (Ej: 1995-05-20)"
+                    placeholderTextColor="#64748B"
+                    value={managedBirthDate}
+                    onChangeText={setManagedBirthDate}
+                  />
+                  {calcAge(managedBirthDate) !== undefined && (
+                    <Text style={{ fontSize: 12, color: '#38BDF8', fontWeight: '700', marginBottom: 8 }}>
+                      Edad calculada: {calcAge(managedBirthDate)} años
+                    </Text>
+                  )}
+                  <TouchableOpacity
+                    style={styles.saveBirthDateBtn}
+                    onPress={async () => {
+                      if (!managedMember) return;
+                      await updateMember(managedMember.id, {
+                        birthDate: managedBirthDate.trim() || undefined,
+                      });
+                      setManagedMember({
+                        ...managedMember,
+                        birthDate: managedBirthDate.trim() || undefined,
+                      });
+                      Alert.alert('Cumpleaños Guardado', 'Se ha actualizado la fecha de nacimiento exitosamente.');
+                    }}>
+                    <Ionicons name="gift-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.saveBirthDateBtnText}>Guardar Fecha de Cumpleaños</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -1984,5 +2013,19 @@ const styles = StyleSheet.create({
   leaderOptionRole: {
     fontSize: 11,
     color: '#94A3B8',
+  },
+  saveBirthDateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FB7185',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  saveBirthDateBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
   },
 });

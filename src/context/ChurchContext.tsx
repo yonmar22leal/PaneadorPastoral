@@ -43,7 +43,35 @@ const STORAGE_CURRENT_USER = '@planeador_current_user_v1';
 const STORAGE_MINISTRIES = '@planeador_ministries_v1';
 const STORAGE_PASTORAL_POSTS = '@planeador_pastoral_posts_v1';
 const STORAGE_PRAYER_REQUESTS = '@planeador_prayer_requests_v1';
+const STORAGE_MEMBER_BIRTHDAYS = '@planeador_member_birthdays_v1';
 const CHURCH_ID = '11111111-1111-1111-1111-111111111111';
+
+const cleanDateForStorage = (dStr?: string): string | undefined => {
+  if (!dStr) return undefined;
+  const t = dStr.trim();
+  if (!t) return undefined;
+  const dmy = t.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) {
+    return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  }
+  return t.replace(/\//g, '-');
+};
+
+const saveBirthdayLocally = async (memberId: string, bDate?: string) => {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_MEMBER_BIRTHDAYS);
+    const map: Record<string, string> = raw ? JSON.parse(raw) : {};
+    const cleaned = cleanDateForStorage(bDate);
+    if (cleaned) {
+      map[memberId] = cleaned;
+    } else {
+      delete map[memberId];
+    }
+    await AsyncStorage.setItem(STORAGE_MEMBER_BIRTHDAYS, JSON.stringify(map));
+  } catch (err) {
+    console.warn('Error guardando cumpleaños en cache:', err);
+  }
+};
 
 const defaultPrayerRequests: PrayerRequest[] = [
   {
@@ -421,6 +449,12 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           return item.role === 'g12_leader' || item.is_leader_of_12 ? 2 : 3;
         };
 
+        let localBirthdays: Record<string, string> = {};
+        try {
+          const rawB = await AsyncStorage.getItem(STORAGE_MEMBER_BIRTHDAYS);
+          if (rawB) localBirthdays = JSON.parse(rawB);
+        } catch (_) {}
+
         const mappedMembers: Member[] = membersData.map((item) => {
           const leader = item.leader_id ? memberMap.get(item.leader_id) : undefined;
           const leaderName = leader ? `${leader.first_name} ${leader.last_name}` : (item.leader_name || undefined);
@@ -441,7 +475,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             generationLevel: genLevel,
             familyName: item.family_name || undefined,
             gender: item.gender || undefined,
-            birthDate: item.birth_date || undefined,
+            birthDate: item.birth_date || localBirthdays[item.id] || undefined,
             preferredService: item.preferred_service_id || undefined,
             notes: item.notes || undefined,
             password: item.password || undefined,
@@ -1067,14 +1101,25 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           password: newMember.password || null,
           is_active: newMember.isActive ?? true,
         };
+        const cleanedBirth = cleanDateForStorage(newMember.birthDate);
+        if (cleanedBirth) {
+          memberInsertPayload.birth_date = cleanedBirth;
+        }
         if (newMember.avatarUrl) {
           memberInsertPayload.avatar_url = newMember.avatarUrl;
         }
 
         let { error: insertError } = await supabase.from('members').insert(memberInsertPayload);
-        if (insertError && (/column/i.test(insertError.message) || insertError.code === '42703')) {
+        if (
+          insertError &&
+          (/column/i.test(insertError.message) ||
+            /birth_date/i.test(insertError.message) ||
+            insertError.code === '42703' ||
+            (insertError as any).code === 'PGRST204')
+        ) {
           delete memberInsertPayload.avatar_url;
           delete memberInsertPayload.is_active;
+          delete memberInsertPayload.birth_date;
           const retryRes = await supabase.from('members').insert(memberInsertPayload);
           insertError = retryRes.error;
         }
@@ -1096,6 +1141,11 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           error: err?.message || 'Error de conexión con la base de datos al crear la cuenta.',
         };
       }
+    }
+
+    // Guardar cumpleaños en cache local
+    if (newMember.birthDate) {
+      await saveBirthdayLocally(newId, newMember.birthDate);
     }
 
     // Actualizar miembros en memoria local
@@ -1937,6 +1987,10 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       )
     );
 
+    if (data.birthDate !== undefined) {
+      await saveBirthdayLocally(currentUser.id, data.birthDate);
+    }
+
     if (isSupabaseConfigured) {
       try {
         const payload: any = {};
@@ -1944,6 +1998,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         if (data.lastName !== undefined) payload.last_name = data.lastName;
         if (data.phone !== undefined) payload.phone = data.phone;
         if (data.gender !== undefined) payload.gender = data.gender;
+        if (data.birthDate !== undefined) {
+          payload.birth_date = cleanDateForStorage(data.birthDate) || null;
+        }
         if (data.familyName !== undefined) payload.family_name = data.familyName;
         if (data.preferredService !== undefined) payload.preferred_service_id = data.preferredService;
         if (data.notes !== undefined) payload.notes = data.notes;
@@ -1951,7 +2008,18 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         if (data.network !== undefined) payload.network = data.network;
         if (data.leaderId !== undefined) payload.leader_id = data.leaderId;
 
-        const { error: sbError } = await supabase.from('members').update(payload).eq('id', currentUser.id);
+        let { error: sbError } = await supabase.from('members').update(payload).eq('id', currentUser.id);
+        if (
+          sbError &&
+          (/column/i.test(sbError.message) ||
+            /birth_date/i.test(sbError.message) ||
+            sbError.code === '42703' ||
+            (sbError as any).code === 'PGRST204')
+        ) {
+          delete payload.birth_date;
+          const retryRes = await supabase.from('members').update(payload).eq('id', currentUser.id);
+          sbError = retryRes.error;
+        }
         if (sbError) {
           console.warn('Error actualizando perfil en Supabase:', sbError.message);
           return { success: false, error: sbError.message };
@@ -2007,6 +2075,10 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       setCurrentUser(updatedUser);
       await AsyncStorage.setItem(STORAGE_CURRENT_USER, JSON.stringify(updatedUser));
     }
+    if (mergedData.birthDate !== undefined) {
+      await saveBirthdayLocally(memberId, mergedData.birthDate);
+    }
+
     if (isSupabaseConfigured) {
       try {
         const payload: any = {};
@@ -2014,7 +2086,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         if (mergedData.lastName !== undefined) payload.last_name = mergedData.lastName;
         if (mergedData.phone !== undefined) payload.phone = mergedData.phone;
         if (mergedData.gender !== undefined) payload.gender = mergedData.gender;
-        if (mergedData.birthDate !== undefined) payload.birth_date = mergedData.birthDate;
+        if (mergedData.birthDate !== undefined) {
+          payload.birth_date = cleanDateForStorage(mergedData.birthDate) || null;
+        }
         if (mergedData.isActive !== undefined) payload.is_active = mergedData.isActive;
         if (mergedData.leaderId !== undefined) payload.leader_id = mergedData.leaderId;
         if (mergedData.role !== undefined) payload.role = mergedData.role;
@@ -2022,7 +2096,18 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         if (mergedData.isLeaderOf12 !== undefined) payload.is_leader_of_12 = mergedData.isLeaderOf12;
         if (mergedData.avatarUrl !== undefined) payload.avatar_url = mergedData.avatarUrl;
         if (mergedData.ministries !== undefined) payload.ministries = mergedData.ministries;
-        await supabase.from('members').update(payload).eq('id', memberId);
+
+        let { error: updErr } = await supabase.from('members').update(payload).eq('id', memberId);
+        if (
+          updErr &&
+          (/column/i.test(updErr.message) ||
+            /birth_date/i.test(updErr.message) ||
+            updErr.code === '42703' ||
+            (updErr as any).code === 'PGRST204')
+        ) {
+          delete payload.birth_date;
+          await supabase.from('members').update(payload).eq('id', memberId);
+        }
       } catch (e) {
         console.warn('Error en Supabase updateMember:', e);
       }

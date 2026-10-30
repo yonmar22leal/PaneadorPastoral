@@ -8,6 +8,7 @@ import {
   sortEventsAsc,
   todayISO,
 } from '@/lib/events';
+import { PrayerCategory } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -28,7 +29,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PrayerCategory, PrayerRequest, PrayerStatus } from '@/types/church';
 import LoginScreen from './login';
 import RegisterScreen from './register';
 
@@ -437,10 +437,6 @@ export default function DashboardScreen() {
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Text style={styles.userGreeting}>Bienvenido</Text>
-                  <View style={styles.manageProfileChip}>
-                    <Text style={styles.manageProfileChipText}>Configurar</Text>
-                    <Ionicons name="chevron-forward" size={11} color="#38BDF8" />
-                  </View>
                 </View>
                 <Text style={styles.userFullName}>
                   {currentUser.firstName} {currentUser.lastName}
@@ -587,19 +583,7 @@ export default function DashboardScreen() {
                     <Text style={styles.subActionLabel}>Marcar asistencia</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.subActionItem}
-                    activeOpacity={0.8}
-                    onPress={() => router.push('/kids' as any)}>
-                    <View
-                      style={[
-                        styles.subActionIconBox,
-                        { backgroundColor: 'rgba(251, 191, 36, 0.2)' },
-                      ]}>
-                      <Ionicons name="happy-outline" size={17} color="#FBBF24" />
-                    </View>
-                    <Text style={styles.subActionLabel}>Check-in de niños</Text>
-                  </TouchableOpacity>
+
                 </View>
               </LinearGradient>
 
@@ -711,61 +695,7 @@ export default function DashboardScreen() {
                   )}
                 </TouchableOpacity>
 
-                {/* MOTIVO DE ORACIÓN ACTIVO EN EL DASHBOARD CON BOTÓN DIRECTO "ORAR POR ELLA" */}
-                {latestPrayer && (
-                  <View style={styles.dashboardPrayerBanner}>
-                    <View style={styles.dashboardPrayerBannerTop}>
-                      <View style={styles.dashboardPrayerTag}>
-                        <Ionicons name="flame" size={11} color="#FB7185" />
-                        <Text style={styles.dashboardPrayerTagText}>
-                          {latestPrayer.category.toUpperCase()}
-                        </Text>
-                      </View>
-                      <Text style={styles.dashboardPrayerAuthorText} numberOfLines={1}>
-                        De: {latestPrayer.memberName}
-                      </Text>
-                    </View>
 
-                    <Text style={styles.dashboardPrayerTitle} numberOfLines={1}>
-                      {latestPrayer.title}
-                    </Text>
-                    <Text style={styles.dashboardPrayerDesc} numberOfLines={2}>
-                      {latestPrayer.description}
-                    </Text>
-
-                    {/* BOTÓN PROMINENTE "ORAR POR ELLA" */}
-                    {(() => {
-                      const isUserPraying = Boolean(
-                        currentUser && latestPrayer.prayingUsers?.includes(currentUser.id)
-                      );
-                      return (
-                        <TouchableOpacity
-                          style={[
-                            styles.dashboardPrayBtn,
-                            isUserPraying && styles.dashboardPrayBtnActive,
-                          ]}
-                          activeOpacity={0.85}
-                          onPress={() => togglePrayerSupport(latestPrayer.id)}>
-                          <Ionicons
-                            name={isUserPraying ? 'heart' : 'heart-outline'}
-                            size={16}
-                            color="#FFFFFF"
-                          />
-                          <Text style={styles.dashboardPrayBtnText}>
-                            {isUserPraying ? '🙏 ¡Estás orando por ella!' : '🙏 Orar por ella'}
-                          </Text>
-                          {(latestPrayer.prayingCount || 0) > 0 && (
-                            <View style={styles.dashboardPrayCountBadge}>
-                              <Text style={styles.dashboardPrayCountText}>
-                                {latestPrayer.prayingCount}
-                              </Text>
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })()}
-                  </View>
-                )}
 
                 <View style={styles.subActionsRow}>
                   <TouchableOpacity
@@ -841,7 +771,7 @@ export default function DashboardScreen() {
                     <Ionicons name="calendar" size={24} color="#A78BFA" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.glassCardTitle}>Liturgia y Cultos</Text>
+                    <Text style={styles.glassCardTitle}>Servicios</Text>
                     <Text style={styles.glassCardSubtitle}>
                       {nextEvent
                         ? `Próximo: ${nextEvent.title} (${nextEvent.time})`
@@ -865,7 +795,7 @@ export default function DashboardScreen() {
                       ]}>
                       <Ionicons name="time-outline" size={16} color="#A78BFA" />
                     </View>
-                    <Text style={styles.subActionLabel}>Próximo Culto</Text>
+                    <Text style={styles.subActionLabel}>Próximo Servicio</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1363,8 +1293,8 @@ export default function DashboardScreen() {
                         {isToday
                           ? '✨ Celebrando hoy su cumpleaños'
                           : daysUntil === 1
-                          ? '⏳ ¡Mañana es su cumpleaños!'
-                          : `⏳ Faltan ${daysUntil} días`}
+                            ? '⏳ ¡Mañana es su cumpleaños!'
+                            : `⏳ Faltan ${daysUntil} días`}
                       </Text>
                     </View>
 
@@ -1513,12 +1443,12 @@ export default function DashboardScreen() {
                                   req.category === 'salud'
                                     ? 'medkit'
                                     : req.category === 'familia'
-                                    ? 'people'
-                                    : req.category === 'finanzas'
-                                    ? 'cash'
-                                    : req.category === 'espiritual'
-                                    ? 'flame'
-                                    : 'heart'
+                                      ? 'people'
+                                      : req.category === 'finanzas'
+                                        ? 'cash'
+                                        : req.category === 'espiritual'
+                                          ? 'flame'
+                                          : 'heart'
                                 }
                                 size={12}
                                 color="#FB7185"
