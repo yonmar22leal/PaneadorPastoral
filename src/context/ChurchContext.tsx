@@ -175,6 +175,7 @@ export type UpdateProfileData = {
   network?: ChurchNetwork;
   leaderId?: string;
   leaderName?: string;
+  avatarUrl?: string;
 };
 
 function eventFromRow(item: any): ChurchEvent {
@@ -733,6 +734,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             isPrivateForPastors: p.is_private_for_pastors ?? false,
             status: p.status || 'pending',
             prayingPastors: p.praying_pastors || [],
+            prayingUsers: p.praying_users || [],
+            prayingCount: p.praying_count !== undefined ? p.praying_count : (p.praying_users ? p.praying_users.length : 0),
             createdAt: p.created_at || new Date().toISOString(),
           }));
           setPrayerRequests(mappedPr);
@@ -2007,6 +2010,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
               network: data.network !== undefined ? data.network : m.network,
               leaderId: data.leaderId !== undefined ? data.leaderId : m.leaderId,
               leaderName: calculatedLeaderName !== undefined ? calculatedLeaderName : m.leaderName,
+              avatarUrl: data.avatarUrl !== undefined ? data.avatarUrl : m.avatarUrl,
             }
           : m
       )
@@ -2032,6 +2036,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         if (data.password !== undefined && data.password.trim() !== '') payload.password = data.password.trim();
         if (data.network !== undefined) payload.network = data.network;
         if (data.leaderId !== undefined) payload.leader_id = data.leaderId;
+        if (data.avatarUrl !== undefined) payload.avatar_url = data.avatarUrl;
 
         let { error: sbError } = await supabase.from('members').update(payload).eq('id', currentUser.id);
         if (
@@ -2234,6 +2239,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           description: newReq.description,
           is_private_for_pastors: newReq.isPrivateForPastors,
           status: 'pending',
+          praying_pastors: [],
+          praying_users: [],
+          praying_count: 0,
         });
       } catch (e) {
         // Silencioso si la tabla aún no se ha creado
@@ -2286,6 +2294,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       currentUser.role === 'senior_pastor' || currentUser.role === 'network_pastor';
     const fullName = `${currentUser.firstName} ${currentUser.lastName}`.trim();
 
+    let targetPrToSync: PrayerRequest | undefined;
+
     const updated = prayerRequests.map((pr) => {
       if (pr.id !== prayerId) return pr;
       const currentUsers = pr.prayingUsers || [];
@@ -2306,17 +2316,35 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      return {
+      const result: PrayerRequest = {
         ...pr,
         status: newStatus,
         prayingUsers: newUsers,
         prayingPastors: newPastors,
         prayingCount: newUsers.length,
       };
+      targetPrToSync = result;
+      return result;
     });
 
     setPrayerRequests(updated);
     AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => {});
+
+    if (isSupabaseConfigured && targetPrToSync) {
+      try {
+        await supabase
+          .from('prayer_requests')
+          .update({
+            status: targetPrToSync.status,
+            praying_pastors: targetPrToSync.prayingPastors || [],
+            praying_users: targetPrToSync.prayingUsers || [],
+            praying_count: targetPrToSync.prayingCount || 0,
+          })
+          .eq('id', prayerId);
+      } catch (e) {
+        // Silencioso si falla la sincronización inmediata
+      }
+    }
   };
 
   const deletePrayerRequest = async (id: string): Promise<void> => {

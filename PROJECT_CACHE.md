@@ -302,4 +302,17 @@ cmd /c npx eas-cli build --profile preview --platform android       # Genera APK
    - **Disposición Responsiva de Botones:** El bloque de cabecera de la planilla (`sheetHeaderBanner`) fue desacoplado verticalmente en título completo y fila de botones con `flexWrap: 'wrap'`, `flexGrow: 1` y `gap: 8`, garantizando que en teléfonos y pantallas angostas los botones se apilen ordenadamente uno arriba del otro sin comprimir el texto a una letra por línea.
    - **Visor Estilo Documento Móvil con Zoom In / Zoom Out:** Se removió el botón defectuoso de rotación horizontal fija. En su lugar, el modal cuenta con una barra de control de zoom intuitiva con botón *"Ver Todo"* (auto-ajusta la escala para que las 14 columnas quepan completas en el ancho de pantalla del móvil), preset *"100%"*, stepper `[-]` y `[+]`, porcentaje en vivo y soporte para gesto de pellizco con dos dedos (pinch-to-zoom) tanto en Web como en móvil nativo.
 
+6. **Sincronización de Peticiones y Apoyo de Oración Multi-Dispositivo (`prayer_requests`)**:
+   - Se añadió la tabla `public.prayer_requests` a `supabase/schema.sql` con políticas RLS para lectura y escritura abierta (`praying_users TEXT[]`, `praying_pastors TEXT[]`, `praying_count INT`).
+   - `ChurchContext.tsx` sincroniza en Supabase las peticiones nuevas y las acciones de *"🙏 Orar por ella"* (`togglePrayerSupport`), persistiendo la lista de IDs de usuarios orando en la nube para que al ingresar desde otro teléfono o navegador se mantenga el estado *"🙏 Estás orando por esta petición"*.
+
+7. **Espaciado Exclusivo para Botones de Navegación en APK Android (`_layout.tsx`)**:
+   - Para evitar que la barra de navegación del sistema Android (los 3 botones: Atrás, Inicio, Recientes) se solape o mezcle con los botones inferiores de la aplicación en el APK, `_layout.tsx` aplica dinámicamente un espaciado inferior de seguridad (`paddingBottom: Platform.OS === 'android' ? Math.max(insets.bottom, 28) : 0`).
+   - En Web, este espaciado permanece estrictamente en 0 para no alterar la vista de escritorio ni navegadores.
+
+8. **Subida y Gestión de Foto de Perfil (`profile.tsx`)**:
+   - Integrado `expo-image-picker` y `expo-image` en el perfil de usuario. Permite elegir fotos de la galería o tomar fotos con la cámara en dispositivos móviles (y selector de archivos en web).
+   - Las fotos se codifican y sincronizan en Supabase (`members.avatar_url`) y `AsyncStorage`, actualizando de inmediato la sesión del usuario (`currentUser.avatarUrl`).
+
+
 

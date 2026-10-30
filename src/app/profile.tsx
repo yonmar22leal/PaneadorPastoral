@@ -3,6 +3,8 @@ import { useChurch } from '@/context/ChurchContext';
 import { calcAge } from '@/lib/attendance';
 import { ChurchNetwork, ChurchServiceSlotId } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
@@ -54,6 +56,16 @@ export default function ProfileScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [secureCurrentText, setSecureCurrentText] = useState(true);
   const [secureNewText, setSecureNewText] = useState(true);
+
+  // Avatar Photo state
+  const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || '');
+  const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
+
+  useEffect(() => {
+    if (currentUser?.avatarUrl) {
+      setAvatarUrl(currentUser.avatarUrl);
+    }
+  }, [currentUser?.avatarUrl]);
 
   // Status & Feedback
   const [isSaving, setIsSaving] = useState(false);
@@ -246,6 +258,116 @@ export default function ProfileScreen() {
     return 'Líder 144';
   };
 
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permiso Requerido',
+          'Se necesita acceso a tus fotos para que puedas seleccionar tu foto de perfil.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const newPhoto = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+
+        setAvatarUrl(newPhoto);
+        setIsUpdatingAvatar(true);
+        const res = await updateUserProfile({ avatarUrl: newPhoto });
+        setIsUpdatingAvatar(false);
+
+        if (res.success) {
+          Alert.alert('¡Foto Actualizada!', 'Tu foto de perfil se ha guardado correctamente.');
+        } else {
+          Alert.alert('Foto Guardada', 'Tu foto de perfil se ha guardado en tu sesión.');
+        }
+      }
+    } catch (err) {
+      setIsUpdatingAvatar(false);
+      console.warn('Error al seleccionar imagen:', err);
+      Alert.alert('Error', 'No se pudo cargar la imagen seleccionada.');
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permiso Requerido',
+          'Se necesita permiso de cámara para tomar una foto de perfil.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const newPhoto = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+
+        setAvatarUrl(newPhoto);
+        setIsUpdatingAvatar(true);
+        const res = await updateUserProfile({ avatarUrl: newPhoto });
+        setIsUpdatingAvatar(false);
+
+        if (res.success) {
+          Alert.alert('¡Foto Actualizada!', 'Tu foto de perfil se ha guardado correctamente.');
+        }
+      }
+    } catch (err) {
+      setIsUpdatingAvatar(false);
+      console.warn('Error al tomar foto:', err);
+      Alert.alert('Error', 'No se pudo tomar la foto.');
+    }
+  };
+
+  const handleAvatarAction = () => {
+    if (Platform.OS === 'web') {
+      handlePickImage();
+      return;
+    }
+
+    Alert.alert('Foto de Perfil', 'Elige una opción para tu foto:', [
+      { text: '📷 Tomar Foto', onPress: handleTakePhoto },
+      { text: '🖼️ Elegir de Galería', onPress: handlePickImage },
+      ...(avatarUrl
+        ? [
+            {
+              text: '🗑️ Eliminar Foto',
+              style: 'destructive' as const,
+              onPress: async () => {
+                setAvatarUrl('');
+                setIsUpdatingAvatar(true);
+                await updateUserProfile({ avatarUrl: '' });
+                setIsUpdatingAvatar(false);
+              },
+            },
+          ]
+        : []),
+      { text: 'Cancelar', style: 'cancel' as const },
+    ]);
+  };
+
   if (!currentUser) {
     return null;
   }
@@ -270,12 +392,44 @@ export default function ProfileScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Hero Profile Banner */}
           <View style={styles.heroProfileCard}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitials}>
-                {currentUser.firstName?.[0] || 'U'}
-                {currentUser.lastName?.[0] || ''}
+            {/* Avatar con Foto de Perfil y Botón de Cámara */}
+            <TouchableOpacity
+              style={styles.avatarContainer}
+              onPress={handleAvatarAction}
+              activeOpacity={0.8}>
+              {avatarUrl ? (
+                <Image
+                  source={{ uri: avatarUrl }}
+                  style={styles.avatarImage}
+                  contentFit="cover"
+                  transition={200}
+                />
+              ) : (
+                <View style={styles.avatarCircle}>
+                  <Text style={styles.avatarInitials}>
+                    {currentUser.firstName?.[0] || 'U'}
+                    {currentUser.lastName?.[0] || ''}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.avatarCameraBadge}>
+                {isUpdatingAvatar ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="camera" size={15} color="#FFFFFF" />
+                )}
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleAvatarAction}
+              activeOpacity={0.8}
+              style={styles.changePhotoBtn}>
+              <Ionicons name="image-outline" size={14} color="#38BDF8" />
+              <Text style={styles.changePhotoBtnText}>
+                {avatarUrl ? 'Cambiar foto de perfil' : 'Subir foto de perfil'}
               </Text>
-            </View>
+            </TouchableOpacity>
 
             <Text style={styles.heroName}>
               {currentUser.firstName} {currentUser.lastName}
@@ -642,20 +796,66 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
+  avatarContainer: {
+    position: 'relative',
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
   avatarCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: '#0284C7',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
     borderWidth: 3,
-    borderColor: 'rgba(56, 189, 248, 0.35)',
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+  },
+  avatarImage: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    borderColor: '#38BDF8',
+  },
+  avatarCameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0284C7',
+    borderWidth: 2,
+    borderColor: '#070A14',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+  },
+  changePhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  changePhotoBtnText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
   },
   avatarInitials: {
     color: '#FFFFFF',
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '900',
   },
   heroName: {

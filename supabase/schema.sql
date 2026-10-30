@@ -81,6 +81,7 @@ ALTER TABLE public.members ADD COLUMN IF NOT EXISTS generation_level INT DEFAULT
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS is_leader_of_12 BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS notes TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS ministries TEXT[];
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 
 -- 5. Aulas de Iglesia Infantil (Check-in Kids)
 CREATE TABLE IF NOT EXISTS public.kid_classrooms (
@@ -385,6 +386,29 @@ GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
 
+-- 17. Peticiones de Oración
+CREATE TABLE IF NOT EXISTS public.prayer_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  church_id UUID REFERENCES public.churches(id) ON DELETE CASCADE,
+  member_id TEXT NOT NULL,
+  member_name TEXT NOT NULL,
+  member_phone TEXT,
+  category TEXT NOT NULL DEFAULT 'otro',
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  is_private_for_pastors BOOLEAN DEFAULT FALSE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  praying_pastors TEXT[] DEFAULT '{}',
+  praying_users TEXT[] DEFAULT '{}',
+  praying_count INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Asegurar que las columnas existan si la tabla fue creada previamente
+ALTER TABLE public.prayer_requests ADD COLUMN IF NOT EXISTS praying_users TEXT[] DEFAULT '{}';
+ALTER TABLE public.prayer_requests ADD COLUMN IF NOT EXISTS praying_pastors TEXT[] DEFAULT '{}';
+ALTER TABLE public.prayer_requests ADD COLUMN IF NOT EXISTS praying_count INT DEFAULT 0;
+
 -- 2. Habilitar RLS y configurar políticas universales en todas las tablas
 DO $$ 
 DECLARE
@@ -394,7 +418,7 @@ DECLARE
       'kid_classrooms', 'kids', 'kid_check_ins', 'attendance_records',
       'church_events', 'cell_groups', 'leader_attendance_reports',
       'cell_meeting_reports', 'ministries', 'service_plans',
-      'service_schedule_items', 'service_volunteers'
+      'service_schedule_items', 'service_volunteers', 'prayer_requests'
     ];
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP

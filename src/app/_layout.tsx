@@ -3,12 +3,12 @@ import { NavigationBar } from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { ChurchProvider } from '@/context/ChurchContext';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -24,6 +24,20 @@ const appDarkTheme = {
   },
 };
 
+function AppContent() {
+  const insets = useSafeAreaInsets();
+  // Espacio exclusivo para APK en Android para evitar que los 3 botones de navegación del sistema
+  // se mezclen o solapen con los botones de acción de la app. En Web se mantiene en 0.
+  const androidBottomPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 28) : 0;
+
+  return (
+    <View style={{ flex: 1, paddingBottom: androidBottomPadding, backgroundColor: '#070A14' }}>
+      <AnimatedSplashOverlay />
+      <AppTabs />
+    </View>
+  );
+}
+
 export default function TabLayout() {
   return (
     <SafeAreaProvider>
@@ -31,8 +45,7 @@ export default function TabLayout() {
         <StatusBar style="light" />
         {Platform.OS === 'android' && <NavigationBar style="light" />}
         <ChurchProvider>
-          <AnimatedSplashOverlay />
-          <AppTabs />
+          <AppContent />
         </ChurchProvider>
       </ThemeProvider>
     </SafeAreaProvider>
