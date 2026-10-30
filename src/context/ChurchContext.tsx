@@ -223,6 +223,7 @@ interface ChurchContextType {
   prayerRequests: PrayerRequest[];
   addPrayerRequest: (req: Omit<PrayerRequest, 'id' | 'createdAt' | 'status' | 'prayingPastors'>) => Promise<string>;
   updatePrayerRequestStatus: (id: string, status: PrayerStatus, pastorName?: string) => Promise<void>;
+  togglePrayerSupport: (prayerId: string) => Promise<void>;
   deletePrayerRequest: (id: string) => Promise<void>;
 
   isLoading: boolean;
@@ -2147,6 +2148,46 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const togglePrayerSupport = async (prayerId: string): Promise<void> => {
+    if (!currentUser) return;
+    const userId = currentUser.id;
+    const isPastorUser =
+      currentUser.role === 'senior_pastor' || currentUser.role === 'network_pastor';
+    const fullName = `${currentUser.firstName} ${currentUser.lastName}`.trim();
+
+    const updated = prayerRequests.map((pr) => {
+      if (pr.id !== prayerId) return pr;
+      const currentUsers = pr.prayingUsers || [];
+      const currentPastors = pr.prayingPastors || [];
+      const alreadyPraying = currentUsers.includes(userId);
+
+      const newUsers = alreadyPraying
+        ? currentUsers.filter((id) => id !== userId)
+        : [...currentUsers, userId];
+
+      let newPastors = currentPastors;
+      let newStatus: PrayerStatus = pr.status;
+
+      if (isPastorUser) {
+        if (!alreadyPraying && !currentPastors.includes(fullName)) {
+          newPastors = [...currentPastors, fullName];
+          newStatus = 'praying';
+        }
+      }
+
+      return {
+        ...pr,
+        status: newStatus,
+        prayingUsers: newUsers,
+        prayingPastors: newPastors,
+        prayingCount: newUsers.length,
+      };
+    });
+
+    setPrayerRequests(updated);
+    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => {});
+  };
+
   const deletePrayerRequest = async (id: string): Promise<void> => {
     const updated = prayerRequests.filter((pr) => pr.id !== id);
     setPrayerRequests(updated);
@@ -2182,6 +2223,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         prayerRequests,
         addPrayerRequest,
         updatePrayerRequestStatus,
+        togglePrayerSupport,
         deletePrayerRequest,
         canManageEvents,
         canUserEditFullEvent,

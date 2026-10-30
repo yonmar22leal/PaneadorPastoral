@@ -48,6 +48,7 @@ export default function DashboardScreen() {
     prayerRequests,
     addPrayerRequest,
     updatePrayerRequestStatus,
+    togglePrayerSupport,
     deletePrayerRequest,
   } = useChurch();
 
@@ -178,6 +179,10 @@ export default function DashboardScreen() {
     }
     return list;
   }, [prayerRequests, isPastor, currentUser, prayerFilter]);
+
+  const latestPrayer = useMemo(() => {
+    return visiblePrayerRequests.length > 0 ? visiblePrayerRequests[0] : null;
+  }, [visiblePrayerRequests]);
 
   const handleSendPrayerRequest = async () => {
     if (!prayerTitle.trim()) {
@@ -705,6 +710,62 @@ export default function DashboardScreen() {
                     <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
                   )}
                 </TouchableOpacity>
+
+                {/* MOTIVO DE ORACIÓN ACTIVO EN EL DASHBOARD CON BOTÓN DIRECTO "ORAR POR ELLA" */}
+                {latestPrayer && (
+                  <View style={styles.dashboardPrayerBanner}>
+                    <View style={styles.dashboardPrayerBannerTop}>
+                      <View style={styles.dashboardPrayerTag}>
+                        <Ionicons name="flame" size={11} color="#FB7185" />
+                        <Text style={styles.dashboardPrayerTagText}>
+                          {latestPrayer.category.toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text style={styles.dashboardPrayerAuthorText} numberOfLines={1}>
+                        De: {latestPrayer.memberName}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.dashboardPrayerTitle} numberOfLines={1}>
+                      {latestPrayer.title}
+                    </Text>
+                    <Text style={styles.dashboardPrayerDesc} numberOfLines={2}>
+                      {latestPrayer.description}
+                    </Text>
+
+                    {/* BOTÓN PROMINENTE "ORAR POR ELLA" */}
+                    {(() => {
+                      const isUserPraying = Boolean(
+                        currentUser && latestPrayer.prayingUsers?.includes(currentUser.id)
+                      );
+                      return (
+                        <TouchableOpacity
+                          style={[
+                            styles.dashboardPrayBtn,
+                            isUserPraying && styles.dashboardPrayBtnActive,
+                          ]}
+                          activeOpacity={0.85}
+                          onPress={() => togglePrayerSupport(latestPrayer.id)}>
+                          <Ionicons
+                            name={isUserPraying ? 'heart' : 'heart-outline'}
+                            size={16}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.dashboardPrayBtnText}>
+                            {isUserPraying ? '🙏 ¡Estás orando por ella!' : '🙏 Orar por ella'}
+                          </Text>
+                          {(latestPrayer.prayingCount || 0) > 0 && (
+                            <View style={styles.dashboardPrayCountBadge}>
+                              <Text style={styles.dashboardPrayCountText}>
+                                {latestPrayer.prayingCount}
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })()}
+                  </View>
+                )}
 
                 <View style={styles.subActionsRow}>
                   <TouchableOpacity
@@ -1500,23 +1561,48 @@ export default function DashboardScreen() {
                             <View style={styles.prayingPastorsBanner}>
                               <Ionicons name="shield-checkmark" size={14} color="#34D399" />
                               <Text style={styles.prayingPastorsBannerText}>
-                                Orando activamente: {req.prayingPastors.join(', ')}
+                                Cobertura pastoral activa: {req.prayingPastors.join(', ')}
                               </Text>
                             </View>
                           )}
 
-                          {/* Acciones para Pastores */}
+                          {/* BOTÓN PRINCIPAL Y UNIVERSAL: ORAR POR ELLA (VISIBLE PARA TODOS) */}
+                          {(() => {
+                            const isUserPraying = Boolean(
+                              currentUser && req.prayingUsers?.includes(currentUser.id)
+                            );
+                            return (
+                              <TouchableOpacity
+                                style={[
+                                  styles.prayUniversalBtn,
+                                  isUserPraying && styles.prayUniversalBtnActive,
+                                ]}
+                                activeOpacity={0.85}
+                                onPress={() => togglePrayerSupport(req.id)}>
+                                <Ionicons
+                                  name={isUserPraying ? 'heart' : 'heart-outline'}
+                                  size={18}
+                                  color="#FFFFFF"
+                                />
+                                <Text style={styles.prayUniversalBtnText}>
+                                  {isUserPraying
+                                    ? '🙏 Estás orando por esta petición'
+                                    : '🙏 Orar por ella'}
+                                </Text>
+                                {(req.prayingCount || 0) > 0 && (
+                                  <View style={styles.prayingCountBadge}>
+                                    <Text style={styles.prayingCountBadgeText}>
+                                      {req.prayingCount} {req.prayingCount === 1 ? 'orando' : 'orando'}
+                                    </Text>
+                                  </View>
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })()}
+
+                          {/* Acciones de gestión para Pastores */}
                           {isPastor && (
                             <View style={styles.prayerPastorActionsRow}>
-                              {isPending && (
-                                <TouchableOpacity
-                                  style={styles.prayActionBtn}
-                                  onPress={() => handleMarkPraying(req.id)}>
-                                  <Ionicons name="heart" size={14} color="#FFFFFF" />
-                                  <Text style={styles.prayActionBtnText}>Orar por ella 🙏</Text>
-                                </TouchableOpacity>
-                              )}
-
                               {!isAnswered && (
                                 <TouchableOpacity
                                   style={styles.answerActionBtn}
@@ -1545,6 +1631,24 @@ export default function DashboardScreen() {
                                 style={styles.prayerDeleteBtn}
                                 onPress={() => deletePrayerRequest(req.id)}>
                                 <Ionicons name="trash-outline" size={14} color="#EF4444" />
+                              </TouchableOpacity>
+                            </View>
+                          )}
+
+                          {/* Aliento por WhatsApp para hermanos e intercesores */}
+                          {!isPastor && req.memberPhone && !req.isPrivateForPastors && (
+                            <View style={styles.prayerPastorActionsRow}>
+                              <TouchableOpacity
+                                style={styles.prayerWhatsAppBtn}
+                                onPress={() => {
+                                  const clean = req.memberPhone!.replace(/[^0-9]/g, '');
+                                  const text = encodeURIComponent(
+                                    `Hola ${req.memberName}, me uno en oración a tu motivo: "${req.title}". ¡Dios es fiel y escuchará el clamor de su pueblo! 🙏❤️`
+                                  );
+                                  Linking.openURL(`https://wa.me/${clean}?text=${text}`);
+                                }}>
+                                <Ionicons name="logo-whatsapp" size={14} color="#22C55E" />
+                                <Text style={styles.prayerWhatsAppBtnText}>Enviar palabra de aliento</Text>
                               </TouchableOpacity>
                             </View>
                           )}
@@ -2750,10 +2854,116 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 6,
+    marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  prayUniversalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#E11D48',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  prayUniversalBtnActive: {
+    backgroundColor: '#059669',
+  },
+  prayUniversalBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  prayingCountBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  prayingCountBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  // Motivo de oración en Dashboard Card
+  dashboardPrayerBanner: {
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 113, 133, 0.25)',
+    borderRadius: 14,
+    padding: 12,
+    marginHorizontal: 4,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  dashboardPrayerBannerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  dashboardPrayerTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(244, 63, 94, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  dashboardPrayerTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FDA4AF',
+  },
+  dashboardPrayerAuthorText: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  dashboardPrayerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 3,
+  },
+  dashboardPrayerDesc: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  dashboardPrayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#E11D48',
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  dashboardPrayBtnActive: {
+    backgroundColor: '#059669',
+  },
+  dashboardPrayBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  dashboardPrayCountBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 4,
+  },
+  dashboardPrayCountText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
   },
   prayActionBtn: {
     flexDirection: 'row',

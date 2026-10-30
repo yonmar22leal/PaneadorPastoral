@@ -330,6 +330,8 @@ export interface PrayerRequest {
   isPrivateForPastors: boolean;
   status: PrayerStatus;
   prayingPastors?: string[]; // Nombres de pastores que han marcado "Orando"
+  prayingCount?: number;     // Total de personas que se han unido en oración
+  prayingUsers?: string[];   // IDs de usuarios que están orando
   createdAt: string; // ISO
 }
 
