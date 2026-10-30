@@ -73,6 +73,20 @@ const saveBirthdayLocally = async (memberId: string, bDate?: string) => {
   }
 };
 
+const VALID_DB_SERVICE_IDS = [
+  'domingo_11am',
+  'domingo_adultos_1',
+  'domingo_juvenil',
+  'domingo_adultos_2',
+  'viernes_adoracion',
+];
+
+const sanitizeServiceId = (serviceId?: string | null): string | null => {
+  if (!serviceId) return null;
+  if (VALID_DB_SERVICE_IDS.includes(serviceId)) return serviceId;
+  return null;
+};
+
 const defaultPrayerRequests: PrayerRequest[] = [
   {
     id: 'pr-1',
@@ -1096,7 +1110,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           is_leader_of_12: newMember.isLeaderOf12 ?? false,
           generation_level: newMember.generationLevel ?? 2,
           family_name: newMember.familyName || null,
-          preferred_service_id: newMember.preferredService || null,
+          preferred_service_id: sanitizeServiceId(newMember.preferredService),
           notes: newMember.notes || null,
           password: newMember.password || null,
           is_active: newMember.isActive ?? true,
@@ -1120,6 +1134,17 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           delete memberInsertPayload.avatar_url;
           delete memberInsertPayload.is_active;
           delete memberInsertPayload.birth_date;
+          const retryRes = await supabase.from('members').insert(memberInsertPayload);
+          insertError = retryRes.error;
+        }
+
+        if (
+          insertError &&
+          (insertError.code === '23503' ||
+            /foreign key/i.test(insertError.message) ||
+            /preferred_service_id/i.test(insertError.message))
+        ) {
+          memberInsertPayload.preferred_service_id = null;
           const retryRes = await supabase.from('members').insert(memberInsertPayload);
           insertError = retryRes.error;
         }
@@ -2002,7 +2027,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           payload.birth_date = cleanDateForStorage(data.birthDate) || null;
         }
         if (data.familyName !== undefined) payload.family_name = data.familyName;
-        if (data.preferredService !== undefined) payload.preferred_service_id = data.preferredService;
+        if (data.preferredService !== undefined) payload.preferred_service_id = sanitizeServiceId(data.preferredService);
         if (data.notes !== undefined) payload.notes = data.notes;
         if (data.password !== undefined && data.password.trim() !== '') payload.password = data.password.trim();
         if (data.network !== undefined) payload.network = data.network;
@@ -2017,6 +2042,16 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             (sbError as any).code === 'PGRST204')
         ) {
           delete payload.birth_date;
+          const retryRes = await supabase.from('members').update(payload).eq('id', currentUser.id);
+          sbError = retryRes.error;
+        }
+        if (
+          sbError &&
+          (sbError.code === '23503' ||
+            /foreign key/i.test(sbError.message) ||
+            /preferred_service_id/i.test(sbError.message))
+        ) {
+          payload.preferred_service_id = null;
           const retryRes = await supabase.from('members').update(payload).eq('id', currentUser.id);
           sbError = retryRes.error;
         }
@@ -2090,6 +2125,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           payload.birth_date = cleanDateForStorage(mergedData.birthDate) || null;
         }
         if (mergedData.isActive !== undefined) payload.is_active = mergedData.isActive;
+        if (mergedData.preferredService !== undefined) payload.preferred_service_id = sanitizeServiceId(mergedData.preferredService);
         if (mergedData.leaderId !== undefined) payload.leader_id = mergedData.leaderId;
         if (mergedData.role !== undefined) payload.role = mergedData.role;
         if (mergedData.generationLevel !== undefined) payload.generation_level = mergedData.generationLevel;
@@ -2106,6 +2142,16 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             (updErr as any).code === 'PGRST204')
         ) {
           delete payload.birth_date;
+          const retryRes = await supabase.from('members').update(payload).eq('id', memberId);
+          updErr = retryRes.error;
+        }
+        if (
+          updErr &&
+          (updErr.code === '23503' ||
+            /foreign key/i.test(updErr.message) ||
+            /preferred_service_id/i.test(updErr.message))
+        ) {
+          payload.preferred_service_id = null;
           await supabase.from('members').update(payload).eq('id', memberId);
         }
       } catch (e) {
