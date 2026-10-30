@@ -298,3 +298,8 @@ cmd /c npx eas-cli build --profile preview --platform android       # Genera APK
    - La aplicación valida que la contraseña actual coincida exactamente con la guardada en `currentUser.password` o en `members`. Si no coincide, bloquea la acción con alerta: *"La contraseña actual no es correcta."*
    - Solo al verificar la clave actual se aplican las validaciones de longitud mínima (6 caracteres) y coincidencia con *Confirmar Nueva Contraseña*, guardando en AsyncStorage y Supabase.
 
+5. **Visor de Planilla Celular con Zoom y Botones Responsivos (`cells.tsx`)**:
+   - **Disposición Responsiva de Botones:** El bloque de cabecera de la planilla (`sheetHeaderBanner`) fue desacoplado verticalmente en título completo y fila de botones con `flexWrap: 'wrap'`, `flexGrow: 1` y `gap: 8`, garantizando que en teléfonos y pantallas angostas los botones se apilen ordenadamente uno arriba del otro sin comprimir el texto a una letra por línea.
+   - **Visor Estilo Documento Móvil con Zoom In / Zoom Out:** Se removió el botón defectuoso de rotación horizontal fija. En su lugar, el modal cuenta con una barra de control de zoom intuitiva con botón *"Ver Todo"* (auto-ajusta la escala para que las 14 columnas quepan completas en el ancho de pantalla del móvil), preset *"100%"*, stepper `[-]` y `[+]`, porcentaje en vivo y soporte para gesto de pellizco con dos dedos (pinch-to-zoom) tanto en Web como en móvil nativo.
+
+

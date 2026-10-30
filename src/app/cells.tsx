@@ -4,12 +4,12 @@ import { CellGroup, CellMeetingReport, CellPersonItem, ChurchNetwork } from '@/t
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
-import * as ScreenOrientation from 'expo-screen-orientation';
 import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Dimensions,
   Modal,
   Platform,
   ScrollView,
@@ -58,7 +58,9 @@ export default function CellsScreen() {
   const [sheetNetworkFilter, setSheetNetworkFilter] = useState<'all' | 'juvenil' | 'adulta'>('all');
   const [sheetSearchQuery, setSheetSearchQuery] = useState('');
   const [sheetModalVisible, setSheetModalVisible] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
+  const [sheetZoom, setSheetZoom] = useState(1);
+  const initialPinchDistRef = useRef<number | null>(null);
+  const initialZoomRef = useRef<number>(1);
 
   // Modal 1: Crear Célula
   const [modalVisible, setModalVisible] = useState(false);
@@ -753,31 +755,41 @@ export default function CellsScreen() {
     return `\uFEFF${header}\n${rows.join('\n')}\n${totalsRow}`;
   };
 
-  const toggleOrientation = async () => {
-    try {
-      if (isLandscape) {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-        setIsLandscape(false);
-      } else {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
-        setIsLandscape(true);
-      }
-    } catch (e) {
-      console.log('Orientation toggle note:', e);
-      setIsLandscape(!isLandscape);
-    }
-  };
-
-  const handleOpenSheetModal = async () => {
+  const handleOpenSheetModal = () => {
+    const screenWidth = Dimensions.get('window').width;
+    const initialFit = Math.min(1, Math.max(0.25, parseFloat(((screenWidth - 24) / 1290).toFixed(2))));
+    setSheetZoom(initialFit);
     setSheetModalVisible(true);
   };
 
-  const handleCloseSheetModal = async () => {
-    try {
-      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-    } catch { }
-    setIsLandscape(false);
+  const handleCloseSheetModal = () => {
     setSheetModalVisible(false);
+  };
+
+  const handleTouchStart = (e: any) => {
+    if (e.nativeEvent?.touches && e.nativeEvent.touches.length === 2) {
+      const [t1, t2] = e.nativeEvent.touches;
+      const dx = t1.pageX - t2.pageX;
+      const dy = t1.pageY - t2.pageY;
+      initialPinchDistRef.current = Math.hypot(dx, dy);
+      initialZoomRef.current = sheetZoom;
+    }
+  };
+
+  const handleTouchMove = (e: any) => {
+    if (e.nativeEvent?.touches && e.nativeEvent.touches.length === 2 && initialPinchDistRef.current) {
+      const [t1, t2] = e.nativeEvent.touches;
+      const dx = t1.pageX - t2.pageX;
+      const dy = t1.pageY - t2.pageY;
+      const currentDist = Math.hypot(dx, dy);
+      const scaleFactor = currentDist / initialPinchDistRef.current;
+      const newZoom = Math.min(2.0, Math.max(0.25, initialZoomRef.current * scaleFactor));
+      setSheetZoom(parseFloat(newZoom.toFixed(2)));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    initialPinchDistRef.current = null;
   };
 
   const handleExportExcel = async () => {
@@ -1760,21 +1772,21 @@ ${groupedSheetData.leaderGroups
                   {/* Control Panel: Header, Redes y Buscador */}
                   <View style={styles.sheetControlsCard}>
                     <View style={styles.sheetHeaderBanner}>
-                      <View style={{ flex: 1 }}>
+                      <View style={styles.sheetHeaderTitleCol}>
                         <Text style={styles.sheetHeaderTitle}>
-                          Planilla
+                          Planilla Consolidada
                         </Text>
                         <Text style={styles.sheetHeaderSubtitle}>
                           {groupedSheetData.totalCells} Células • {groupedSheetData.leaderGroups.length} Líderes de 12
                         </Text>
                       </View>
 
-                      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <View style={styles.sheetHeaderButtonsRow}>
                         <TouchableOpacity
                           style={[styles.sheetShareBtn, { backgroundColor: '#7C3AED' }]}
                           onPress={handleOpenSheetModal}
                           activeOpacity={0.8}>
-                          <Ionicons name="scan-outline" size={14} color="#FFFFFF" />
+                          <Ionicons name="scan-outline" size={15} color="#FFFFFF" />
                           <Text style={styles.sheetShareBtnText}>Ver Completa</Text>
                         </TouchableOpacity>
 
@@ -1782,7 +1794,7 @@ ${groupedSheetData.leaderGroups
                           style={[styles.sheetShareBtn, { backgroundColor: '#0284C7' }]}
                           onPress={handleShareSheetExcel}
                           activeOpacity={0.8}>
-                          <Ionicons name="share-social-outline" size={14} color="#FFFFFF" />
+                          <Ionicons name="share-social-outline" size={15} color="#FFFFFF" />
                           <Text style={styles.sheetShareBtnText}>Compartir Excel</Text>
                         </TouchableOpacity>
 
@@ -1790,7 +1802,7 @@ ${groupedSheetData.leaderGroups
                           style={[styles.sheetShareBtn, { backgroundColor: '#15803D' }]}
                           onPress={handleExportExcel}
                           activeOpacity={0.8}>
-                          <Ionicons name="download-outline" size={14} color="#FFFFFF" />
+                          <Ionicons name="download-outline" size={15} color="#FFFFFF" />
                           <Text style={styles.sheetShareBtnText}>Descargar</Text>
                         </TouchableOpacity>
                       </View>
@@ -1834,9 +1846,9 @@ ${groupedSheetData.leaderGroups
                         onPress={handleOpenSheetModal}
                         activeOpacity={0.85}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                          <Ionicons name="expand-outline" size={18} color="#38BDF8" />
+                          <Ionicons name="scan-outline" size={18} color="#38BDF8" />
                           <Text style={styles.sheetExpandBannerText}>
-                            Toca aquí para ver en pantalla completa y rotar a horizontal
+                            Toca aquí para ver en pantalla completa con zoom (alejar para ver todo / acercar)
                           </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={16} color="#38BDF8" />
@@ -2617,8 +2629,8 @@ ${groupedSheetData.leaderGroups
         <Modal
           visible={sheetModalVisible}
           animationType="slide"
-          onRequestClose={handleCloseSheetModal}
-          supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}>
+          transparent={false}
+          onRequestClose={handleCloseSheetModal}>
           <SafeAreaView style={styles.sheetModalContainer} edges={['top', 'bottom', 'left', 'right']}>
             <StatusBar style="light" />
             <View style={styles.sheetModalHeader}>
@@ -2629,73 +2641,138 @@ ${groupedSheetData.leaderGroups
                 <Ionicons name="close" size={22} color="#FFFFFF" />
               </TouchableOpacity>
 
-              <View style={{ flex: 1, marginHorizontal: 12 }}>
+              <View style={{ flex: 1, marginHorizontal: 10 }}>
                 <Text style={styles.sheetModalTitle} numberOfLines={1}>
-                  Planilla
+                  Planilla Celular
                 </Text>
                 <Text style={styles.sheetModalSubtitle} numberOfLines={1}>
-                  {groupedSheetData.totalCells} Células • {groupedSheetData.leaderGroups.length} Líderes 12 • Modo {isLandscape ? 'Horizontal' : 'Vertical'}
+                  {groupedSheetData.totalCells} Células • {groupedSheetData.leaderGroups.length} Líderes 12
                 </Text>
               </View>
 
               <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
                 <TouchableOpacity
-                  style={[
-                    styles.sheetModalActionBtn,
-                    isLandscape ? styles.sheetModalActionBtnActive : { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-                  ]}
-                  onPress={toggleOrientation}
-                  activeOpacity={0.8}>
-                  <Ionicons
-                    name={isLandscape ? 'phone-portrait-outline' : 'phone-landscape-outline'}
-                    size={15}
-                    color="#FFFFFF"
-                  />
-                  <Text style={styles.sheetModalActionBtnText}>
-                    {isLandscape ? 'Vertical' : 'Horizontal'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
                   style={[styles.sheetModalActionBtn, { backgroundColor: '#0284C7' }]}
                   onPress={handleShareSheetExcel}
                   activeOpacity={0.8}>
-                  <Ionicons name="share-social-outline" size={15} color="#FFFFFF" />
-                  <Text style={styles.sheetModalActionBtnText}>Compartir Excel</Text>
+                  <Ionicons name="share-social-outline" size={14} color="#FFFFFF" />
+                  <Text style={styles.sheetModalActionBtnText}>Compartir</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[styles.sheetModalActionBtn, { backgroundColor: '#15803D' }]}
                   onPress={handleExportExcel}
                   activeOpacity={0.8}>
-                  <Ionicons name="download-outline" size={15} color="#FFFFFF" />
+                  <Ionicons name="download-outline" size={14} color="#FFFFFF" />
                   <Text style={styles.sheetModalActionBtnText}>Descargar</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* SubBar with totals and hint */}
-            <View style={styles.sheetModalSubBar}>
-              <Text style={styles.sheetModalHintText}>
-                {isLandscape
-                  ? '📱 Vista Horizontal: Tienes todo el ancho de pantalla para revisar los datos.'
-                  : '💡 Toca "Horizontal" o gira tu dispositivo para ver todas las columnas.'}
-              </Text>
-              <Text style={styles.sheetModalSubInfo}>
-                {groupedSheetData.totalMembers}M • {groupedSheetData.totalVisitors}I • ${groupedSheetData.totalOfferingUsd} • Bs. {(groupedSheetData.totalOfferingVes + groupedSheetData.totalOfferingPm).toLocaleString()}
+            {/* Zoom Controls Bar */}
+            <View style={styles.sheetZoomBar}>
+              <View style={styles.sheetZoomPresets}>
+                <TouchableOpacity
+                  style={[styles.sheetZoomPresetBtn, sheetZoom <= 0.35 && styles.sheetZoomPresetBtnActive]}
+                  onPress={() => {
+                    const screenWidth = Dimensions.get('window').width;
+                    const fit = Math.min(1, Math.max(0.25, parseFloat(((screenWidth - 24) / 1290).toFixed(2))));
+                    setSheetZoom(fit);
+                  }}
+                  activeOpacity={0.75}>
+                  <Ionicons name="scan-outline" size={13} color={sheetZoom <= 0.35 ? '#38BDF8' : '#94A3B8'} />
+                  <Text style={[styles.sheetZoomPresetText, sheetZoom <= 0.35 && styles.sheetZoomPresetTextActive]}>
+                    Ver Todo
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.sheetZoomPresetBtn, sheetZoom >= 0.95 && sheetZoom <= 1.05 && styles.sheetZoomPresetBtnActive]}
+                  onPress={() => setSheetZoom(1.0)}
+                  activeOpacity={0.75}>
+                  <Text style={[styles.sheetZoomPresetText, sheetZoom >= 0.95 && sheetZoom <= 1.05 && styles.sheetZoomPresetTextActive]}>
+                    100%
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.sheetZoomStepper}>
+                <TouchableOpacity
+                  style={styles.sheetZoomStepBtn}
+                  onPress={() => setSheetZoom((z) => Math.max(0.25, parseFloat((z - 0.15).toFixed(2))))}
+                  activeOpacity={0.75}>
+                  <Ionicons name="remove" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setSheetZoom(1.0)}
+                  activeOpacity={0.75}
+                  style={styles.sheetZoomValBox}>
+                  <Text style={styles.sheetZoomValText}>
+                    {Math.round(sheetZoom * 100)}%
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.sheetZoomStepBtn}
+                  onPress={() => setSheetZoom((z) => Math.min(2.0, parseFloat((z + 0.15).toFixed(2))))}
+                  activeOpacity={0.75}>
+                  <Ionicons name="add" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.sheetZoomHint}>
+                {sheetZoom <= 0.35 ? '📐 Vista completa' : '🔍 Vista detalle'}
               </Text>
             </View>
 
-            {/* 2D Scrollable Spreadsheet */}
+            {/* SubBar with totals and hint */}
+            <View style={styles.sheetModalSubBar}>
+              <Text style={styles.sheetModalHintText}>
+                📊 {groupedSheetData.totalMembers} Miembros • {groupedSheetData.totalVisitors} Invitados
+              </Text>
+              <Text style={styles.sheetModalSubInfo}>
+                ${groupedSheetData.totalOfferingUsd} • Bs. {(groupedSheetData.totalOfferingVes + groupedSheetData.totalOfferingPm).toLocaleString()}
+              </Text>
+            </View>
+
+            {/* 2D Scrollable Spreadsheet with dynamic Zoom */}
             <ScrollView
               style={{ flex: 1 }}
-              contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
+              contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
               showsVerticalScrollIndicator={true}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={true}
-                contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 10 }}>
-                {renderSheetTableContent()}
+                contentContainerStyle={{
+                  paddingHorizontal: 12,
+                  paddingTop: 12,
+                  minWidth: Math.round(1290 * sheetZoom) + 24,
+                }}>
+                <View
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  style={{
+                    width: Math.round(1290 * sheetZoom),
+                    overflow: 'visible',
+                  }}>
+                  <View
+                    style={[
+                      Platform.OS === 'web'
+                        ? ({
+                            zoom: sheetZoom,
+                            width: 1290,
+                          } as any)
+                        : {
+                            width: 1290,
+                            transform: [{ scale: sheetZoom }],
+                            transformOrigin: 'top left',
+                          },
+                    ]}>
+                    {renderSheetTableContent()}
+                  </View>
+                </View>
               </ScrollView>
             </ScrollView>
           </SafeAreaView>
@@ -3694,13 +3771,21 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   sheetHeaderBanner: {
+    flexDirection: 'column',
+    gap: 12,
+    marginBottom: 12,
+  },
+  sheetHeaderTitleCol: {
+    width: '100%',
+  },
+  sheetHeaderButtonsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 8,
+    width: '100%',
   },
   sheetHeaderTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
   },
@@ -3713,11 +3798,14 @@ const styles = StyleSheet.create({
   sheetShareBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+    gap: 6,
+    flexGrow: 1,
+    minWidth: 100,
     backgroundColor: '#15803D',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
   },
   sheetShareBtnText: {
     color: '#FFFFFF',
@@ -4072,15 +4160,80 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 10,
   },
-  sheetModalActionBtnActive: {
-    backgroundColor: '#0284C7',
-    borderWidth: 1,
-    borderColor: '#38BDF8',
-  },
   sheetModalActionBtnText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  sheetZoomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 8,
+  },
+  sheetZoomPresets: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  sheetZoomPresetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  sheetZoomPresetBtnActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    borderColor: '#38BDF8',
+  },
+  sheetZoomPresetText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  sheetZoomPresetTextActive: {
+    color: '#38BDF8',
+  },
+  sheetZoomStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
+  },
+  sheetZoomStepBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetZoomValBox: {
+    paddingHorizontal: 8,
+    minWidth: 46,
+    alignItems: 'center',
+  },
+  sheetZoomValText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  sheetZoomHint: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '600',
   },
   sheetModalSubBar: {
     flexDirection: 'row',
