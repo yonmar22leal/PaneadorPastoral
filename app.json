@@ -11,7 +11,9 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/19080f08-24ac-4f96-87f0-8b47098ea2b7"
+      "url": "https://u.expo.dev/19080f08-24ac-4f96-87f0-8b47098ea2b7",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 1000
     },
     "ios": {
       "icon": "./assets/expo.icon",

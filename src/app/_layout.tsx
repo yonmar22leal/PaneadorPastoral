@@ -3,6 +3,8 @@ import { NavigationBar } from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
+import { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -29,6 +31,20 @@ function AppContent() {
   // Espacio exclusivo para APK en Android para evitar que los 3 botones de navegación del sistema
   // se mezclen o solapen con los botones de acción de la app. En Web se mantiene en 0.
   const androidBottomPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 28) : 0;
+
+  // Verificación silenciosa de actualizaciones OTA en segundo plano (EAS Update)
+  useEffect(() => {
+    async function checkAutoUpdate() {
+      if (__DEV__ || Platform.OS === 'web') return;
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+        }
+      } catch {}
+    }
+    checkAutoUpdate();
+  }, []);
 
   return (
     <View style={{ flex: 1, paddingBottom: androidBottomPadding, backgroundColor: '#070A14' }}>
