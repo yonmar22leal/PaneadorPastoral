@@ -10,6 +10,7 @@ import {
 } from '@/lib/events';
 import { PrayerCategory } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -412,7 +413,15 @@ export default function DashboardScreen() {
                   style={styles.profileTopPill}
                   onPress={() => router.push('/profile' as any)}
                   activeOpacity={0.8}>
-                  <Ionicons name="person-circle-outline" size={16} color="#38BDF8" />
+                  {currentUser.avatarUrl ? (
+                    <Image
+                      source={{ uri: currentUser.avatarUrl }}
+                      style={styles.profileTopPillAvatar}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <Ionicons name="person-circle-outline" size={16} color="#38BDF8" />
+                  )}
                   <Text style={styles.profileTopPillText}>Mi Perfil</Text>
                 </TouchableOpacity>
 
@@ -428,12 +437,21 @@ export default function DashboardScreen() {
               style={styles.userProfileBanner}
               activeOpacity={0.85}
               onPress={() => router.push('/profile' as any)}>
-              <View style={styles.userAvatar}>
-                <Text style={styles.userAvatarText}>
-                  {currentUser.firstName?.[0] || 'U'}
-                  {currentUser.lastName?.[0] || ''}
-                </Text>
-              </View>
+              {currentUser.avatarUrl ? (
+                <Image
+                  source={{ uri: currentUser.avatarUrl }}
+                  style={styles.userAvatarImage}
+                  contentFit="cover"
+                  transition={200}
+                />
+              ) : (
+                <View style={styles.userAvatar}>
+                  <Text style={styles.userAvatarText}>
+                    {currentUser.firstName?.[0] || 'U'}
+                    {currentUser.lastName?.[0] || ''}
+                  </Text>
+                </View>
+              )}
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Text style={styles.userGreeting}>Bienvenido</Text>
@@ -972,11 +990,20 @@ export default function DashboardScreen() {
                   return (
                     <View key={post.id} style={styles.postCard}>
                       <View style={styles.postHeader}>
-                        <View style={styles.postAuthorAvatar}>
-                          <Text style={styles.postAuthorAvatarText}>
-                            {post.authorName?.[0] || 'P'}
-                          </Text>
-                        </View>
+                        {authorMember?.avatarUrl ? (
+                          <Image
+                            source={{ uri: authorMember.avatarUrl }}
+                            style={styles.postAuthorAvatarImage}
+                            contentFit="cover"
+                            transition={200}
+                          />
+                        ) : (
+                          <View style={styles.postAuthorAvatar}>
+                            <Text style={styles.postAuthorAvatarText}>
+                              {post.authorName?.[0] || 'P'}
+                            </Text>
+                          </View>
+                        )}
                         <View style={{ flex: 1 }}>
                           <Text style={styles.postAuthorName}>{post.authorName}</Text>
                           <View style={styles.postAuthorMetaRow}>
@@ -1845,6 +1872,27 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
+  },
+  userAvatarImage: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 2,
+    borderColor: '#38BDF8',
+  },
+  profileTopPillAvatar: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+  },
+  postAuthorAvatarImage: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderColor: '#38BDF8',
   },
   userAvatarText: {
     color: '#FFFFFF',

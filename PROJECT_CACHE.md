@@ -314,5 +314,11 @@ cmd /c npx eas-cli build --profile preview --platform android       # Genera APK
    - Integrado `expo-image-picker` y `expo-image` en el perfil de usuario. Permite elegir fotos de la galería o tomar fotos con la cámara en dispositivos móviles (y selector de archivos en web).
    - Las fotos se codifican y sincronizan en Supabase (`members.avatar_url`) y `AsyncStorage`, actualizando de inmediato la sesión del usuario (`currentUser.avatarUrl`).
 
+9. **Visualización de Avatar en Inicio y Muro Pastoral (`index.tsx`)**:
+   - El banner principal de bienvenida del usuario ahora renderiza la foto de perfil del usuario (`userAvatarImage`) con bordes neón cyan `#38BDF8`, o las iniciales si no tiene foto.
+   - La píldora superior *"Mi Perfil"* muestra una mini miniatura redonda del avatar del usuario.
+   - En el feed de mensajes del Muro Pastoral (*Palabra de los Pastores*), los autores con foto registrada muestran su avatar real (`postAuthorAvatarImage`), manteniendo alta presencia e identidad pastoral.
+
+
 
 
