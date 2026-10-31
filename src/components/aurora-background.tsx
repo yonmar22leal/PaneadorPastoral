@@ -34,6 +34,8 @@ export function AuroraBackground({
       <BlurView
         intensity={blurIntensity}
         tint="dark"
+        experimentalBlurMethod="dimezisBlurView"
+        blurMethod="dimezisBlurView"
         style={StyleSheet.absoluteFill}
       />
 

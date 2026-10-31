@@ -1,11 +1,11 @@
-import { DarkTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, ThemeProvider, usePathname, useRouter } from 'expo-router';
 import { NavigationBar } from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
 import * as Updates from 'expo-updates';
-import { useEffect } from 'react';
-import { Platform, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Alert, BackHandler, Platform, View } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
@@ -25,6 +25,96 @@ const appDarkTheme = {
     card: '#070A14',
   },
 };
+
+/**
+ * Manejador del botón físico y gesto de atrás en Android.
+ * Regresa a la pestaña/pantalla anterior y, si ya está en la raíz (Home o Login),
+ * muestra un diálogo de confirmación antes de salir de la aplicación.
+ */
+function AndroidBackHandler() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const historyRef = useRef<string[]>([]);
+  const isBackActionRef = useRef(false);
+
+  // Registrar cada pantalla visitada en el historial
+  useEffect(() => {
+    if (!pathname) return;
+
+    if (isBackActionRef.current) {
+      isBackActionRef.current = false;
+      return;
+    }
+
+    const hist = historyRef.current;
+    if (hist.length === 0 || hist[hist.length - 1] !== pathname) {
+      hist.push(pathname);
+      if (hist.length > 40) {
+        hist.shift();
+      }
+    }
+  }, [pathname]);
+
+  // Interceptar botón atrás de Android
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const onBackPress = () => {
+      const isRootScreen = pathname === '/' || pathname === '/index' || pathname === '/login';
+
+      // 1. Si tenemos historial de pantallas previas acumulado
+      if (historyRef.current.length > 1) {
+        historyRef.current.pop(); // Remover la ruta actual
+        const previousPath = historyRef.current[historyRef.current.length - 1];
+        if (previousPath && previousPath !== pathname) {
+          isBackActionRef.current = true;
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace(previousPath as any);
+          }
+          return true; // Prevenir salida de la app
+        }
+      }
+
+      // 2. Si el router tiene historial nativo pero no está en el ref
+      if (!isRootScreen && router.canGoBack()) {
+        isBackActionRef.current = true;
+        router.back();
+        return true;
+      }
+
+      // 3. Si no está en la raíz, regresar al inicio
+      if (!isRootScreen) {
+        historyRef.current = ['/'];
+        isBackActionRef.current = true;
+        router.replace('/');
+        return true;
+      }
+
+      // 4. Si ya está en la pantalla principal (Home / Login), pedir confirmación
+      Alert.alert(
+        'Salir de la aplicación',
+        '¿Estás seguro de que deseas salir de Paneador Pastoral?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Salir',
+            style: 'destructive',
+            onPress: () => BackHandler.exitApp(),
+          },
+        ],
+        { cancelable: true }
+      );
+      return true; // Bloquear cierre abrupto
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [pathname, router]);
+
+  return null;
+}
 
 function AppContent() {
   const insets = useSafeAreaInsets();
@@ -48,6 +138,7 @@ function AppContent() {
 
   return (
     <View style={{ flex: 1, paddingBottom: androidBottomPadding, backgroundColor: '#070A14' }}>
+      <AndroidBackHandler />
       <AnimatedSplashOverlay />
       <AppTabs />
     </View>

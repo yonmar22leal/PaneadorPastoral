@@ -21,11 +21,8 @@ export function AmbientOrb({
   right,
   maxOpacity = 0.5,
 }: AmbientOrbProps) {
-  const half = size / 2;
   const midSize = Math.round(size * 0.72);
-  const midHalf = midSize / 2;
-  const innerSize = Math.round(size * 0.45);
-  const innerHalf = innerSize / 2;
+  const innerSize = Math.round(size * 0.44);
 
   return (
     <View
@@ -41,64 +38,108 @@ export function AmbientOrb({
           right,
         },
       ]}>
-      {/* Capa 1: Halo exterior amplio y ultra-suave que se desvanece a 0 */}
+      {/* 
+        MALLA DE DIFUSIÓN MULTI-EJE RADIAL (SIN BORDES DUROS EN ANDROID/IOS)
+        Todos los gradientes inician y terminan en alpha 0 (completamente transparentes) 
+        en sus extremos para evitar bordes circulares recortados.
+      */}
+
+      {/* 1. Halo Exterior Amplio (Eje Vertical) */}
       <LinearGradient
-        colors={[
-          `rgba(${color}, ${maxOpacity * 0.35})`,
-          `rgba(${color}, ${maxOpacity * 0.12})`,
-          `rgba(${color}, 0)`,
-        ]}
+        colors={[`rgba(${color}, 0)`, `rgba(${color}, ${maxOpacity * 0.35})`, `rgba(${color}, 0)`]}
         locations={[0, 0.5, 1]}
-        start={{ x: 0.5, y: 0.5 }}
-        end={{ x: 1, y: 1 }}
-        style={[
-          styles.glowLayer,
-          {
-            width: size,
-            height: size,
-            borderRadius: half,
-          },
-        ]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={[styles.glowLayer, { width: size, height: size }]}
       />
 
-      {/* Capa 2: Gradiente medio cruzado para volumen esférico */}
+      {/* 2. Halo Exterior Amplio (Eje Horizontal) */}
       <LinearGradient
-        colors={[
-          `rgba(${color}, ${maxOpacity * 0.6})`,
-          `rgba(${color}, ${maxOpacity * 0.22})`,
-          `rgba(${color}, 0)`,
-        ]}
-        locations={[0, 0.52, 1]}
-        start={{ x: 0.35, y: 0.35 }}
-        end={{ x: 0.95, y: 0.95 }}
+        colors={[`rgba(${color}, 0)`, `rgba(${color}, ${maxOpacity * 0.35})`, `rgba(${color}, 0)`]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={[styles.glowLayer, { width: size, height: size }]}
+      />
+
+      {/* 3. Halo Diagonal Suave 1 */}
+      <LinearGradient
+        colors={[`rgba(${color}, 0)`, `rgba(${color}, ${maxOpacity * 0.22})`, `rgba(${color}, 0)`]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0.1, y: 0.1 }}
+        end={{ x: 0.9, y: 0.9 }}
+        style={[styles.glowLayer, { width: size, height: size }]}
+      />
+
+      {/* 4. Halo Diagonal Suave 2 */}
+      <LinearGradient
+        colors={[`rgba(${color}, 0)`, `rgba(${color}, ${maxOpacity * 0.22})`, `rgba(${color}, 0)`]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0.9, y: 0.1 }}
+        end={{ x: 0.1, y: 0.9 }}
+        style={[styles.glowLayer, { width: size, height: size }]}
+      />
+
+      {/* 5. Capa Media Concentrada (Eje Vertical) */}
+      <LinearGradient
+        colors={[`rgba(${color}, 0)`, `rgba(${color}, ${maxOpacity * 0.55})`, `rgba(${color}, 0)`]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
         style={[
           styles.glowLayer,
           {
             width: midSize,
             height: midSize,
-            borderRadius: midHalf,
             top: (size - midSize) / 2,
             left: (size - midSize) / 2,
           },
         ]}
       />
 
-      {/* Capa 3: Núcleo de luz difuminado */}
+      {/* 6. Capa Media Concentrada (Eje Horizontal) */}
       <LinearGradient
-        colors={[
-          `rgba(${color}, ${maxOpacity})`,
-          `rgba(${color}, ${maxOpacity * 0.35})`,
-          `rgba(${color}, 0)`,
+        colors={[`rgba(${color}, 0)`, `rgba(${color}, ${maxOpacity * 0.55})`, `rgba(${color}, 0)`]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={[
+          styles.glowLayer,
+          {
+            width: midSize,
+            height: midSize,
+            top: (size - midSize) / 2,
+            left: (size - midSize) / 2,
+          },
         ]}
-        locations={[0, 0.55, 1]}
-        start={{ x: 0.5, y: 0.5 }}
-        end={{ x: 1, y: 1 }}
+      />
+
+      {/* 7. Núcleo Brillante Central Difuminado */}
+      <LinearGradient
+        colors={[`rgba(${color}, 0)`, `rgba(${color}, ${maxOpacity})`, `rgba(${color}, 0)`]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
         style={[
           styles.glowLayer,
           {
             width: innerSize,
             height: innerSize,
-            borderRadius: innerHalf,
+            top: (size - innerSize) / 2,
+            left: (size - innerSize) / 2,
+          },
+        ]}
+      />
+      <LinearGradient
+        colors={[`rgba(${color}, 0)`, `rgba(${color}, ${maxOpacity})`, `rgba(${color}, 0)`]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={[
+          styles.glowLayer,
+          {
+            width: innerSize,
+            height: innerSize,
             top: (size - innerSize) / 2,
             left: (size - innerSize) / 2,
           },
@@ -113,7 +154,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     ...Platform.select({
       web: {
-        filter: 'blur(75px)',
+        filter: 'blur(80px)',
       },
     }),
   },

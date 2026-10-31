@@ -50,6 +50,8 @@ export function DoodleBackground({
       <BlurView
         intensity={Platform.OS === 'android' ? 60 : 80}
         tint="dark"
+        experimentalBlurMethod="dimezisBlurView"
+        blurMethod="dimezisBlurView"
         style={StyleSheet.absoluteFill}
       />
 
