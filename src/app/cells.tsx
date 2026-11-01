@@ -353,7 +353,16 @@ export default function CellsScreen() {
           ? members.find((m) => m.id === cellLeaderMember.leaderId)
           : undefined;
 
-        // Si el líder de célula es Líder 12 (nivel 2, su líder es pastor de red)
+        // Si el líder de célula es un 144 (su líder directo existe y NO es pastor, ej: Yonmar Leal)
+        if (
+          leaderOfMember &&
+          leaderOfMember.role !== 'senior_pastor' &&
+          leaderOfMember.role !== 'network_pastor'
+        ) {
+          return `${leaderOfMember.firstName} ${leaderOfMember.lastName}`.trim();
+        }
+
+        // Si el líder de célula es Líder 12 (nivel 2, su líder es pastor)
         const isLider12 =
           cellLeaderMember.generationLevel === 2 ||
           cellLeaderMember.isLeaderOf12 ||
@@ -363,11 +372,6 @@ export default function CellsScreen() {
 
         if (isLider12) {
           return `${cellLeaderMember.firstName} ${cellLeaderMember.lastName}`.trim();
-        }
-
-        // Si es un 144 (nivel 3), su Líder 12 es su líder directo
-        if (leaderOfMember) {
-          return `${leaderOfMember.firstName} ${leaderOfMember.lastName}`.trim();
         }
       }
 

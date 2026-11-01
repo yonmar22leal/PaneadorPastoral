@@ -355,14 +355,14 @@ export default function DashboardScreen() {
 
   const getRoleLabel = () => {
     if (currentUser.role === 'senior_pastor') return 'Pastor Principal';
-    if (currentUser.generationLevel === 3) return 'Líder 144';
-    if (currentUser.generationLevel === 4) return 'Líder 1728';
-    if (currentUser.generationLevel === 2) return 'Líder 12';
+    if (currentUser.role === 'network_pastor') {
+      return currentUser.network === 'juvenil' ? 'Pastor Juvenil' : 'Pastor Adultos';
+    }
 
     if (currentUser.leaderId) {
       const leader = members.find((m) => m.id === currentUser.leaderId);
       if (leader) {
-        if (leader.role === 'senior_pastor') return 'Líder 12';
+        if (leader.role === 'senior_pastor' || leader.role === 'network_pastor') return 'Líder 12';
         return 'Líder 144';
       }
     }
@@ -379,7 +379,9 @@ export default function DashboardScreen() {
       return 'Líder 144';
     }
 
-    if (currentUser.role === 'g12_leader' || currentUser.isLeaderOf12) {
+    if (currentUser.generationLevel === 3) return 'Líder 144';
+    if (currentUser.generationLevel === 4) return 'Líder 1728';
+    if (currentUser.generationLevel === 2 || currentUser.role === 'g12_leader' || currentUser.isLeaderOf12) {
       return 'Líder 12';
     }
     return 'Líder 144';

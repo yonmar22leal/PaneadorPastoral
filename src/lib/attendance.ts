@@ -55,23 +55,86 @@ export function parseAge(text: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+export function getLocalDateString(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+const MONTH_NAMES_ES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+const DAY_NAMES_ES = [
+  'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado',
+];
+
+export function formatDisplayDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const d = new Date(year, month, day);
+  const dayName = DAY_NAMES_ES[d.getDay()] || '';
+  const monthName = MONTH_NAMES_ES[month] || '';
+  return `${dayName}, ${day} de ${monthName}`;
+}
+
 export interface AttendanceSummary {
-  hombres: number;
-  mujeres: number;
-  prejuvenil: number;
-  sinClasificar: number;
+  // Totales generales
   total: number;
-  visitors: number;
+  hombres: number; // >= 14 años (Líderes + Discípulos + Visitas)
+  mujeres: number; // >= 14 años (Líderes + Discípulas + Visitas)
+  prejuvenil: number; // < 14 años (todos)
+  sinClasificar: number;
+
+  // 1. Discípulos (Miembros que asistieron)
+  disciplesTotal: number;
+  disciplesHombres: number;
+  disciplesMujeres: number;
+  disciplesPrejuvenil: number;
+
+  // 2. Invitados (Nuevos)
+  visitorsTotal: number;
+  visitorsHombres: number;
+  visitorsMujeres: number;
+  visitorsPrejuvenil: number;
+  visitors: number; // alias para compatibilidad
+
+  // 3. Líderes que reportaron su propia asistencia
+  leadersTotal: number;
+  leadersHombres: number;
+  leadersMujeres: number;
+
   reportsCount: number;
 }
 
 export const emptySummary = (): AttendanceSummary => ({
+  total: 0,
   hombres: 0,
   mujeres: 0,
   prejuvenil: 0,
   sinClasificar: 0,
-  total: 0,
+
+  disciplesTotal: 0,
+  disciplesHombres: 0,
+  disciplesMujeres: 0,
+  disciplesPrejuvenil: 0,
+
+  visitorsTotal: 0,
+  visitorsHombres: 0,
+  visitorsMujeres: 0,
+  visitorsPrejuvenil: 0,
   visitors: 0,
+
+  leadersTotal: 0,
+  leadersHombres: 0,
+  leadersMujeres: 0,
+
   reportsCount: 0,
 });
 
@@ -83,8 +146,8 @@ const normalizePersonName = (name?: string) =>
 /**
  * Suma la asistencia de varios reportes de líderes.
  * - Cuenta al líder (si asistió), a sus discípulos presentes y a sus invitados.
- * - Si una misma persona (por ID de miembro o por nombre normalizado) aparece en dos reportes del mismo servicio,
- *   se cuenta una sola vez (ej: un discípulo que reportó su propio líder 12 y también envía su propio reporte).
+ * - Discípulos e invitados se desglosan por sexo (Hombres y Mujeres) por separado para evitar confusiones.
+ * - Si una misma persona aparece en dos reportes del mismo servicio, se deduplica para no inflar los números.
  */
 export function summarizeReports(
   reports: LeaderAttendanceReport[],
@@ -94,13 +157,34 @@ export function summarizeReports(
   const counted = new Set<string>();
   const memberById = new Map(members.map((m) => [m.id, m]));
 
-  const add = (cat: AttendanceCategory, isVisitor = false) => {
+  const addPerson = (
+    cat: AttendanceCategory,
+    type: 'leader' | 'disciple' | 'visitor'
+  ) => {
+    // Totales generales
     if (cat === 'hombres') summary.hombres++;
     else if (cat === 'mujeres') summary.mujeres++;
     else if (cat === 'prejuvenil') summary.prejuvenil++;
     else summary.sinClasificar++;
     summary.total++;
-    if (isVisitor) summary.visitors++;
+
+    // Desglose por tipo
+    if (type === 'leader') {
+      summary.leadersTotal++;
+      if (cat === 'hombres') summary.leadersHombres++;
+      else if (cat === 'mujeres') summary.leadersMujeres++;
+    } else if (type === 'disciple') {
+      summary.disciplesTotal++;
+      if (cat === 'hombres') summary.disciplesHombres++;
+      else if (cat === 'mujeres') summary.disciplesMujeres++;
+      else if (cat === 'prejuvenil') summary.disciplesPrejuvenil++;
+    } else if (type === 'visitor') {
+      summary.visitorsTotal++;
+      summary.visitors++;
+      if (cat === 'hombres') summary.visitorsHombres++;
+      else if (cat === 'mujeres') summary.visitorsMujeres++;
+      else if (cat === 'prejuvenil') summary.visitorsPrejuvenil++;
+    }
   };
 
   reports.forEach((rep) => {
@@ -124,7 +208,10 @@ export function summarizeReports(
           members.find(
             (mem) => normalizePersonName(`${mem.firstName} ${mem.lastName}`) === normLeader
           );
-        add(classifyPerson(rep.leaderGender ?? m?.gender, rep.leaderAge ?? calcAge(m?.birthDate)));
+        addPerson(
+          classifyPerson(rep.leaderGender ?? m?.gender, rep.leaderAge ?? calcAge(m?.birthDate)),
+          'leader'
+        );
       }
     }
 
@@ -147,17 +234,17 @@ export function summarizeReports(
           members.find(
             (mem) => normalizePersonName(`${mem.firstName} ${mem.lastName}`) === normDName
           );
-        add(classifyPerson(d.gender ?? m?.gender, d.age ?? calcAge(m?.birthDate)));
+        addPerson(classifyPerson(d.gender ?? m?.gender, d.age ?? calcAge(m?.birthDate)), 'disciple');
       });
 
     // 3. Invitados
     const visitorList = rep.visitors ?? [];
-    visitorList.forEach((v) => add(classifyPerson(v.gender, v.age), true));
+    visitorList.forEach((v) => addPerson(classifyPerson(v.gender, v.age), 'visitor'));
     const extraVisitors = Math.max(
       0,
       (rep.visitorsCount || 0) - Math.max(visitorList.length, 0)
     );
-    for (let i = 0; i < extraVisitors; i++) add('sin_clasificar', true);
+    for (let i = 0; i < extraVisitors; i++) addPerson('sin_clasificar', 'visitor');
   });
 
   return summary;

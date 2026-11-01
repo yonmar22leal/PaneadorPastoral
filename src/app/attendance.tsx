@@ -1,7 +1,10 @@
+import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 import {
   calcAge,
   classifyPerson,
+  formatDisplayDate,
+  getLocalDateString,
   latestReportDate,
   parseAge,
   PREJUVENIL_MAX_AGE,
@@ -29,19 +32,21 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DoodleBackground } from '@/components/doodle-background';
 
 export default function AttendanceScreen() {
   const router = useRouter();
   const {
     currentUser,
     members,
+    attendanceRecords,
     saveAttendance,
     servicesSchedule,
     getMyDisciples,
     getMyLeaderAttendanceReports,
     leaderAttendanceReports,
     submitLeaderReport,
+    updateLeaderReport,
+    deleteLeaderReport,
     getLeaderInCharge,
   } = useChurch();
 
@@ -76,15 +81,15 @@ export default function AttendanceScreen() {
   }, [currentUser, leaderAttendanceReports, myLeaderAttendanceReports]);
 
   // Fechas disponibles en los reportes de su red
+  const localTodayStr = useMemo(() => getLocalDateString(new Date()), []);
   const availableDates = useMemo(() => {
     const dates = uniqueReportDates(networkReports);
-    const today = new Date().toISOString().split('T')[0];
-    if (!dates.includes(today)) dates.unshift(today);
+    if (!dates.includes(localTodayStr)) dates.unshift(localTodayStr);
     return dates;
-  }, [networkReports]);
+  }, [networkReports, localTodayStr]);
 
   const [selectedDate, setSelectedDate] = useState<string>(
-    latestReportDate(networkReports) || availableDates[0]
+    latestReportDate(networkReports) || localTodayStr
   );
 
   // Reportes filtrados por servicio y fecha seleccionados para el pastor
@@ -99,6 +104,22 @@ export default function AttendanceScreen() {
     return summarizeReports(reportsForSelectedService, members);
   }, [reportsForSelectedService, members]);
 
+  // Registro oficial guardado para la fecha y servicio seleccionados (si existe)
+  const existingOfficialRecord = useMemo(() => {
+    return attendanceRecords.find(
+      (a) => a.date === selectedDate && a.serviceId === selectedServiceId
+    );
+  }, [attendanceRecords, selectedDate, selectedServiceId]);
+
+  const isSaved = Boolean(existingOfficialRecord);
+  const savedTotal = existingOfficialRecord
+    ? (existingOfficialRecord.menCount || 0) +
+    (existingOfficialRecord.womenCount || 0) +
+    (existingOfficialRecord.kidsCount || 0) +
+    (existingOfficialRecord.visitorsCount || 0)
+    : 0;
+  const hasNewReportsPending = isSaved && savedTotal !== serviceSummary.total;
+
   // Helper para resolver el Líder 12 de un reporte de asistencia
   const resolveLeader12ForReport = useCallback(
     (rep: LeaderAttendanceReport): { id: string; name: string } => {
@@ -106,7 +127,7 @@ export default function AttendanceScreen() {
         (m) =>
           m.id === rep.leaderId ||
           `${m.firstName} ${m.lastName}`.trim().toLowerCase() ===
-            rep.leaderName.trim().toLowerCase()
+          rep.leaderName.trim().toLowerCase()
       );
 
       const leaderOfAuthor = repAuthor?.leaderId
@@ -121,31 +142,19 @@ export default function AttendanceScreen() {
         };
       }
 
-      // 2. Si el autor es Líder 12 (nivel 2, o su líder directo es un pastor)
-      const isAuthorLider12 =
-        repAuthor &&
-        (repAuthor.generationLevel === 2 ||
-          repAuthor.isLeaderOf12 ||
-          (leaderOfAuthor &&
-            (leaderOfAuthor.role === 'senior_pastor' ||
-              leaderOfAuthor.role === 'network_pastor')));
-
-      if (isAuthorLider12 && repAuthor) {
-        return {
-          id: repAuthor.id,
-          name: `${repAuthor.firstName} ${repAuthor.lastName}`.trim(),
-        };
-      }
-
-      // 3. Si el autor es un 144 (nivel 3), su Líder 12 es su líder directo
-      if (leaderOfAuthor) {
+      // 2. Si el autor es un 144 (su líder directo existe y NO es pastor, ej: Yonmar Leal)
+      if (
+        leaderOfAuthor &&
+        leaderOfAuthor.role !== 'senior_pastor' &&
+        leaderOfAuthor.role !== 'network_pastor'
+      ) {
         return {
           id: leaderOfAuthor.id,
           name: `${leaderOfAuthor.firstName} ${leaderOfAuthor.lastName}`.trim(),
         };
       }
 
-      // 4. Verificar si el destinatario es un Líder 12
+      // 3. Si el reporte especifica un destinatario que es Líder 12 (ej: reporte enviado a Líder Yonmar)
       if (rep.recipientLeaderId) {
         const recMember = members.find((m) => m.id === rep.recipientLeaderId);
         if (
@@ -171,10 +180,11 @@ export default function AttendanceScreen() {
         cleanRec.includes('norelis');
 
       if (recName && !isRecPastor) {
-        const matchingMember = members.find((m) =>
-          cleanRec.includes(m.firstName.toLowerCase())
-        );
-        if (matchingMember) {
+        const matchingMember = members.find((m) => {
+          const full = `${m.firstName} ${m.lastName}`.toLowerCase();
+          return full.includes(cleanRec) || cleanRec.includes(m.firstName.toLowerCase());
+        });
+        if (matchingMember && matchingMember.role !== 'senior_pastor' && matchingMember.role !== 'network_pastor') {
           return {
             id: matchingMember.id,
             name: `${matchingMember.firstName} ${matchingMember.lastName}`.trim(),
@@ -183,6 +193,22 @@ export default function AttendanceScreen() {
         return {
           id: cleanRec,
           name: recName.replace(/^(líder|lider)\s+/i, '').trim(),
+        };
+      }
+
+      // 4. Si el autor es Líder 12 (nivel 2, o su líder directo es un pastor)
+      const isAuthorLider12 =
+        repAuthor &&
+        (repAuthor.generationLevel === 2 ||
+          repAuthor.isLeaderOf12 ||
+          (leaderOfAuthor &&
+            (leaderOfAuthor.role === 'senior_pastor' ||
+              leaderOfAuthor.role === 'network_pastor')));
+
+      if (isAuthorLider12 && repAuthor) {
+        return {
+          id: repAuthor.id,
+          name: `${repAuthor.firstName} ${repAuthor.lastName}`.trim(),
         };
       }
 
@@ -298,11 +324,21 @@ export default function AttendanceScreen() {
   const [newDiscipleGender, setNewDiscipleGender] = useState<PersonGender>('M');
   const [newDiscipleAge, setNewDiscipleAge] = useState('16');
 
-  // Lista de invitados estructurada con Sexo y Edad
-  const [visitorsList, setVisitorsList] = useState<ReportVisitorItem[]>([
-    { id: 'vis-1', name: 'Kevin Hernández', gender: 'M', age: 16 },
-    { id: 'vis-2', name: 'Andrea Colmenares', gender: 'F', age: 13 }, // Prejuvenil (<14)
-  ]);
+  // Fechas y selección para el formulario de reporte
+  const closestSundayStr = useMemo(() => {
+    const d = new Date();
+    const day = d.getDay(); // 0 is Sunday
+    if (day === 0) return localTodayStr;
+    const diff = 7 - day;
+    d.setDate(d.getDate() + diff);
+    return getLocalDateString(d);
+  }, [localTodayStr]);
+
+  const [formServiceDate, setFormServiceDate] = useState<string>(localTodayStr);
+  const [editingReportId, setEditingReportId] = useState<string | null>(null);
+
+  // Lista de invitados estructurada con Sexo y Edad (inicia vacía para no inflar reportes)
+  const [visitorsList, setVisitorsList] = useState<ReportVisitorItem[]>([]);
   const [newVisitorName, setNewVisitorName] = useState('');
   const [newVisitorGender, setNewVisitorGender] = useState<PersonGender>('M');
   const [newVisitorAge, setNewVisitorAge] = useState('15');
@@ -314,6 +350,50 @@ export default function AttendanceScreen() {
     allowedServices.find((s) => s.id === selectedServiceId) ||
     allowedServices[0] ||
     servicesSchedule[0];
+
+  // Desglose en vivo de Discípulos e Invitados para el formulario
+  const formDisciplesBreakdown = useMemo(() => {
+    let men = 0;
+    let women = 0;
+    let prejuvenil = 0;
+    disciplesState
+      .filter((d) => d.attended)
+      .forEach((d) => {
+        const cat = classifyPerson(d.gender, d.age);
+        if (cat === 'hombres') men++;
+        else if (cat === 'mujeres') women++;
+        else if (cat === 'prejuvenil') prejuvenil++;
+      });
+    return {
+      total: men + women + prejuvenil,
+      men,
+      women,
+      prejuvenil,
+    };
+  }, [disciplesState]);
+
+  const formVisitorsBreakdown = useMemo(() => {
+    let men = 0;
+    let women = 0;
+    let prejuvenil = 0;
+    visitorsList.forEach((v) => {
+      const cat = classifyPerson(v.gender, v.age);
+      if (cat === 'hombres') men++;
+      else if (cat === 'mujeres') women++;
+      else if (cat === 'prejuvenil') prejuvenil++;
+    });
+    return {
+      total: men + women + prejuvenil,
+      men,
+      women,
+      prejuvenil,
+    };
+  }, [visitorsList]);
+
+  const formTotalPeople =
+    (myAttendance ? 1 : 0) +
+    formDisciplesBreakdown.total +
+    formVisitorsBreakdown.total;
 
   // ==========================
   // HANDLERS LÍDER
@@ -426,21 +506,97 @@ export default function AttendanceScreen() {
     setVisitorsList((prev) => prev.filter((v) => v.id !== id));
   };
 
+  const canManageReport = useCallback(
+    (rep: LeaderAttendanceReport) => {
+      if (isPastor) return true;
+      if (currentUser?.id && rep.leaderId && currentUser.id === rep.leaderId) return true;
+      const cleanMyName = `${currentUser?.firstName} ${currentUser?.lastName}`.toLowerCase().trim();
+      const cleanRepName = (rep.leaderName || '').toLowerCase().trim();
+      if (cleanMyName && (cleanMyName === cleanRepName || cleanRepName.includes(cleanMyName))) return true;
+      if (isLider12) return true;
+      return false;
+    },
+    [isPastor, isLider12, currentUser]
+  );
+
+  const handleStartEditReport = (rep: LeaderAttendanceReport) => {
+    setEditingReportId(rep.id);
+    setSelectedServiceId(rep.serviceId);
+    setFormServiceDate(rep.serviceDate);
+    setMyAttendance(rep.myAttendance);
+    setLeaderGenderOverride(rep.leaderGender || null);
+    setLeaderAgeOverride(rep.leaderAge ? String(rep.leaderAge) : null);
+    setVisitorsList(rep.visitors || []);
+    setLeaderNotes(rep.notes || '');
+
+    const overrides: Record<string, { attended?: boolean; gender?: PersonGender; age?: number }> = {};
+    const manuals: DiscipleAttendanceItem[] = [];
+
+    rep.disciples.forEach((d) => {
+      if (d.memberId.startsWith('manual-')) {
+        manuals.push(d);
+      } else {
+        overrides[d.memberId] = {
+          attended: d.attended,
+          gender: d.gender,
+          age: d.age,
+        };
+      }
+    });
+
+    setRegisteredOverrides(overrides);
+    setManualDisciples(manuals);
+    setActiveViewMode('form');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingReportId(null);
+    setRegisteredOverrides({});
+    setManualDisciples([]);
+    setVisitorsList([]);
+    setLeaderNotes('');
+    setFormServiceDate(localTodayStr);
+  };
+
+  const handleDeleteReport = (rep: LeaderAttendanceReport) => {
+    Alert.alert(
+      '¿Eliminar Reporte de Asistencia?',
+      `¿Estás seguro de que deseas eliminar este reporte de "${rep.leaderName}" correspondiente a ${formatDisplayDate(rep.serviceDate)} (${rep.serviceDate})?\n\nEsta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteLeaderReport(rep.id);
+              if (editingReportId === rep.id) {
+                handleCancelEdit();
+              }
+              Alert.alert('Reporte Eliminado', 'El reporte fue eliminado con éxito.');
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'No se pudo eliminar el reporte.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSubmitLeaderReport = async () => {
     setSubmitting(true);
     try {
       const leaderName = currentUser
         ? `${currentUser.firstName} ${currentUser.lastName}`
-        : 'Líder 12';
-      const todayStr = new Date().toISOString().split('T')[0];
+        : 'Líder';
 
-      await submitLeaderReport({
+      const payload = {
         leaderId: currentUser?.id || 'lider-temp',
         leaderName,
         recipientLeaderId: leaderInCharge.id,
         recipientLeaderName: leaderInCharge.name,
         serviceId: currentServiceObj.id,
-        serviceDate: todayStr,
+        serviceDate: formServiceDate,
         myAttendance,
         leaderGender,
         leaderAge: parseAge(leaderAge),
@@ -449,12 +605,25 @@ export default function AttendanceScreen() {
         visitorNames: visitorsList.map((v) => v.name),
         visitors: visitorsList,
         notes: leaderNotes.trim() || undefined,
-      });
+      };
 
-      Alert.alert(
-        '¡Reporte Enviado!',
-        `Tu reporte para ${currentServiceObj.name} ha sido enviado exitosamente a tu pastor/líder: ${leaderInCharge.name}. Se sumará al conteo oficial de Hombres, Mujeres y Prejuvenil.`
-      );
+      if (editingReportId) {
+        await updateLeaderReport(editingReportId, payload);
+        Alert.alert(
+          '¡Reporte Actualizado!',
+          `Tu reporte para ${currentServiceObj.name} (${formatDisplayDate(formServiceDate)}) ha sido actualizado con éxito.`
+        );
+        handleCancelEdit();
+        setActiveViewMode('reports');
+      } else {
+        await submitLeaderReport(payload);
+        Alert.alert(
+          '¡Reporte Enviado!',
+          `Tu reporte para ${currentServiceObj.name} (${formatDisplayDate(formServiceDate)}) ha sido enviado exitosamente a tu pastor/líder: ${leaderInCharge.name}. Se sumará al conteo oficial de Hombres, Mujeres y Prejuveniles.`
+        );
+        handleCancelEdit();
+        if (canViewReports) setActiveViewMode('reports');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -475,8 +644,8 @@ export default function AttendanceScreen() {
     });
 
     Alert.alert(
-      'Asistencia Oficial Guardada',
-      `Se guardó el registro oficial para ${currentServiceObj.name}:\n• Total: ${serviceSummary.total}\n• Hombres: ${serviceSummary.hombres}\n• Mujeres: ${serviceSummary.mujeres}\n• Prejuveniles (<14): ${serviceSummary.prejuvenil}\n• Visitas: ${serviceSummary.visitors}`
+      isSaved ? 'Asistencia Oficial Actualizada' : 'Asistencia Oficial Guardada',
+      `${isSaved ? 'Se actualizó' : 'Se guardó'} el registro oficial para ${currentServiceObj.name}:\n• Total: ${serviceSummary.total}\n• Hombres: ${serviceSummary.hombres}\n• Mujeres: ${serviceSummary.mujeres}\n• Prejuveniles (<14): ${serviceSummary.prejuvenil}\n• Visitas: ${serviceSummary.visitors}`
     );
   };
 
@@ -484,106 +653,784 @@ export default function AttendanceScreen() {
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <StatusBar style="light" />
       <DoodleBackground>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Top Navigation Row con Botón de Regresar */}
-        <View style={styles.topNavRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
-            activeOpacity={0.8}>
-            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.topNavTitle}>
-              {isPastor ? 'Control de Asistencia' : 'Reporte de Asistencia'}
-            </Text>
-            <Text style={styles.topNavSubtitle}>
-              {isPastor ? 'IEC Caja de Agua • Consolidado Pastoral' : 'Discipulado G12 • Envío de Reporte'}
-            </Text>
-          </View>
-        </View>
-        {/* ============================================================== */}
-        {/* SELECTOR DE MODO PARA LÍDERES 12 (ENVIAR REPORTE / VER RED)   */}
-        {/* ============================================================== */}
-        {canViewReports && !isPastor && (
-          <View style={styles.topModeSelector}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Top Navigation Row con Botón de Regresar */}
+          <View style={styles.topNavRow}>
             <TouchableOpacity
-              style={[
-                styles.topModeBtn,
-                activeViewMode === 'form' && styles.topModeBtnActive,
-              ]}
-              onPress={() => setActiveViewMode('form')}>
-              <Ionicons
-                name="create-outline"
-                size={16}
-                color={activeViewMode === 'form' ? '#FFFFFF' : '#1E3A8A'}
-              />
-              <Text
-                style={[
-                  styles.topModeBtnText,
-                  activeViewMode === 'form' && styles.topModeBtnTextActive,
-                ]}>
-                Enviar mi Reporte
-              </Text>
+              style={styles.backButton}
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
+              activeOpacity={0.8}>
+              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.topModeBtn,
-                activeViewMode === 'reports' && styles.topModeBtnActive,
-              ]}
-              onPress={() => setActiveViewMode('reports')}>
-              <Ionicons
-                name="bar-chart-outline"
-                size={16}
-                color={activeViewMode === 'reports' ? '#FFFFFF' : '#1E3A8A'}
-              />
-              <Text
-                style={[
-                  styles.topModeBtnText,
-                  activeViewMode === 'reports' && styles.topModeBtnTextActive,
-                ]}>
-                Reportes de mi Red ({reportsForSelectedService.length})
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.topNavTitle}>
+                {isPastor ? 'Control de Asistencia' : 'Reporte de Asistencia'}
               </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ============================================================== */}
-        {/* IF CURRENT USER IS NOT PASTOR IN FORM MODE (LEADER SUBMISSION) */}
-        {/* ============================================================== */}
-        {!isPastor && activeViewMode === 'form' ? (
-          <View>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.leaderBadgeRow}>
-                <Ionicons name="shield-checkmark" size={14} color="#2563EB" />
-                <Text style={styles.leaderBadgeText}>
-                  {currentUser?.role === 'g12_leader' ? 'Líder de 12' : 'Miembro'}
-                </Text>
-              </View>
-              <Text style={styles.headerTitle}>Reporte de Asistencia</Text>
-              <Text style={styles.headerSubtitle}>
-                Reporta a tus discípulos e invitados con sexo y edad para el conteo de Hombres, Mujeres y Prejuveniles (&lt;14 años)
+              <Text style={styles.topNavSubtitle}>
+                {isPastor ? 'IEC Caja de Agua • Consolidado Pastoral' : 'Discipulado G12 • Envío de Reporte'}
               </Text>
             </View>
+          </View>
+          {/* ============================================================== */}
+          {/* SELECTOR DE MODO PARA LÍDERES 12 (ENVIAR REPORTE / VER RED)   */}
+          {/* ============================================================== */}
+          {canViewReports && !isPastor && (
+            <View style={styles.topModeSelector}>
+              <TouchableOpacity
+                style={[
+                  styles.topModeBtn,
+                  activeViewMode === 'form' && styles.topModeBtnActive,
+                ]}
+                onPress={() => setActiveViewMode('form')}>
+                <Ionicons
+                  name="create-outline"
+                  size={16}
+                  color={activeViewMode === 'form' ? '#FFFFFF' : '#1E3A8A'}
+                />
+                <Text
+                  style={[
+                    styles.topModeBtnText,
+                    activeViewMode === 'form' && styles.topModeBtnTextActive,
+                  ]}>
+                  Enviar mi Reporte
+                </Text>
+              </TouchableOpacity>
 
-            {/* Recipient Notice Card */}
-            <View style={styles.recipientNoticeCard}>
-              <Ionicons name="paper-plane" size={18} color="#2563EB" />
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.recipientNoticeTitle}>Líder Encargado (Recibe este Reporte):</Text>
-                <Text style={styles.recipientNoticeName}>
-                  {leaderInCharge.name} (Cobertura Pastoral)
+              <TouchableOpacity
+                style={[
+                  styles.topModeBtn,
+                  activeViewMode === 'reports' && styles.topModeBtnActive,
+                ]}
+                onPress={() => setActiveViewMode('reports')}>
+                <Ionicons
+                  name="bar-chart-outline"
+                  size={16}
+                  color={activeViewMode === 'reports' ? '#FFFFFF' : '#1E3A8A'}
+                />
+                <Text
+                  style={[
+                    styles.topModeBtnText,
+                    activeViewMode === 'reports' && styles.topModeBtnTextActive,
+                  ]}>
+                  Reportes de mi Red ({reportsForSelectedService.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ============================================================== */}
+          {/* IF CURRENT USER IS NOT PASTOR IN FORM MODE (LEADER SUBMISSION) */}
+          {/* ============================================================== */}
+          {!isPastor && activeViewMode === 'form' ? (
+            <View>
+              {/* Editing Banner */}
+              {editingReportId && (
+                <View style={styles.editingBanner}>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="pencil" size={16} color="#F59E0B" />
+                      <Text style={styles.editingBannerTitle}>Modo Edición de Reporte</Text>
+                    </View>
+                    <Text style={styles.editingBannerSub}>
+                      Modificando reporte para {currentServiceObj.name} ({formatDisplayDate(formServiceDate)})
+                    </Text>
+                  </View>
+                  <TouchableOpacity style={styles.cancelEditBtn} onPress={handleCancelEdit}>
+                    <Text style={styles.cancelEditBtnText}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Header */}
+              <View style={styles.header}>
+                <View style={styles.leaderBadgeRow}>
+                  <Ionicons name="shield-checkmark" size={14} color="#2563EB" />
+                  <Text style={styles.leaderBadgeText}>
+                    {currentUser?.role === 'g12_leader' ? 'Líder de 12' : 'Líder G12'}
+                  </Text>
+                </View>
+                <Text style={styles.headerTitle}>
+                  {editingReportId ? 'Editar Reporte' : 'Reporte de Asistencia'}
+                </Text>
+                <Text style={styles.headerSubtitle}>
+                  Reporta a tus discípulos e invitados con sexo y edad para el conteo de Hombres, Mujeres y Prejuveniles (&lt;14 años)
                 </Text>
               </View>
-            </View>
 
-            {/* 1. Service Selection */}
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>1. Selecciona el Servicio</Text>
-              <Text style={styles.fieldDesc}>Servicio al que asistieron:</Text>
-              <View style={styles.serviceChipsGrid}>
+              {/* Recipient Notice Card */}
+              <View style={styles.recipientNoticeCard}>
+                <Ionicons name="paper-plane" size={18} color="#2563EB" />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.recipientNoticeTitle}>Líder Encargado (Recibe este Reporte):</Text>
+                  <Text style={styles.recipientNoticeName}>
+                    {leaderInCharge.name} (Cobertura Pastoral)
+                  </Text>
+                </View>
+              </View>
+
+              {/* 1. Service & Date Selection */}
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>1. Servicio y Fecha a Reportar</Text>
+                <Text style={styles.fieldDesc}>Selecciona el servicio al que asistió tu equipo:</Text>
+                <View style={styles.serviceChipsGrid}>
+                  {allowedServices.map((srv) => (
+                    <TouchableOpacity
+                      key={srv.id}
+                      style={[
+                        styles.serviceChip,
+                        selectedServiceId === srv.id && styles.serviceChipActive,
+                      ]}
+                      onPress={() => setSelectedServiceId(srv.id)}>
+                      <Text
+                        style={[
+                          styles.serviceChipText,
+                          selectedServiceId === srv.id && styles.serviceChipTextActive,
+                        ]}>
+                        {srv.name} ({srv.time.split(' - ')[0]})
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Selector de Fecha del Servicio */}
+                <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.08)' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <Ionicons name="calendar-outline" size={15} color="#38BDF8" />
+                    <Text style={styles.subSectionTitle}>Fecha del Servicio a Reportar</Text>
+                  </View>
+                  <Text style={styles.fieldDesc}>
+                    ¿A qué día corresponde este reporte de asistencia?
+                  </Text>
+
+                  {/* Botones de Selección Rápida */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6, marginBottom: 10 }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.quickDateChip,
+                        formServiceDate === localTodayStr && styles.quickDateChipActive,
+                      ]}
+                      onPress={() => setFormServiceDate(localTodayStr)}>
+                      <Text
+                        style={[
+                          styles.quickDateChipText,
+                          formServiceDate === localTodayStr && styles.quickDateChipTextActive,
+                        ]}>
+                        Hoy ({formatDisplayDate(localTodayStr).split(',')[0]})
+                      </Text>
+                    </TouchableOpacity>
+
+                    {closestSundayStr !== localTodayStr && (
+                      <TouchableOpacity
+                        style={[
+                          styles.quickDateChip,
+                          formServiceDate === closestSundayStr && styles.quickDateChipActive,
+                        ]}
+                        onPress={() => setFormServiceDate(closestSundayStr)}>
+                        <Text
+                          style={[
+                            styles.quickDateChipText,
+                            formServiceDate === closestSundayStr && styles.quickDateChipTextActive,
+                          ]}>
+                          Domingo ({closestSundayStr.split('-').slice(1).reverse().join('/')})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Indicador de Fecha Activa */}
+                  <View style={styles.activeDateBanner}>
+                    <Ionicons name="time-outline" size={16} color="#38BDF8" />
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                      <Text style={styles.activeDateBannerSub}>Fecha seleccionada para este reporte:</Text>
+                      <Text style={styles.activeDateBannerMain}>
+                        {formatDisplayDate(formServiceDate)} ({formServiceDate})
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* 2. My Personal Attendance */}
+              <View style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionTitle}>2. Mi Asistencia Personal</Text>
+                    <Text style={styles.fieldDesc}>
+                      ¿Asististe tú al servicio en el templo?
+                    </Text>
+                  </View>
+                  <Switch
+                    value={myAttendance}
+                    onValueChange={setMyAttendance}
+                    trackColor={{ false: '#CBD5E1', true: '#3B82F6' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                {myAttendance && (
+                  <View>
+                    <View style={styles.leaderProfileRow}>
+                      <Text style={styles.smallLabel}>Tu Sexo:</Text>
+                      <View style={styles.genderRow}>
+                        <TouchableOpacity
+                          style={[styles.genderChip, leaderGender === 'M' && styles.genderChipActiveM]}
+                          onPress={() => setLeaderGender('M')}>
+                          <Text style={[styles.genderChipText, leaderGender === 'M' && styles.genderChipTextActive]}>
+                            Hombre
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.genderChip, leaderGender === 'F' && styles.genderChipActiveF]}
+                          onPress={() => setLeaderGender('F')}>
+                          <Text style={[styles.genderChipText, leaderGender === 'F' && styles.genderChipTextActive]}>
+                            Mujer
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <Text style={[styles.smallLabel, { marginLeft: 12 }]}>Edad:</Text>
+                      <TextInput
+                        style={styles.ageInput}
+                        keyboardType="number-pad"
+                        value={leaderAge}
+                        onChangeText={setLeaderAge}
+                        placeholder="25"
+                        maxLength={3}
+                      />
+                      {parseAge(leaderAge) !== undefined && parseAge(leaderAge)! < PREJUVENIL_MAX_AGE && (
+                        <View style={styles.prejuvenilBadge}>
+                          <Text style={styles.prejuvenilBadgeText}>Prejuvenil (&lt;14)</Text>
+                        </View>
+                      )}
+                    </View>
+                    {calcAge(currentUser?.birthDate) !== undefined ? (
+                      <Text style={styles.fromProfileHint}>
+                        ✓ Autocompletado desde tu perfil ({currentUser?.gender === 'F' ? 'Mujer' : 'Hombre'} • {calcAge(currentUser?.birthDate)} años)
+                      </Text>
+                    ) : (
+                      <Text style={styles.fromProfileMissingHint}>
+                        💡 Puedes guardar tu sexo y fecha de nacimiento en tu Perfil (en Inicio) para no tener que llenarlo cada vez.
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {/* 3. Disciples Checklist with Sex & Age for Automatic Classification */}
+              <View style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionTitle}>3. Asistencia de mis Discípulos</Text>
+                    <Text style={styles.fieldDesc}>
+                      Clasificación automática por sexo y edad de su cuenta ({disciplesState.filter((d) => d.attended).length} presentes):
+                    </Text>
+                  </View>
+                </View>
+
+                {/* A. DISCÍPULOS REGISTRADOS CON CUENTA */}
+                <View style={styles.disciplesBatchRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="people" size={16} color="#1E3A8A" />
+                    <Text style={styles.disciplesSubheader}>
+                      Discípulos con Cuenta ({disciplesState.filter((d) => !d.memberId.startsWith('manual-')).length})
+                    </Text>
+                  </View>
+                  {disciplesState.some((d) => !d.memberId.startsWith('manual-')) && (
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <TouchableOpacity
+                        style={styles.batchBtn}
+                        onPress={() => markAllRegistered(true)}>
+                        <Ionicons name="checkmark-done" size={13} color="#2563EB" />
+                        <Text style={styles.batchBtnText}>Todos</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.batchBtn}
+                        onPress={() => markAllRegistered(false)}>
+                        <Ionicons name="close" size={13} color="#64748B" />
+                        <Text style={[styles.batchBtnText, { color: '#64748B' }]}>Ninguno</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {disciplesState.filter((d) => !d.memberId.startsWith('manual-')).length === 0 ? (
+                  <View style={styles.noDisciplesNotice}>
+                    <Ionicons name="information-circle-outline" size={20} color="#64748B" />
+                    <Text style={styles.noDisciplesText}>
+                      Aún no tienes discípulos registrados con cuenta bajo tu cobertura. Tus discípulos pueden inscribirse en la app seleccionándote como su líder.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.disciplesList}>
+                    {disciplesState.map((d, index) => {
+                      if (d.memberId.startsWith('manual-')) return null;
+                      const category = classifyPerson(d.gender, d.age);
+                      const isPj = category === 'prejuvenil';
+                      const isExpanded = expandedDiscipleId === d.memberId;
+
+                      return (
+                        <View
+                          key={d.memberId}
+                          style={[
+                            styles.discipleCard,
+                            d.attended && styles.discipleCardAttended,
+                          ]}>
+                          <TouchableOpacity
+                            style={styles.discipleCardHeader}
+                            onPress={() => toggleDisciple(index)}
+                            activeOpacity={0.8}>
+                            <View
+                              style={[
+                                styles.discipleAvatar,
+                                {
+                                  backgroundColor:
+                                    d.gender === 'F' ? '#FCE7F3' : '#DBEAFE',
+                                },
+                              ]}>
+                              <Text
+                                style={[
+                                  styles.discipleAvatarText,
+                                  {
+                                    color:
+                                      d.gender === 'F' ? '#BE185D' : '#1D4ED8',
+                                  },
+                                ]}>
+                                {d.name[0]}
+                              </Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.discipleName}>{d.name}</Text>
+                              <View
+                                style={{
+                                  flexDirection: 'row',
+                                  gap: 6,
+                                  alignItems: 'center',
+                                  marginTop: 2,
+                                }}>
+                                <Text style={styles.discipleStatus}>
+                                  {d.attended ? 'Presente' : 'Ausente'}
+                                </Text>
+
+                                <View
+                                  style={[
+                                    styles.categoryMiniBadge,
+                                    isPj
+                                      ? { backgroundColor: '#EDE9FE' }
+                                      : d.gender === 'F'
+                                        ? { backgroundColor: '#FCE7F3' }
+                                        : { backgroundColor: '#DBEAFE' },
+                                  ]}>
+                                  <Text
+                                    style={[
+                                      styles.categoryMiniBadgeText,
+                                      isPj
+                                        ? { color: '#6D28D9' }
+                                        : d.gender === 'F'
+                                          ? { color: '#9D174D' }
+                                          : { color: '#1E40AF' },
+                                    ]}>
+                                    {isPj
+                                      ? `Prejuvenil (<14) • ${d.age ?? '--'}a`
+                                      : d.gender === 'F'
+                                        ? `Mujer • ${d.age ?? '--'}a`
+                                        : `Hombre • ${d.age ?? '--'}a`}
+                                  </Text>
+                                </View>
+                              </View>
+                            </View>
+
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                              <TouchableOpacity
+                                onPress={() =>
+                                  setExpandedDiscipleId(isExpanded ? null : d.memberId)
+                                }
+                                style={styles.adjustPill}>
+                                <Ionicons
+                                  name={isExpanded ? 'chevron-up' : 'pencil'}
+                                  size={12}
+                                  color="#64748B"
+                                />
+                              </TouchableOpacity>
+                              <Ionicons
+                                name={d.attended ? 'checkbox' : 'square-outline'}
+                                size={24}
+                                color={d.attended ? '#1E3A8A' : '#94A3B8'}
+                              />
+                            </View>
+                          </TouchableOpacity>
+
+                          {/* Modificación opcional si se desea ajustar para este reporte */}
+                          {isExpanded && (
+                            <View style={styles.personMetaEditor}>
+                              <Text style={styles.personMetaLabel}>Ajustar Sexo:</Text>
+                              <View style={styles.genderRowSm}>
+                                <TouchableOpacity
+                                  style={[
+                                    styles.genderChipSm,
+                                    d.gender === 'M' && styles.genderChipActiveM,
+                                  ]}
+                                  onPress={() => updateDiscipleGender(index, 'M')}>
+                                  <Text
+                                    style={[
+                                      styles.genderChipTextSm,
+                                      d.gender === 'M' && styles.genderChipTextActive,
+                                    ]}>
+                                    Hombre
+                                  </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  style={[
+                                    styles.genderChipSm,
+                                    d.gender === 'F' && styles.genderChipActiveF,
+                                  ]}
+                                  onPress={() => updateDiscipleGender(index, 'F')}>
+                                  <Text
+                                    style={[
+                                      styles.genderChipTextSm,
+                                      d.gender === 'F' && styles.genderChipTextActive,
+                                    ]}>
+                                    Mujer
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
+
+                              <Text style={[styles.personMetaLabel, { marginLeft: 10 }]}>Edad:</Text>
+                              <TextInput
+                                style={styles.personMetaAgeInput}
+                                keyboardType="number-pad"
+                                value={d.age !== undefined ? String(d.age) : ''}
+                                placeholder="Ej: 13"
+                                placeholderTextColor="#94A3B8"
+                                maxLength={3}
+                                onChangeText={(v) => updateDiscipleAge(index, v)}
+                              />
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {/* B. PARTICIPANTES MANUALES (SIN CUENTA / SIN TELÉFONO) */}
+                {disciplesState.filter((d) => d.memberId.startsWith('manual-')).length > 0 && (
+                  <View style={{ marginTop: 16 }}>
+                    <Text style={styles.disciplesSubheader}>
+                      Participantes agregados sin cuenta ({disciplesState.filter((d) => d.memberId.startsWith('manual-')).length})
+                    </Text>
+                    <View style={[styles.disciplesList, { marginTop: 8 }]}>
+                      {disciplesState.map((d, index) => {
+                        if (!d.memberId.startsWith('manual-')) return null;
+                        const isPj = typeof d.age === 'number' && d.age < PREJUVENIL_MAX_AGE;
+                        return (
+                          <View key={d.memberId} style={[styles.discipleCard, styles.discipleCardAttended]}>
+                            <View style={styles.discipleCardHeader}>
+                              <View style={[styles.discipleAvatar, { backgroundColor: '#FEF3C7' }]}>
+                                <Text style={[styles.discipleAvatarText, { color: '#B45309' }]}>
+                                  {d.name[0]}
+                                </Text>
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.discipleName}>{d.name}</Text>
+                                <Text style={styles.visitorCardMeta}>
+                                  📝 Sin cuenta • {d.gender === 'F' ? 'Mujer' : 'Hombre'} • {d.age ?? '--'} años •{' '}
+                                  <Text style={{ fontWeight: '700', color: isPj ? '#6D28D9' : '#0F172A' }}>
+                                    {isPj ? 'Prejuvenil (<14)' : d.gender === 'F' ? 'Red Mujeres' : 'Red Hombres'}
+                                  </Text>
+                                </Text>
+                              </View>
+                              <TouchableOpacity onPress={() => handleRemoveManualDisciple(d.memberId)}>
+                                <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
+                {/* Formulario para agregar participante manual */}
+                <View style={styles.addDiscipleBox}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <Ionicons name="person-add" size={15} color="#2563EB" />
+                    <Text style={styles.addSectionSub}>
+                      Agregar participante manual (sin cuenta / sin teléfono)
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 10 }}>
+                    Para quienes aún no tienen teléfono o cuenta creada. Se contabilizarán automáticamente.
+                  </Text>
+                  <TextInput
+                    style={styles.textInputSm}
+                    placeholder="Nombre y Apellido del participante..."
+                    placeholderTextColor="#94A3B8"
+                    value={newDiscipleName}
+                    onChangeText={setNewDiscipleName}
+                  />
+                  <View style={styles.rowInline}>
+                    <View style={styles.genderRowSm}>
+                      <TouchableOpacity
+                        style={[styles.genderChipSm, newDiscipleGender === 'M' && styles.genderChipActiveM]}
+                        onPress={() => setNewDiscipleGender('M')}>
+                        <Text style={[styles.genderChipTextSm, newDiscipleGender === 'M' && styles.genderChipTextActive]}>
+                          👨 Hombre
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.genderChipSm, newDiscipleGender === 'F' && styles.genderChipActiveF]}
+                        onPress={() => setNewDiscipleGender('F')}>
+                        <Text style={[styles.genderChipTextSm, newDiscipleGender === 'F' && styles.genderChipTextActive]}>
+                          👩 Mujer
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <TextInput
+                      style={styles.ageInputSm}
+                      keyboardType="number-pad"
+                      placeholder="Edad"
+                      placeholderTextColor="#94A3B8"
+                      value={newDiscipleAge}
+                      onChangeText={setNewDiscipleAge}
+                      maxLength={3}
+                    />
+                    <TouchableOpacity style={styles.addBtnSm} onPress={handleAddManualDisciple}>
+                      <Ionicons name="add" size={16} color="#FFFFFF" />
+                      <Text style={styles.addBtnSmText}>Añadir</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* 4. Visitors with Sex & Age */}
+              <View style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionTitle}>4. Invitados Nuevos ({visitorsList.length})</Text>
+                    <Text style={styles.fieldDesc}>
+                      Registra amigos y familiares traídos hoy. Indica su edad para saber si son Prejuveniles (&lt;14 años):
+                    </Text>
+                  </View>
+                </View>
+
+                {visitorsList.map((v) => {
+                  const isPj = typeof v.age === 'number' && v.age < PREJUVENIL_MAX_AGE;
+                  return (
+                    <View key={v.id} style={styles.visitorRowCard}>
+                      <View style={styles.visitorIconCircle}>
+                        <Ionicons
+                          name={isPj ? 'school' : v.gender === 'F' ? 'woman' : 'man'}
+                          size={16}
+                          color={isPj ? '#6D28D9' : v.gender === 'F' ? '#9D174D' : '#1E40AF'}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.visitorCardName}>{v.name}</Text>
+                        <Text style={styles.visitorCardMeta}>
+                          {v.gender === 'F' ? 'Mujer' : 'Hombre'} • {v.age ?? '--'} años
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => handleRemoveVisitor(v.id)}>
+                        <Ionicons name="close-circle" size={20} color="#DC2626" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+
+                {/* Agregar nuevo invitado */}
+                <View style={styles.addVisitorBox}>
+                  <Text style={styles.addSectionSub}>Agregar nuevo invitado:</Text>
+                  <TextInput
+                    style={styles.textInputSm}
+                    placeholder="Nombre de la visita..."
+                    placeholderTextColor="#94A3B8"
+                    value={newVisitorName}
+                    onChangeText={setNewVisitorName}
+                  />
+                  <View style={styles.rowInline}>
+                    <View style={styles.genderRowSm}>
+                      <TouchableOpacity
+                        style={[styles.genderChipSm, newVisitorGender === 'M' && styles.genderChipActiveM]}
+                        onPress={() => setNewVisitorGender('M')}>
+                        <Text style={[styles.genderChipTextSm, newVisitorGender === 'M' && styles.genderChipTextActive]}>
+                          Hombre
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.genderChipSm, newVisitorGender === 'F' && styles.genderChipActiveF]}
+                        onPress={() => setNewVisitorGender('F')}>
+                        <Text style={[styles.genderChipTextSm, newVisitorGender === 'F' && styles.genderChipTextActive]}>
+                          Mujer
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <TextInput
+                      style={styles.ageInputSm}
+                      keyboardType="number-pad"
+                      placeholder="Edad"
+                      placeholderTextColor="#94A3B8"
+                      value={newVisitorAge}
+                      onChangeText={setNewVisitorAge}
+                      maxLength={3}
+                    />
+                    <TouchableOpacity style={styles.addBtnSm} onPress={handleAddVisitor}>
+                      <Ionicons name="person-add" size={15} color="#FFFFFF" />
+                      <Text style={styles.addBtnSmText}>Agregar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* Live Summary Box (Desglose en Vivo de Discípulos e Invitados) */}
+              <View style={styles.liveSummaryBox}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <Ionicons name="analytics" size={17} color="#38BDF8" />
+                  <Text style={styles.liveSummaryTitle}>Resumen en Vivo de tu Reporte</Text>
+                </View>
+
+                <View style={styles.liveSummaryGrid}>
+                  {/* Discípulos */}
+                  <View style={styles.liveSummaryCard}>
+                    <Text style={[styles.liveSummaryNum, { color: '#38BDF8' }]}>
+                      {formDisciplesBreakdown.total}
+                    </Text>
+                    <Text style={styles.liveSummaryLbl}>Discípulos</Text>
+                    <View style={styles.liveSummarySubRow}>
+                      <Text style={styles.liveSummarySubText}>👦 {formDisciplesBreakdown.men} H</Text>
+                      <Text style={styles.liveSummarySubText}>•</Text>
+                      <Text style={styles.liveSummarySubText}>👩 {formDisciplesBreakdown.women} M</Text>
+                      {formDisciplesBreakdown.prejuvenil > 0 && (
+                        <>
+                          <Text style={styles.liveSummarySubText}>•</Text>
+                          <Text style={styles.liveSummarySubText}>🎒 {formDisciplesBreakdown.prejuvenil} PJ</Text>
+                        </>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Invitados */}
+                  <View style={styles.liveSummaryCard}>
+                    <Text style={[styles.liveSummaryNum, { color: '#F59E0B' }]}>
+                      {formVisitorsBreakdown.total}
+                    </Text>
+                    <Text style={styles.liveSummaryLbl}>Invitados</Text>
+                    <View style={styles.liveSummarySubRow}>
+                      <Text style={styles.liveSummarySubText}>👦 {formVisitorsBreakdown.men} H</Text>
+                      <Text style={styles.liveSummarySubText}>•</Text>
+                      <Text style={styles.liveSummarySubText}>👩 {formVisitorsBreakdown.women} M</Text>
+                      {formVisitorsBreakdown.prejuvenil > 0 && (
+                        <>
+                          <Text style={styles.liveSummarySubText}>•</Text>
+                          <Text style={styles.liveSummarySubText}>🎒 {formVisitorsBreakdown.prejuvenil} PJ</Text>
+                        </>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Líder (Tú) */}
+                  <View style={styles.liveSummaryCard}>
+                    <Text style={[styles.liveSummaryNum, { color: myAttendance ? '#10B981' : '#94A3B8' }]}>
+                      {myAttendance ? '1' : '0'}
+                    </Text>
+                    <Text style={styles.liveSummaryLbl}>Líder (Tú)</Text>
+                    <Text style={[styles.liveSummarySubText, { color: myAttendance ? '#10B981' : '#94A3B8' }]}>
+                      {myAttendance ? (leaderGender === 'F' ? '👩 Asistes' : '👨 Asistes') : 'Ausente'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.liveSummaryTotalBar}>
+                  <Text style={styles.liveSummaryTotalLbl}>Total personas que reportas:</Text>
+                  <Text style={styles.liveSummaryTotalVal}>{formTotalPeople} personas</Text>
+                </View>
+              </View>
+
+              {/* Submit / Update Button */}
+              <TouchableOpacity
+                style={[
+                  styles.submitReportBtn,
+                  submitting && { opacity: 0.6 },
+                  editingReportId ? { backgroundColor: '#D97706' } : {},
+                ]}
+                onPress={handleSubmitLeaderReport}
+                disabled={submitting}
+                activeOpacity={0.85}>
+                <Ionicons
+                  name={editingReportId ? 'checkmark-circle' : 'paper-plane'}
+                  size={20}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.submitReportBtnText}>
+                  {submitting
+                    ? 'Guardando...'
+                    : editingReportId
+                      ? 'Guardar Cambios del Reporte'
+                      : 'Enviar Reporte a mi Pastor'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Recent Reports History with Edit & Delete */}
+              <View style={styles.historyCard}>
+                <Text style={styles.historyTitle}>Mis Últimos Reportes Enviados</Text>
+                {myLeaderAttendanceReports
+                  .filter(
+                    (r) =>
+                      r.leaderId === currentUser?.id ||
+                      (r.leaderName &&
+                        currentUser?.firstName &&
+                        r.leaderName.toLowerCase().includes(currentUser.firstName.toLowerCase()))
+                  )
+                  .slice(0, 5)
+                  .map((r) => {
+                    const rSummary = summarizeReports([r], members);
+                    return (
+                      <View key={r.id} style={styles.historyItem}>
+                        <Ionicons name="checkmark-done-circle" size={20} color="#10B981" />
+                        <View style={{ flex: 1, marginLeft: 8 }}>
+                          <Text style={styles.historyService}>
+                            {r.serviceId} • {formatDisplayDate(r.serviceDate)}
+                          </Text>
+                          <Text style={styles.historyDate}>
+                            👥 {rSummary.total} personas • {rSummary.disciplesTotal} discípulos (👦{rSummary.disciplesHombres} 👩{rSummary.disciplesMujeres}) • {rSummary.visitorsTotal} visitas
+                          </Text>
+                          <Text style={styles.historyRecipient}>
+                            📬 Enviado a: {r.recipientLeaderName || leaderInCharge.name}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                          <TouchableOpacity
+                            style={styles.miniActionBtn}
+                            onPress={() => handleStartEditReport(r)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Ionicons name="pencil" size={13} color="#38BDF8" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.miniActionBtnDelete}
+                            onPress={() => handleDeleteReport(r)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Ionicons name="trash-outline" size={13} color="#F87171" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })}
+              </View>
+            </View>
+          ) : (
+            /* ============================================================== */
+            /* IF CURRENT USER IS PASTOR (CONSOLIDADO POR REPORTES G12)       */
+            /* ============================================================== */
+            <View>
+              {/* Header */}
+              <View style={styles.header}>
+                <Text style={styles.headerTitle}>Pase & Control de Asistencia</Text>
+                <Text style={styles.headerSubtitle}>
+                  La asistencia del servicio la da el conteo de los reportes: Hombres, Mujeres y Prejuveniles (&lt;14 años)
+                </Text>
+              </View>
+
+              {/* Selector de Servicio */}
+              <View style={styles.serviceSelectorContainer}>
                 {allowedServices.map((srv) => (
                   <TouchableOpacity
                     key={srv.id}
@@ -597,831 +1444,235 @@ export default function AttendanceScreen() {
                         styles.serviceChipText,
                         selectedServiceId === srv.id && styles.serviceChipTextActive,
                       ]}>
-                      {srv.name} ({srv.time.split(' - ')[0]})
+                      {srv.name}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
 
-            {/* 2. My Personal Attendance */}
-            <View style={styles.card}>
-              <View style={styles.rowBetween}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sectionTitle}>2. Mi Asistencia Personal</Text>
-                  <Text style={styles.fieldDesc}>
-                    ¿Asististe tú al servicio en el templo?
-                  </Text>
-                </View>
-                <Switch
-                  value={myAttendance}
-                  onValueChange={setMyAttendance}
-                  trackColor={{ false: '#CBD5E1', true: '#3B82F6' }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-
-              {myAttendance && (
-                <View>
-                  <View style={styles.leaderProfileRow}>
-                    <Text style={styles.smallLabel}>Tu Sexo:</Text>
-                    <View style={styles.genderRow}>
-                      <TouchableOpacity
-                        style={[styles.genderChip, leaderGender === 'M' && styles.genderChipActiveM]}
-                        onPress={() => setLeaderGender('M')}>
-                        <Text style={[styles.genderChipText, leaderGender === 'M' && styles.genderChipTextActive]}>
-                          Hombre
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.genderChip, leaderGender === 'F' && styles.genderChipActiveF]}
-                        onPress={() => setLeaderGender('F')}>
-                        <Text style={[styles.genderChipText, leaderGender === 'F' && styles.genderChipTextActive]}>
-                          Mujer
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    <Text style={[styles.smallLabel, { marginLeft: 12 }]}>Edad:</Text>
-                    <TextInput
-                      style={styles.ageInput}
-                      keyboardType="number-pad"
-                      value={leaderAge}
-                      onChangeText={setLeaderAge}
-                      placeholder="25"
-                      maxLength={3}
+              {/* Selector de Fecha */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.dateSelectorRow}>
+                {availableDates.map((d) => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.dateChip, selectedDate === d && styles.dateChipActive]}
+                    onPress={() => setSelectedDate(d)}>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={12}
+                      color={selectedDate === d ? '#FFFFFF' : '#475569'}
                     />
-                    {parseAge(leaderAge) !== undefined && parseAge(leaderAge)! < PREJUVENIL_MAX_AGE && (
-                      <View style={styles.prejuvenilBadge}>
-                        <Text style={styles.prejuvenilBadgeText}>Prejuvenil (&lt;14)</Text>
-                      </View>
-                    )}
-                  </View>
-                  {calcAge(currentUser?.birthDate) !== undefined ? (
-                    <Text style={styles.fromProfileHint}>
-                      ✓ Autocompletado desde tu perfil ({currentUser?.gender === 'F' ? 'Mujer' : 'Hombre'} • {calcAge(currentUser?.birthDate)} años)
+                    <Text style={[styles.dateChipText, selectedDate === d && styles.dateChipTextActive]}>
+                      {d === localTodayStr ? 'Hoy' : formatDisplayDate(d).split(',')[0]} ({d.split('-').slice(1).reverse().join('/')})
                     </Text>
-                  ) : (
-                    <Text style={styles.fromProfileMissingHint}>
-                      💡 Puedes guardar tu sexo y fecha de nacimiento en tu Perfil (en Inicio) para no tener que llenarlo cada vez.
-                    </Text>
-                  )}
-                </View>
-              )}
-            </View>
-
-            {/* 3. Disciples Checklist with Sex & Age for Automatic Classification */}
-            <View style={styles.card}>
-              <View style={styles.rowBetween}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sectionTitle}>3. Asistencia de mis Discípulos</Text>
-                  <Text style={styles.fieldDesc}>
-                    Clasificación automática por sexo y edad de su cuenta ({disciplesState.filter((d) => d.attended).length} presentes):
-                  </Text>
-                </View>
-              </View>
-
-              {/* A. DISCÍPULOS REGISTRADOS CON CUENTA */}
-              <View style={styles.disciplesBatchRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="people" size={16} color="#1E3A8A" />
-                  <Text style={styles.disciplesSubheader}>
-                    Discípulos con Cuenta ({disciplesState.filter((d) => !d.memberId.startsWith('manual-')).length})
-                  </Text>
-                </View>
-                {disciplesState.some((d) => !d.memberId.startsWith('manual-')) && (
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                    <TouchableOpacity
-                      style={styles.batchBtn}
-                      onPress={() => markAllRegistered(true)}>
-                      <Ionicons name="checkmark-done" size={13} color="#2563EB" />
-                      <Text style={styles.batchBtnText}>Todos</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.batchBtn}
-                      onPress={() => markAllRegistered(false)}>
-                      <Ionicons name="close" size={13} color="#64748B" />
-                      <Text style={[styles.batchBtnText, { color: '#64748B' }]}>Ninguno</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-
-              {disciplesState.filter((d) => !d.memberId.startsWith('manual-')).length === 0 ? (
-                <View style={styles.noDisciplesNotice}>
-                  <Ionicons name="information-circle-outline" size={20} color="#64748B" />
-                  <Text style={styles.noDisciplesText}>
-                    Aún no tienes discípulos registrados con cuenta bajo tu cobertura. Tus discípulos pueden inscribirse en la app seleccionándote como su líder.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.disciplesList}>
-                  {disciplesState.map((d, index) => {
-                    if (d.memberId.startsWith('manual-')) return null;
-                    const category = classifyPerson(d.gender, d.age);
-                    const isPj = category === 'prejuvenil';
-                    const isExpanded = expandedDiscipleId === d.memberId;
-
-                    return (
-                      <View
-                        key={d.memberId}
-                        style={[
-                          styles.discipleCard,
-                          d.attended && styles.discipleCardAttended,
-                        ]}>
-                        <TouchableOpacity
-                          style={styles.discipleCardHeader}
-                          onPress={() => toggleDisciple(index)}
-                          activeOpacity={0.8}>
-                          <View
-                            style={[
-                              styles.discipleAvatar,
-                              {
-                                backgroundColor:
-                                  d.gender === 'F' ? '#FCE7F3' : '#DBEAFE',
-                              },
-                            ]}>
-                            <Text
-                              style={[
-                                styles.discipleAvatarText,
-                                {
-                                  color:
-                                    d.gender === 'F' ? '#BE185D' : '#1D4ED8',
-                                },
-                              ]}>
-                              {d.name[0]}
-                            </Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.discipleName}>{d.name}</Text>
-                            <View
-                              style={{
-                                flexDirection: 'row',
-                                gap: 6,
-                                alignItems: 'center',
-                                marginTop: 2,
-                              }}>
-                              <Text style={styles.discipleStatus}>
-                                {d.attended ? 'Presente' : 'Ausente'}
-                              </Text>
-
-                              <View
-                                style={[
-                                  styles.categoryMiniBadge,
-                                  isPj
-                                    ? { backgroundColor: '#EDE9FE' }
-                                    : d.gender === 'F'
-                                      ? { backgroundColor: '#FCE7F3' }
-                                      : { backgroundColor: '#DBEAFE' },
-                                ]}>
-                                <Text
-                                  style={[
-                                    styles.categoryMiniBadgeText,
-                                    isPj
-                                      ? { color: '#6D28D9' }
-                                      : d.gender === 'F'
-                                        ? { color: '#9D174D' }
-                                        : { color: '#1E40AF' },
-                                  ]}>
-                                  {isPj
-                                    ? `Prejuvenil (<14) • ${d.age ?? '--'}a`
-                                    : d.gender === 'F'
-                                      ? `Mujer • ${d.age ?? '--'}a`
-                                      : `Hombre • ${d.age ?? '--'}a`}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                            <TouchableOpacity
-                              onPress={() =>
-                                setExpandedDiscipleId(isExpanded ? null : d.memberId)
-                              }
-                              style={styles.adjustPill}>
-                              <Ionicons
-                                name={isExpanded ? 'chevron-up' : 'pencil'}
-                                size={12}
-                                color="#64748B"
-                              />
-                            </TouchableOpacity>
-                            <Ionicons
-                              name={d.attended ? 'checkbox' : 'square-outline'}
-                              size={24}
-                              color={d.attended ? '#1E3A8A' : '#94A3B8'}
-                            />
-                          </View>
-                        </TouchableOpacity>
-
-                        {/* Modificación opcional si se desea ajustar para este reporte */}
-                        {isExpanded && (
-                          <View style={styles.personMetaEditor}>
-                            <Text style={styles.personMetaLabel}>Ajustar Sexo:</Text>
-                            <View style={styles.genderRowSm}>
-                              <TouchableOpacity
-                                style={[
-                                  styles.genderChipSm,
-                                  d.gender === 'M' && styles.genderChipActiveM,
-                                ]}
-                                onPress={() => updateDiscipleGender(index, 'M')}>
-                                <Text
-                                  style={[
-                                    styles.genderChipTextSm,
-                                    d.gender === 'M' && styles.genderChipTextActive,
-                                  ]}>
-                                  Hombre
-                                </Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                style={[
-                                  styles.genderChipSm,
-                                  d.gender === 'F' && styles.genderChipActiveF,
-                                ]}
-                                onPress={() => updateDiscipleGender(index, 'F')}>
-                                <Text
-                                  style={[
-                                    styles.genderChipTextSm,
-                                    d.gender === 'F' && styles.genderChipTextActive,
-                                  ]}>
-                                  Mujer
-                                </Text>
-                              </TouchableOpacity>
-                            </View>
-
-                            <Text style={[styles.personMetaLabel, { marginLeft: 10 }]}>Edad:</Text>
-                            <TextInput
-                              style={styles.personMetaAgeInput}
-                              keyboardType="number-pad"
-                              value={d.age !== undefined ? String(d.age) : ''}
-                              placeholder="Ej: 13"
-                              placeholderTextColor="#94A3B8"
-                              maxLength={3}
-                              onChangeText={(v) => updateDiscipleAge(index, v)}
-                            />
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-
-              {/* B. PARTICIPANTES MANUALES (SIN CUENTA / SIN TELÉFONO) */}
-              {disciplesState.filter((d) => d.memberId.startsWith('manual-')).length > 0 && (
-                <View style={{ marginTop: 16 }}>
-                  <Text style={styles.disciplesSubheader}>
-                    Participantes agregados sin cuenta ({disciplesState.filter((d) => d.memberId.startsWith('manual-')).length})
-                  </Text>
-                  <View style={[styles.disciplesList, { marginTop: 8 }]}>
-                    {disciplesState.map((d, index) => {
-                      if (!d.memberId.startsWith('manual-')) return null;
-                      const isPj = typeof d.age === 'number' && d.age < PREJUVENIL_MAX_AGE;
-                      return (
-                        <View key={d.memberId} style={[styles.discipleCard, styles.discipleCardAttended]}>
-                          <View style={styles.discipleCardHeader}>
-                            <View style={[styles.discipleAvatar, { backgroundColor: '#FEF3C7' }]}>
-                              <Text style={[styles.discipleAvatarText, { color: '#B45309' }]}>
-                                {d.name[0]}
-                              </Text>
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.discipleName}>{d.name}</Text>
-                              <Text style={styles.visitorCardMeta}>
-                                📝 Sin cuenta • {d.gender === 'F' ? 'Mujer' : 'Hombre'} • {d.age ?? '--'} años •{' '}
-                                <Text style={{ fontWeight: '700', color: isPj ? '#6D28D9' : '#0F172A' }}>
-                                  {isPj ? 'Prejuvenil (<14)' : d.gender === 'F' ? 'Red Mujeres' : 'Red Hombres'}
-                                </Text>
-                              </Text>
-                            </View>
-                            <TouchableOpacity onPress={() => handleRemoveManualDisciple(d.memberId)}>
-                              <Ionicons name="trash-outline" size={18} color="#DC2626" />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-              )}
-
-              {/* Formulario para agregar participante manual */}
-              <View style={styles.addDiscipleBox}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Ionicons name="person-add" size={15} color="#2563EB" />
-                  <Text style={styles.addSectionSub}>
-                    Agregar participante manual (sin cuenta / sin teléfono)
-                  </Text>
-                </View>
-                <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 10 }}>
-                  Para quienes aún no tienen teléfono o cuenta creada. Se contabilizarán automáticamente.
-                </Text>
-                <TextInput
-                  style={styles.textInputSm}
-                  placeholder="Nombre y Apellido del participante..."
-                  placeholderTextColor="#94A3B8"
-                  value={newDiscipleName}
-                  onChangeText={setNewDiscipleName}
-                />
-                <View style={styles.rowInline}>
-                  <View style={styles.genderRowSm}>
-                    <TouchableOpacity
-                      style={[styles.genderChipSm, newDiscipleGender === 'M' && styles.genderChipActiveM]}
-                      onPress={() => setNewDiscipleGender('M')}>
-                      <Text style={[styles.genderChipTextSm, newDiscipleGender === 'M' && styles.genderChipTextActive]}>
-                        👨 Hombre
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.genderChipSm, newDiscipleGender === 'F' && styles.genderChipActiveF]}
-                      onPress={() => setNewDiscipleGender('F')}>
-                      <Text style={[styles.genderChipTextSm, newDiscipleGender === 'F' && styles.genderChipTextActive]}>
-                        👩 Mujer
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TextInput
-                    style={styles.ageInputSm}
-                    keyboardType="number-pad"
-                    placeholder="Edad"
-                    placeholderTextColor="#94A3B8"
-                    value={newDiscipleAge}
-                    onChangeText={setNewDiscipleAge}
-                    maxLength={3}
-                  />
-                  <TouchableOpacity style={styles.addBtnSm} onPress={handleAddManualDisciple}>
-                    <Ionicons name="add" size={16} color="#FFFFFF" />
-                    <Text style={styles.addBtnSmText}>Añadir</Text>
                   </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            {/* 4. Visitors with Sex & Age */}
-            <View style={styles.card}>
-              <View style={styles.rowBetween}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sectionTitle}>4. Invitados Nuevos ({visitorsList.length})</Text>
-                  <Text style={styles.fieldDesc}>
-                    Registra amigos y familiares traídos hoy. Indica su edad para saber si son Prejuveniles (&lt;14 años):
-                  </Text>
-                </View>
-              </View>
-
-              {visitorsList.map((v) => {
-                const isPj = typeof v.age === 'number' && v.age < PREJUVENIL_MAX_AGE;
-                return (
-                  <View key={v.id} style={styles.visitorRowCard}>
-                    <View style={styles.visitorIconCircle}>
-                      <Ionicons
-                        name={isPj ? 'school' : v.gender === 'F' ? 'woman' : 'man'}
-                        size={16}
-                        color={isPj ? '#6D28D9' : v.gender === 'F' ? '#9D174D' : '#1E40AF'}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.visitorCardName}>{v.name}</Text>
-                      <Text style={styles.visitorCardMeta}>
-                        {v.gender === 'F' ? 'Mujer' : 'Hombre'} • {v.age ?? '--'} años •{' '}
-                        <Text style={{ fontWeight: '700', color: isPj ? '#6D28D9' : '#0F172A' }}>
-                          {isPj ? 'Prejuvenil (<14)' : v.gender === 'F' ? 'Red Mujeres' : 'Red Hombres'}
-                        </Text>
-                      </Text>
-                    </View>
-                    <TouchableOpacity onPress={() => handleRemoveVisitor(v.id)}>
-                      <Ionicons name="close-circle" size={20} color="#DC2626" />
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-
-              {/* Agregar nuevo invitado */}
-              <View style={styles.addVisitorBox}>
-                <Text style={styles.addSectionSub}>Agregar nuevo invitado:</Text>
-                <TextInput
-                  style={styles.textInputSm}
-                  placeholder="Nombre de la visita..."
-                  placeholderTextColor="#94A3B8"
-                  value={newVisitorName}
-                  onChangeText={setNewVisitorName}
-                />
-                <View style={styles.rowInline}>
-                  <View style={styles.genderRowSm}>
-                    <TouchableOpacity
-                      style={[styles.genderChipSm, newVisitorGender === 'M' && styles.genderChipActiveM]}
-                      onPress={() => setNewVisitorGender('M')}>
-                      <Text style={[styles.genderChipTextSm, newVisitorGender === 'M' && styles.genderChipTextActive]}>
-                        Hombre
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.genderChipSm, newVisitorGender === 'F' && styles.genderChipActiveF]}
-                      onPress={() => setNewVisitorGender('F')}>
-                      <Text style={[styles.genderChipTextSm, newVisitorGender === 'F' && styles.genderChipTextActive]}>
-                        Mujer
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TextInput
-                    style={styles.ageInputSm}
-                    keyboardType="number-pad"
-                    placeholder="Edad"
-                    placeholderTextColor="#94A3B8"
-                    value={newVisitorAge}
-                    onChangeText={setNewVisitorAge}
-                    maxLength={3}
-                  />
-                  <TouchableOpacity style={styles.addBtnSm} onPress={handleAddVisitor}>
-                    <Ionicons name="person-add" size={15} color="#FFFFFF" />
-                    <Text style={styles.addBtnSmText}>Agregar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            {/* 5. Notes to Pastor */}
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>5. Mensaje o Petición para tu Pastor</Text>
-              <TextInput
-                style={[styles.textInput, { height: 70 }]}
-                placeholder="Escribe alguna observación de tu equipo o petición de oración..."
-                placeholderTextColor="#94A3B8"
-                multiline
-                value={leaderNotes}
-                onChangeText={setLeaderNotes}
-              />
-            </View>
-
-            {/* Submit Button */}
-            <TouchableOpacity
-              style={[styles.submitReportBtn, submitting && { opacity: 0.6 }]}
-              onPress={handleSubmitLeaderReport}
-              disabled={submitting}
-              activeOpacity={0.85}>
-              <Ionicons name="paper-plane" size={20} color="#FFFFFF" />
-              <Text style={styles.submitReportBtnText}>
-                {submitting ? 'Enviando Reporte...' : 'Enviar Reporte a mi Pastor'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Recent Reports History */}
-            <View style={styles.historyCard}>
-              <Text style={styles.historyTitle}>Mis Últimos Reportes Enviados</Text>
-              {myLeaderAttendanceReports
-                .filter((r) => r.leaderId === currentUser?.id)
-                .slice(0, 3)
-                .map((r) => (
-                  <View key={r.id} style={styles.historyItem}>
-                    <Ionicons name="checkmark-done" size={18} color="#059669" />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.historyService}>{r.serviceId}</Text>
-                      <Text style={styles.historyDate}>
-                        Fecha: {r.serviceDate} • {r.visitorsCount} visitas •{' '}
-                        {r.disciples.filter((d) => d.attended).length} discípulos
-                      </Text>
-                      <Text style={styles.historyRecipient}>
-                        📬 Enviado a: {r.recipientLeaderName || leaderInCharge.name}
-                      </Text>
-                    </View>
-                  </View>
                 ))}
-            </View>
-          </View>
-        ) : (
-          /* ============================================================== */
-          /* IF CURRENT USER IS PASTOR (CONSOLIDADO POR REPORTES G12)       */
-          /* ============================================================== */
-          <View>
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>Pase & Control de Asistencia</Text>
-              <Text style={styles.headerSubtitle}>
-                La asistencia del servicio la da el conteo de los reportes: Hombres, Mujeres y Prejuveniles (&lt;14 años)
-              </Text>
-            </View>
+              </ScrollView>
 
-            {/* Selector de Servicio */}
-            <View style={styles.serviceSelectorContainer}>
-              {allowedServices.map((srv) => (
+              {/* Segmented Control */}
+              <View style={styles.segmentedRow}>
                 <TouchableOpacity
-                  key={srv.id}
-                  style={[
-                    styles.serviceChip,
-                    selectedServiceId === srv.id && styles.serviceChipActive,
-                  ]}
-                  onPress={() => setSelectedServiceId(srv.id)}>
+                  style={[styles.segmentBtn, pastorTab === 'consolidado' && styles.segmentBtnActive]}
+                  onPress={() => setPastorTab('consolidado')}>
+                  <Ionicons
+                    name="analytics"
+                    size={16}
+                    color={pastorTab === 'consolidado' ? '#FFFFFF' : '#64748B'}
+                  />
                   <Text
                     style={[
-                      styles.serviceChipText,
-                      selectedServiceId === srv.id && styles.serviceChipTextActive,
+                      styles.segmentText,
+                      pastorTab === 'consolidado' && styles.segmentTextActive,
                     ]}>
-                    {srv.name}
+                    Conteo por Reportes
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
 
-            {/* Selector de Fecha */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.dateSelectorRow}>
-              {availableDates.map((d) => (
                 <TouchableOpacity
-                  key={d}
-                  style={[styles.dateChip, selectedDate === d && styles.dateChipActive]}
-                  onPress={() => setSelectedDate(d)}>
+                  style={[styles.segmentBtn, pastorTab === 'reportes' && styles.segmentBtnActive]}
+                  onPress={() => setPastorTab('reportes')}>
                   <Ionicons
-                    name="calendar-outline"
-                    size={12}
-                    color={selectedDate === d ? '#FFFFFF' : '#475569'}
+                    name="file-tray-full"
+                    size={16}
+                    color={pastorTab === 'reportes' ? '#FFFFFF' : '#64748B'}
                   />
-                  <Text style={[styles.dateChipText, selectedDate === d && styles.dateChipTextActive]}>
-                    {d}
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      pastorTab === 'reportes' && styles.segmentTextActive,
+                    ]}>
+                    Reportes de Líderes ({reportsForSelectedService.length})
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Segmented Control */}
-            <View style={styles.segmentedRow}>
-              <TouchableOpacity
-                style={[styles.segmentBtn, pastorTab === 'consolidado' && styles.segmentBtnActive]}
-                onPress={() => setPastorTab('consolidado')}>
-                <Ionicons
-                  name="analytics"
-                  size={16}
-                  color={pastorTab === 'consolidado' ? '#FFFFFF' : '#64748B'}
-                />
-                <Text
-                  style={[
-                    styles.segmentText,
-                    pastorTab === 'consolidado' && styles.segmentTextActive,
-                  ]}>
-                  Conteo por Reportes
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.segmentBtn, pastorTab === 'reportes' && styles.segmentBtnActive]}
-                onPress={() => setPastorTab('reportes')}>
-                <Ionicons
-                  name="file-tray-full"
-                  size={16}
-                  color={pastorTab === 'reportes' ? '#FFFFFF' : '#64748B'}
-                />
-                <Text
-                  style={[
-                    styles.segmentText,
-                    pastorTab === 'reportes' && styles.segmentTextActive,
-                  ]}>
-                  Reportes de Líderes ({reportsForSelectedService.length})
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {pastorTab === 'consolidado' ? (
-              <View>
-                {/* Big Consolidated Service Card */}
-                <View style={styles.totalBannerCard}>
-                  <View style={styles.totalBannerTop}>
-                    <View>
-                      <Text style={styles.totalBannerLabel}>
-                        ASISTENCIA CONSOLIDADA • {currentServiceObj.name}
-                      </Text>
-                      <Text style={styles.totalBannerNumber}>{serviceSummary.total}</Text>
-                      <Text style={styles.totalBannerSub}>
-                        {serviceSummary.reportsCount} reportes recibidos para este servicio
-                      </Text>
-                    </View>
-                    {isPastor && (
-                      <TouchableOpacity
-                        style={styles.saveLiveBtn}
-                        onPress={handleSaveConsolidatedAsOfficial}>
-                        <Ionicons name="cloud-upload" size={18} color="#FFFFFF" />
-                        <Text style={styles.saveLiveBtnText}>Guardar</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {/* Stat Chips: Hombres, Mujeres, Prejuvenil (<14), Visitas */}
-                  <View style={styles.consolidatedBadgesGrid}>
-                    {/* Hombres */}
-                    <View style={[styles.statBoxCard, { backgroundColor: '#DBEAFE', borderLeftColor: '#2563EB' }]}>
-                      <View style={styles.statBoxHeader}>
-                        <Ionicons name="man" size={18} color="#1E40AF" />
-                        <Text style={[styles.statBoxTitle, { color: '#1E40AF' }]}>Hombres</Text>
-                      </View>
-                      <Text style={[styles.statBoxNumber, { color: '#1E40AF' }]}>
-                        {serviceSummary.hombres}
-                      </Text>
-                      <Text style={[styles.statBoxSub, { color: '#1E40AF' }]}>Hombres &gt;= 14 años</Text>
-                    </View>
-
-                    {/* Mujeres */}
-                    <View style={[styles.statBoxCard, { backgroundColor: '#FCE7F3', borderLeftColor: '#DB2777' }]}>
-                      <View style={styles.statBoxHeader}>
-                        <Ionicons name="woman" size={18} color="#9D174D" />
-                        <Text style={[styles.statBoxTitle, { color: '#9D174D' }]}>Mujeres</Text>
-                      </View>
-                      <Text style={[styles.statBoxNumber, { color: '#9D174D' }]}>
-                        {serviceSummary.mujeres}
-                      </Text>
-                      <Text style={[styles.statBoxSub, { color: '#9D174D' }]}>Mujeres &gt;= 14 años</Text>
-                    </View>
-
-                    {/* Prejuvenil (<14) */}
-                    <View style={[styles.statBoxCard, { backgroundColor: '#EDE9FE', borderLeftColor: '#7C3AED' }]}>
-                      <View style={styles.statBoxHeader}>
-                        <Ionicons name="school" size={18} color="#6D28D9" />
-                        <Text style={[styles.statBoxTitle, { color: '#6D28D9' }]}>Prejuvenil</Text>
-                      </View>
-                      <Text style={[styles.statBoxNumber, { color: '#6D28D9' }]}>
-                        {serviceSummary.prejuvenil}
-                      </Text>
-                      <Text style={[styles.statBoxSub, { color: '#6D28D9' }]}>Menores de 14 años</Text>
-                    </View>
-
-                    {/* Visitas */}
-                    <View style={[styles.statBoxCard, { backgroundColor: '#FEF3C7', borderLeftColor: '#F59E0B' }]}>
-                      <View style={styles.statBoxHeader}>
-                        <Ionicons name="sparkles" size={18} color="#B45309" />
-                        <Text style={[styles.statBoxTitle, { color: '#B45309' }]}>Nuevas Visitas</Text>
-                      </View>
-                      <Text style={[styles.statBoxNumber, { color: '#B45309' }]}>
-                        {serviceSummary.visitors}
-                      </Text>
-                      <Text style={[styles.statBoxSub, { color: '#B45309' }]}>Amigos e invitados</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Resumen de Líderes agrupados por Líder 12 */}
-                <View style={styles.reportsSummaryCard}>
-                  <Text style={styles.sectionHeading}>
-                    Líderes que reportaron para este servicio ({reportsForSelectedService.length})
-                  </Text>
-                  {reportsForSelectedService.length === 0 ? (
-                    <Text style={styles.emptyNoticeText}>
-                      Aún no hay reportes de líderes enviados para este servicio en la fecha {selectedDate}.
-                    </Text>
-                  ) : (
-                    groupedAttendanceReports.map((group) => {
-                      return (
-                        <View key={group.leader12Name} style={styles.consolidadoGroupContainer}>
-                          {/* Banner de Líder 12 */}
-                          <View style={styles.consolidadoGroupHeader}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                              <Ionicons name="shield-checkmark" size={16} color="#1E3A8A" />
-                              <Text style={styles.consolidadoGroupTitle}>
-                                Líder 12: {group.leader12Name}
-                              </Text>
-                            </View>
-                            <View style={styles.consolidadoGroupBadge}>
-                              <Text style={styles.consolidadoGroupBadgeText}>
-                                Total Red: +{group.groupSummary.total}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* Filas de líderes dentro del grupo */}
-                          {group.reports.map((rep) => {
-                            const repSummary = summarizeReports([rep], members);
-                            const isL12 = isReportFromLeader12(rep, group.leader12Name);
-                            return (
-                              <View key={rep.id} style={styles.leaderSummaryRow}>
-                                <View
-                                  style={[
-                                    styles.leaderSummaryAvatar,
-                                    isL12 ? { backgroundColor: '#1E3A8A' } : { backgroundColor: '#059669' },
-                                  ]}>
-                                  <Text style={styles.leaderSummaryAvatarText}>{rep.leaderName[0]}</Text>
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <Text style={styles.leaderSummaryName}>{rep.leaderName}</Text>
-                                    <View
-                                      style={[
-                                        styles.roleTagPill,
-                                        isL12 ? styles.roleTagL12 : styles.roleTag144,
-                                      ]}>
-                                      <Text
-                                        style={[
-                                          styles.roleTagPillText,
-                                          isL12 ? { color: '#1D4ED8' } : { color: '#15803D' },
-                                        ]}>
-                                        {isL12 ? 'Líder 12' : 'Discípulo 144'}
-                                      </Text>
-                                    </View>
-                                  </View>
-                                  <Text style={styles.leaderSummaryMeta}>
-                                    {repSummary.hombres} H • {repSummary.mujeres} M • {repSummary.prejuvenil} P • {repSummary.visitors} Visitas
-                                  </Text>
-                                </View>
-                                <View style={styles.leaderSummaryTotalBadge}>
-                                  <Text style={styles.leaderSummaryTotalText}>+{repSummary.total}</Text>
-                                </View>
-                              </View>
-                            );
-                          })}
-                        </View>
-                      );
-                    })
-                  )}
-                </View>
               </View>
-            ) : (
-              /* Reportes Detallados Agrupados por Líder 12 */
-              <View style={styles.reportsListSection}>
-                <Text style={styles.sectionHeading}>
-                  Detalle de Reportes Recibidos ({reportsForSelectedService.length})
-                </Text>
-                {reportsForSelectedService.length === 0 ? (
-                  <View style={styles.emptyNotice}>
-                    <Text style={styles.emptyNoticeText}>
-                      No hay reportes de líderes para este servicio en {selectedDate}.
-                    </Text>
+
+              {pastorTab === 'consolidado' ? (
+                <View>
+                  {/* Big Consolidated Service Card */}
+                  <View style={styles.totalBannerCard}>
+                    <View style={styles.totalBannerTop}>
+                      <View>
+                        <Text style={styles.totalBannerLabel}>
+                          {currentServiceObj.name}
+                        </Text>
+                        <Text style={styles.totalBannerNumber}>{serviceSummary.total}</Text>
+                        <Text style={styles.totalBannerSub}>
+                          {serviceSummary.reportsCount} reportes recibidos para este servicio
+                        </Text>
+                      </View>
+                      {isPastor && (
+                        <TouchableOpacity
+                          style={[
+                            styles.saveLiveBtn,
+                            isSaved && !hasNewReportsPending && { backgroundColor: '#059669' },
+                            isSaved && hasNewReportsPending && { backgroundColor: '#D97706' },
+                          ]}
+                          onPress={handleSaveConsolidatedAsOfficial}
+                          activeOpacity={0.85}>
+                          <Ionicons
+                            name={
+                              isSaved && !hasNewReportsPending
+                                ? 'checkmark-done-circle'
+                                : isSaved && hasNewReportsPending
+                                  ? 'refresh'
+                                  : 'cloud-upload'
+                            }
+                            size={18}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.saveLiveBtnText}>
+                            {isSaved && !hasNewReportsPending
+                              ? 'Guardado'
+                              : isSaved && hasNewReportsPending
+                                ? 'Actualizar'
+                                : 'Guardar'}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {/* Stat Chips: Discípulos (H y M), Invitados (H y M), Prejuvenil (<14), Líderes */}
+                    <View style={styles.consolidatedBadgesGrid}>
+                      {/* Discípulos de la Iglesia */}
+                      <View style={[styles.statBoxCard, { backgroundColor: '#DBEAFE', borderLeftColor: '#2563EB' }]}>
+                        <View style={styles.statBoxHeader}>
+                          <Ionicons name="people" size={17} color="#1E40AF" />
+                          <Text style={[styles.statBoxTitle, { color: '#1E40AF' }]}>Discípulos</Text>
+                        </View>
+                        <Text style={[styles.statBoxNumber, { color: '#1E40AF' }]}>
+                          {serviceSummary.disciplesTotal}
+                        </Text>
+                        <Text style={[styles.statBoxSub, { color: '#1E40AF' }]}>
+                          👦 {serviceSummary.disciplesHombres} Hombres • 👩 {serviceSummary.disciplesMujeres} Mujeres
+                        </Text>
+                      </View>
+
+                      {/* Nuevas Visitas / Invitados */}
+                      <View style={[styles.statBoxCard, { backgroundColor: '#FEF3C7', borderLeftColor: '#F59E0B' }]}>
+                        <View style={styles.statBoxHeader}>
+                          <Ionicons name="sparkles" size={17} color="#B45309" />
+                          <Text style={[styles.statBoxTitle, { color: '#B45309' }]}>Nuevas Visitas</Text>
+                        </View>
+                        <Text style={[styles.statBoxNumber, { color: '#B45309' }]}>
+                          {serviceSummary.visitorsTotal}
+                        </Text>
+                        <Text style={[styles.statBoxSub, { color: '#B45309' }]}>
+                          👦 {serviceSummary.visitorsHombres} Hombres • 👩 {serviceSummary.visitorsMujeres} Mujeres
+                        </Text>
+                      </View>
+
+                      {/* Prejuvenil (<14) */}
+                      <View style={[styles.statBoxCard, { backgroundColor: '#EDE9FE', borderLeftColor: '#7C3AED' }]}>
+                        <View style={styles.statBoxHeader}>
+                          <Ionicons name="school" size={17} color="#6D28D9" />
+                          <Text style={[styles.statBoxTitle, { color: '#6D28D9' }]}>Prejuvenil</Text>
+                        </View>
+                        <Text style={[styles.statBoxNumber, { color: '#6D28D9' }]}>
+                          {serviceSummary.prejuvenil}
+                        </Text>
+                        <Text style={[styles.statBoxSub, { color: '#6D28D9' }]}>Menores de 14 años</Text>
+                      </View>
+
+                      {/* Líderes Titulares presentes */}
+                      <View style={[styles.statBoxCard, { backgroundColor: '#D1FAE5', borderLeftColor: '#059669' }]}>
+                        <View style={styles.statBoxHeader}>
+                          <Ionicons name="shield-checkmark" size={17} color="#065F46" />
+                          <Text style={[styles.statBoxTitle, { color: '#065F46' }]}>Líderes</Text>
+                        </View>
+                        <Text style={[styles.statBoxNumber, { color: '#065F46' }]}>
+                          {serviceSummary.leadersTotal}
+                        </Text>
+                        <Text style={[styles.statBoxSub, { color: '#065F46' }]}>
+                          👨 {serviceSummary.leadersHombres} • 👩 {serviceSummary.leadersMujeres}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Barra de Totales Globales por Sexo */}
+                    <View style={styles.consolidatedSexBar}>
+                      <View style={styles.consolidatedSexItem}>
+                        <Ionicons name="man" size={14} color="#38BDF8" />
+                        <Text style={styles.consolidatedSexText}>
+                          Total Hombres: <Text style={{ fontWeight: '800', color: '#FFFFFF' }}>{serviceSummary.hombres}</Text>
+                        </Text>
+                      </View>
+                      <View style={styles.consolidatedSexDivider} />
+                      <View style={styles.consolidatedSexItem}>
+                        <Ionicons name="woman" size={14} color="#F472B6" />
+                        <Text style={styles.consolidatedSexText}>
+                          Total Mujeres: <Text style={{ fontWeight: '800', color: '#FFFFFF' }}>{serviceSummary.mujeres}</Text>
+                        </Text>
+                      </View>
+                    </View>
                   </View>
-                ) : (
-                  groupedAttendanceReports.map((group) => {
-                    return (
-                      <View key={group.leader12Name} style={styles.leader12GroupCard}>
-                        {/* Header del Grupo del Líder 12 */}
-                        <View style={styles.leader12GroupHeader}>
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Ionicons name="shield-checkmark" size={18} color="#1E3A8A" />
-                              <Text style={styles.leader12GroupTitle}>
-                                Líder 12: {group.leader12Name}
-                              </Text>
+
+                  {/* Resumen de Líderes agrupados por Líder 12 */}
+                  <View style={styles.reportsSummaryCard}>
+                    <Text style={styles.sectionHeading}>
+                      Líderes que reportaron para este servicio ({reportsForSelectedService.length})
+                    </Text>
+                    {reportsForSelectedService.length === 0 ? (
+                      <Text style={styles.emptyNoticeText}>
+                        Aún no hay reportes de líderes enviados para este servicio en la fecha {selectedDate}.
+                      </Text>
+                    ) : (
+                      groupedAttendanceReports.map((group) => {
+                        return (
+                          <View key={group.leader12Name} style={styles.consolidadoGroupContainer}>
+                            {/* Banner de Líder 12 */}
+                            <View style={styles.consolidadoGroupHeader}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                                <Ionicons name="shield-checkmark" size={16} color="#1E3A8A" />
+                                <Text style={styles.consolidadoGroupTitle}>
+                                  Líder 12: {group.leader12Name}
+                                </Text>
+                              </View>
+                              <View style={styles.consolidadoGroupBadge}>
+                                <Text style={styles.consolidadoGroupBadgeText}>
+                                  Total Red: +{group.groupSummary.total}
+                                </Text>
+                              </View>
                             </View>
-                            <Text style={styles.leader12GroupSubtitle}>
-                              {group.reports.length === 1
-                                ? '1 reporte recibido'
-                                : `${group.reports.length} reportes vinculados (Líder 12 y células 144)`}
-                            </Text>
-                          </View>
-                          <View style={styles.leader12TotalBadge}>
-                            <Text style={styles.leader12TotalBadgeLabel}>Total Red</Text>
-                            <Text style={styles.leader12TotalBadgeNumber}>
-                              {group.groupSummary.total}
-                            </Text>
-                          </View>
-                        </View>
 
-                        {/* Resumen Consolidado de la Red del Líder 12 */}
-                        <View style={styles.groupBreakdownRow}>
-                          <View style={styles.groupStatBox}>
-                            <Text style={[styles.groupStatVal, { color: '#2563EB' }]}>
-                              {group.groupSummary.hombres}
-                            </Text>
-                            <Text style={styles.groupStatLbl}>Hombres</Text>
-                          </View>
-                          <View style={styles.groupStatBox}>
-                            <Text style={[styles.groupStatVal, { color: '#DB2777' }]}>
-                              {group.groupSummary.mujeres}
-                            </Text>
-                            <Text style={styles.groupStatLbl}>Mujeres</Text>
-                          </View>
-                          <View style={styles.groupStatBox}>
-                            <Text style={[styles.groupStatVal, { color: '#7C3AED' }]}>
-                              {group.groupSummary.prejuvenil}
-                            </Text>
-                            <Text style={styles.groupStatLbl}>Prejuvenil</Text>
-                          </View>
-                          <View style={styles.groupStatBox}>
-                            <Text style={[styles.groupStatVal, { color: '#D97706' }]}>
-                              {group.groupSummary.visitors}
-                            </Text>
-                            <Text style={styles.groupStatLbl}>Visitas</Text>
-                          </View>
-                        </View>
-
-                        {/* Desglose de Cada Reporte (Líder 12 y sus discípulos) */}
-                        <View style={styles.groupInnerReportsList}>
-                          {group.reports.map((rep) => {
-                            const repSummary = summarizeReports([rep], members);
-                            const isL12 = isReportFromLeader12(rep, group.leader12Name);
-                            const repAuthor = members.find(
-                              (m) =>
-                                m.id === rep.leaderId ||
-                                `${m.firstName} ${m.lastName}`.trim().toLowerCase() ===
-                                  rep.leaderName.trim().toLowerCase()
-                            );
-                            const repLeader = repAuthor?.leaderId
-                              ? members.find((m) => m.id === repAuthor.leaderId)
-                              : null;
-                            const recipientDisplay =
-                              rep.recipientLeaderName ||
-                              (repLeader
-                                ? `${repLeader.role === 'network_pastor' || repLeader.role === 'senior_pastor' ? (repLeader.gender === 'F' ? 'Pastora' : 'Pastor') : 'Líder'} ${repLeader.firstName} ${repLeader.lastName}`
-                                : repAuthor?.leaderName || leaderInCharge.name);
-
-                            return (
-                              <View key={rep.id} style={styles.innerReportCard}>
-                                <View style={styles.reportHeader}>
+                            {/* Filas de líderes dentro del grupo */}
+                            {group.reports.map((rep) => {
+                              const repSummary = summarizeReports([rep], members);
+                              const isL12 = isReportFromLeader12(rep, group.leader12Name);
+                              return (
+                                <View key={rep.id} style={styles.leaderSummaryRow}>
+                                  <View
+                                    style={[
+                                      styles.leaderSummaryAvatar,
+                                      isL12 ? { backgroundColor: '#1E3A8A' } : { backgroundColor: '#059669' },
+                                    ]}>
+                                    <Text style={styles.leaderSummaryAvatarText}>{rep.leaderName[0]}</Text>
+                                  </View>
                                   <View style={{ flex: 1 }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                      <Text style={styles.reportLeaderName}>{rep.leaderName}</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                      <Text style={styles.leaderSummaryName}>{rep.leaderName}</Text>
                                       <View
                                         style={[
                                           styles.roleTagPill,
@@ -1432,138 +1683,291 @@ export default function AttendanceScreen() {
                                             styles.roleTagPillText,
                                             isL12 ? { color: '#1D4ED8' } : { color: '#15803D' },
                                           ]}>
-                                          {isL12 ? '👑 Líder 12 (Titular)' : '🌱 Discípulo (144)'}
+                                          {isL12 ? 'Líder 12' : 'Discípulo 144'}
+                                        </Text>
+                                      </View>
+                                    </View>
+                                    <Text style={styles.leaderSummaryMeta}>
+                                      {repSummary.hombres} H • {repSummary.mujeres} M • {repSummary.prejuvenil} P • {repSummary.visitors} Visitas
+                                    </Text>
+                                  </View>
+                                  <View style={styles.leaderSummaryTotalBadge}>
+                                    <Text style={styles.leaderSummaryTotalText}>+{repSummary.total}</Text>
+                                  </View>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        );
+                      })
+                    )}
+                  </View>
+                </View>
+              ) : (
+                /* Reportes Detallados Agrupados por Líder 12 */
+                <View style={styles.reportsListSection}>
+                  <Text style={styles.sectionHeading}>
+                    Detalle de Reportes Recibidos ({reportsForSelectedService.length})
+                  </Text>
+                  {reportsForSelectedService.length === 0 ? (
+                    <View style={styles.emptyNotice}>
+                      <Text style={styles.emptyNoticeText}>
+                        No hay reportes de líderes para este servicio en {selectedDate}.
+                      </Text>
+                    </View>
+                  ) : (
+                    groupedAttendanceReports.map((group) => {
+                      return (
+                        <View key={group.leader12Name} style={styles.leader12GroupCard}>
+                          {/* Header del Grupo del Líder 12 */}
+                          <View style={styles.leader12GroupHeader}>
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Ionicons name="shield-checkmark" size={18} color="#1E3A8A" />
+                                <Text style={styles.leader12GroupTitle}>
+                                  Líder 12: {group.leader12Name}
+                                </Text>
+                              </View>
+                              <Text style={styles.leader12GroupSubtitle}>
+                                {group.reports.length === 1
+                                  ? '1 reporte recibido'
+                                  : `${group.reports.length} reportes vinculados (Líder 12 y células 144)`}
+                              </Text>
+                            </View>
+                            <View style={styles.leader12TotalBadge}>
+                              <Text style={styles.leader12TotalBadgeLabel}>Total Red</Text>
+                              <Text style={styles.leader12TotalBadgeNumber}>
+                                {group.groupSummary.total}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Resumen Consolidado de la Red del Líder 12 */}
+                          <View style={styles.groupBreakdownRow}>
+                            <View style={styles.groupStatBox}>
+                              <Text style={[styles.groupStatVal, { color: '#1D4ED8' }]}>
+                                {group.groupSummary.disciplesTotal}
+                              </Text>
+                              <Text style={styles.groupStatLbl}>Discípulos</Text>
+                            </View>
+                            <View style={styles.groupStatBox}>
+                              <Text style={[styles.groupStatVal, { color: '#D97706' }]}>
+                                {group.groupSummary.visitorsTotal}
+                              </Text>
+                              <Text style={styles.groupStatLbl}>Visitas</Text>
+                            </View>
+                            <View style={styles.groupStatBox}>
+                              <Text style={[styles.groupStatVal, { color: '#2563EB' }]}>
+                                {group.groupSummary.hombres}
+                              </Text>
+                              <Text style={styles.groupStatLbl}>Hombres</Text>
+                            </View>
+                            <View style={styles.groupStatBox}>
+                              <Text style={[styles.groupStatVal, { color: '#DB2777' }]}>
+                                {group.groupSummary.mujeres}
+                              </Text>
+                              <Text style={styles.groupStatLbl}>Mujeres</Text>
+                            </View>
+                            <View style={styles.groupStatBox}>
+                              <Text style={[styles.groupStatVal, { color: '#7C3AED' }]}>
+                                {group.groupSummary.prejuvenil}
+                              </Text>
+                              <Text style={styles.groupStatLbl}>Prejuvenil</Text>
+                            </View>
+                          </View>
+
+                          {/* Desglose de Cada Reporte (Líder 12 y sus discípulos) */}
+                          <View style={styles.groupInnerReportsList}>
+                            {group.reports.map((rep) => {
+                              const repSummary = summarizeReports([rep], members);
+                              const isL12 = isReportFromLeader12(rep, group.leader12Name);
+                              const repAuthor = members.find(
+                                (m) =>
+                                  m.id === rep.leaderId ||
+                                  `${m.firstName} ${m.lastName}`.trim().toLowerCase() ===
+                                  rep.leaderName.trim().toLowerCase()
+                              );
+                              const repLeader = repAuthor?.leaderId
+                                ? members.find((m) => m.id === repAuthor.leaderId)
+                                : null;
+                              const recipientDisplay =
+                                rep.recipientLeaderName ||
+                                (repLeader
+                                  ? `${repLeader.role === 'network_pastor' || repLeader.role === 'senior_pastor' ? (repLeader.gender === 'F' ? 'Pastora' : 'Pastor') : 'Líder'} ${repLeader.firstName} ${repLeader.lastName}`
+                                  : repAuthor?.leaderName || leaderInCharge.name);
+
+                              return (
+                                <View key={rep.id} style={styles.innerReportCard}>
+                                  <View style={styles.reportHeader}>
+                                    <View style={{ flex: 1 }}>
+                                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                        <Text style={styles.reportLeaderName}>{rep.leaderName}</Text>
+                                        <View
+                                          style={[
+                                            styles.roleTagPill,
+                                            isL12 ? styles.roleTagL12 : styles.roleTag144,
+                                          ]}>
+                                          <Text
+                                            style={[
+                                              styles.roleTagPillText,
+                                              isL12 ? { color: '#1D4ED8' } : { color: '#15803D' },
+                                            ]}>
+                                            {isL12 ? '👑 Líder 12 (Titular)' : '🌱 Discípulo (144)'}
+                                          </Text>
+                                        </View>
+                                      </View>
+
+                                      <Text style={styles.reportMeta}>
+                                        Servicio: {rep.serviceId} • {rep.serviceDate}
+                                      </Text>
+                                      <View style={styles.recipientRowMeta}>
+                                        <Ionicons name="paper-plane-outline" size={11} color="#2563EB" />
+                                        <Text style={styles.recipientRowText}>
+                                          Enviado a: <Text style={{ fontWeight: '700' }}>{recipientDisplay}</Text>
                                         </Text>
                                       </View>
                                     </View>
 
-                                    <Text style={styles.reportMeta}>
-                                      Servicio: {rep.serviceId} • {rep.serviceDate}
-                                    </Text>
-                                    <View style={styles.recipientRowMeta}>
-                                      <Ionicons name="paper-plane-outline" size={11} color="#2563EB" />
-                                      <Text style={styles.recipientRowText}>
-                                        Enviado a: <Text style={{ fontWeight: '700' }}>{recipientDisplay}</Text>
-                                      </Text>
-                                    </View>
-                                  </View>
-
-                                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                                    <View
-                                      style={[
-                                        styles.badgePill,
-                                        { backgroundColor: rep.myAttendance ? '#DCFCE7' : '#FEE2E2' },
-                                      ]}>
-                                      <Text
+                                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                                      <View
                                         style={[
-                                          styles.badgePillText,
-                                          { color: rep.myAttendance ? '#15803D' : '#B91C1C' },
+                                          styles.badgePill,
+                                          { backgroundColor: rep.myAttendance ? '#DCFCE7' : '#FEE2E2' },
                                         ]}>
-                                        {rep.myAttendance ? 'Líder Asistió' : 'Líder Ausente'}
+                                        <Text
+                                          style={[
+                                            styles.badgePillText,
+                                            { color: rep.myAttendance ? '#15803D' : '#B91C1C' },
+                                          ]}>
+                                          {rep.myAttendance ? 'Líder Asistió' : 'Líder Ausente'}
+                                        </Text>
+                                      </View>
+                                      <View style={styles.individualContributionBadge}>
+                                        <Text style={styles.individualContributionText}>
+                                          Aporte: +{repSummary.total}
+                                        </Text>
+                                      </View>
+                                    </View>
+                                  </View>
+
+                                  {/* Breakdown Individual con separación clara de discípulos e invitados por sexo */}
+                                  <View style={styles.reportBreakdownRow}>
+                                    <View style={styles.miniStat}>
+                                      <Text style={[styles.miniStatVal, { color: '#1D4ED8' }]}>{repSummary.disciplesTotal}</Text>
+                                      <Text style={styles.miniStatLbl}>Discípulos</Text>
+                                      <Text style={styles.miniStatSub}>👦{repSummary.disciplesHombres} 👩{repSummary.disciplesMujeres}</Text>
+                                    </View>
+                                    <View style={styles.miniStat}>
+                                      <Text style={[styles.miniStatVal, { color: '#D97706' }]}>{repSummary.visitorsTotal}</Text>
+                                      <Text style={styles.miniStatLbl}>Invitados</Text>
+                                      <Text style={styles.miniStatSub}>👦{repSummary.visitorsHombres} 👩{repSummary.visitorsMujeres}</Text>
+                                    </View>
+                                    <View style={styles.miniStat}>
+                                      <Text style={[styles.miniStatVal, { color: '#7C3AED' }]}>{repSummary.prejuvenil}</Text>
+                                      <Text style={styles.miniStatLbl}>Prejuvenil</Text>
+                                      <Text style={styles.miniStatSub}>&lt;14 años</Text>
+                                    </View>
+                                    <View style={styles.miniStat}>
+                                      <Text style={[styles.miniStatVal, { color: '#059669' }]}>{repSummary.total}</Text>
+                                      <Text style={styles.miniStatLbl}>Total</Text>
+                                      <Text style={styles.miniStatSub}>👦{repSummary.hombres} 👩{repSummary.mujeres}</Text>
+                                    </View>
+                                  </View>
+
+                                  {/* Disciples Breakdown */}
+                                  {rep.disciples.length > 0 && (
+                                    <View style={{ marginTop: 10 }}>
+                                      <Text style={styles.disciplesHeaderTitle}>
+                                        Discípulos Reportados ({rep.disciples.length}):
+                                      </Text>
+                                      {rep.disciples.map((d: DiscipleAttendanceItem, i: number) => {
+                                        const isPj = typeof d.age === 'number' && d.age < PREJUVENIL_MAX_AGE;
+                                        return (
+                                          <View key={i} style={styles.discipleRepRow}>
+                                            <Ionicons
+                                              name={d.attended ? 'checkmark-circle' : 'close-circle'}
+                                              size={15}
+                                              color={d.attended ? '#059669' : '#DC2626'}
+                                            />
+                                            <Text style={styles.discipleRepName}>{d.name}</Text>
+                                            <Text style={styles.discipleRepTag}>
+                                              {isPj ? 'Prejuvenil (<14)' : d.gender === 'F' ? 'Mujer' : 'Hombre'}
+                                              {d.age ? ` (${d.age}a)` : ''}
+                                            </Text>
+                                          </View>
+                                        );
+                                      })}
+                                    </View>
+                                  )}
+
+                                  {/* Visitor Names */}
+                                  {rep.visitorNames && rep.visitorNames.length > 0 && (
+                                    <View style={styles.visitorsTagRow}>
+                                      <Ionicons name="people-circle" size={16} color="#D97706" />
+                                      <Text style={styles.visitorsTagText}>
+                                        Visitas ({rep.visitorNames.length}): {rep.visitorNames.join(', ')}
                                       </Text>
                                     </View>
-                                    <View style={styles.individualContributionBadge}>
-                                      <Text style={styles.individualContributionText}>
-                                        Aporte: +{repSummary.total}
-                                      </Text>
+                                  )}
+
+                                  {rep.notes && (
+                                    <Text style={styles.reportNotes}>
+                                      &ldquo;{rep.notes}&rdquo;
+                                    </Text>
+                                  )}
+
+                                  {/* Acciones para Editar y Eliminar el Reporte */}
+                                  {canManageReport(rep) && (
+                                    <View style={styles.reportActionRow}>
+                                      <TouchableOpacity
+                                        style={styles.editReportBtn}
+                                        onPress={() => handleStartEditReport(rep)}
+                                        activeOpacity={0.75}>
+                                        <Ionicons name="create-outline" size={14} color="#2563EB" />
+                                        <Text style={styles.editReportBtnText}>Editar Reporte</Text>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity
+                                        style={styles.deleteReportBtn}
+                                        onPress={() => handleDeleteReport(rep)}
+                                        activeOpacity={0.75}>
+                                        <Ionicons name="trash-outline" size={14} color="#DC2626" />
+                                        <Text style={styles.deleteReportBtnText}>Eliminar</Text>
+                                      </TouchableOpacity>
                                     </View>
-                                  </View>
+                                  )}
                                 </View>
-
-                                {/* Breakdown Individual */}
-                                <View style={styles.reportBreakdownRow}>
-                                  <View style={styles.miniStat}>
-                                    <Text style={styles.miniStatVal}>{repSummary.hombres}</Text>
-                                    <Text style={styles.miniStatLbl}>Hombres</Text>
-                                  </View>
-                                  <View style={styles.miniStat}>
-                                    <Text style={styles.miniStatVal}>{repSummary.mujeres}</Text>
-                                    <Text style={styles.miniStatLbl}>Mujeres</Text>
-                                  </View>
-                                  <View style={styles.miniStat}>
-                                    <Text style={styles.miniStatVal}>{repSummary.prejuvenil}</Text>
-                                    <Text style={styles.miniStatLbl}>Prejuvenil</Text>
-                                  </View>
-                                  <View style={styles.miniStat}>
-                                    <Text style={styles.miniStatVal}>{repSummary.visitors}</Text>
-                                    <Text style={styles.miniStatLbl}>Visitas</Text>
-                                  </View>
-                                </View>
-
-                                {/* Disciples Breakdown */}
-                                {rep.disciples.length > 0 && (
-                                  <View style={{ marginTop: 10 }}>
-                                    <Text style={styles.disciplesHeaderTitle}>
-                                      Discípulos Reportados ({rep.disciples.length}):
-                                    </Text>
-                                    {rep.disciples.map((d: DiscipleAttendanceItem, i: number) => {
-                                      const isPj = typeof d.age === 'number' && d.age < PREJUVENIL_MAX_AGE;
-                                      return (
-                                        <View key={i} style={styles.discipleRepRow}>
-                                          <Ionicons
-                                            name={d.attended ? 'checkmark-circle' : 'close-circle'}
-                                            size={15}
-                                            color={d.attended ? '#059669' : '#DC2626'}
-                                          />
-                                          <Text style={styles.discipleRepName}>{d.name}</Text>
-                                          <Text style={styles.discipleRepTag}>
-                                            {isPj ? 'Prejuvenil (<14)' : d.gender === 'F' ? 'Mujer' : 'Hombre'}
-                                            {d.age ? ` (${d.age}a)` : ''}
-                                          </Text>
-                                        </View>
-                                      );
-                                    })}
-                                  </View>
-                                )}
-
-                                {/* Visitor Names */}
-                                {rep.visitorNames && rep.visitorNames.length > 0 && (
-                                  <View style={styles.visitorsTagRow}>
-                                    <Ionicons name="people-circle" size={16} color="#D97706" />
-                                    <Text style={styles.visitorsTagText}>
-                                      Visitas ({rep.visitorNames.length}): {rep.visitorNames.join(', ')}
-                                    </Text>
-                                  </View>
-                                )}
-
-                                {rep.notes && (
-                                  <Text style={styles.reportNotes}>
-                                    &ldquo;{rep.notes}&rdquo;
-                                  </Text>
-                                )}
-                              </View>
-                            );
-                          })}
-                        </View>
-
-                        {/* Footer con el Total Consolidado de la Red */}
-                        {group.reports.length > 1 && (
-                          <View style={styles.groupFooterBar}>
-                            <Ionicons name="people" size={16} color="#1E3A8A" />
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.groupFooterText}>
-                                Total Red {group.leader12Name}:{' '}
-                                <Text style={{ fontWeight: '800', color: '#1E3A8A' }}>
-                                  {group.groupSummary.total} personas únicas
-                                </Text>
-                              </Text>
-                              <Text style={styles.groupFooterSubtext}>
-                                Conteo consolidado exacto sin duplicar discípulos que también reportaron su célula.
-                              </Text>
-                            </View>
+                              );
+                            })}
                           </View>
-                        )}
-                      </View>
-                    );
-                  })
-                )}
-              </View>
-            )}
-          </View>
-        )}
 
-        <View style={{ height: 80 }} />
-      </ScrollView>
+                          {/* Footer con el Total Consolidado de la Red */}
+                          {group.reports.length > 1 && (
+                            <View style={styles.groupFooterBar}>
+                              <Ionicons name="people" size={16} color="#1E3A8A" />
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.groupFooterText}>
+                                  Total Red {group.leader12Name}:{' '}
+                                  <Text style={{ fontWeight: '800', color: '#1E3A8A' }}>
+                                    {group.groupSummary.total} personas únicas
+                                  </Text>
+                                </Text>
+                                <Text style={styles.groupFooterSubtext}>
+                                  Conteo consolidado exacto sin duplicar discípulos que también reportaron su célula.
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+
+          <View style={{ height: 80 }} />
+        </ScrollView>
       </DoodleBackground>
     </SafeAreaView>
   );
@@ -2654,5 +3058,269 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#93C5FD',
     marginTop: 2,
+  },
+
+  // Banner de Modo Edición
+  editingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+    borderWidth: 1.5,
+    borderColor: '#EAB308',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  editingBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FACC15',
+  },
+  editingBannerSub: {
+    fontSize: 11,
+    color: '#FEF08A',
+    marginTop: 2,
+  },
+  cancelEditBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  cancelEditBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F87171',
+  },
+
+  // Sub Section Title
+  subSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+
+  // Quick Date Chips
+  quickDateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  quickDateChipActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#3B82F6',
+  },
+  quickDateChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  quickDateChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  // Active Date Banner
+  activeDateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.3)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 10,
+  },
+  activeDateBannerMain: {
+    fontSize: 12,
+    color: '#E0F2FE',
+  },
+  activeDateBannerSub: {
+    fontSize: 10,
+    color: '#93C5FD',
+    marginTop: 1,
+  },
+
+  // Live Summary Box (preview before sending)
+  liveSummaryBox: {
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  liveSummaryTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#38BDF8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  liveSummaryGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  liveSummaryCard: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    alignItems: 'center',
+  },
+  liveSummaryNum: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  liveSummaryLbl: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#CBD5E1',
+    marginTop: 2,
+  },
+  liveSummarySubRow: {
+    marginTop: 4,
+  },
+  liveSummarySubText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  liveSummaryTotalBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  liveSummaryTotalLbl: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E2E8F0',
+  },
+  liveSummaryTotalVal: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#22C55E',
+  },
+
+  // Consolidated Sex Bar
+  consolidatedSexBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  consolidatedSexItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  consolidatedSexText: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    fontWeight: '600',
+  },
+  consolidatedSexDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginHorizontal: 16,
+  },
+
+  // Mini Stat Subtitle
+  miniStatSub: {
+    fontSize: 8.5,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+
+  // Report Action Row
+  reportActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  editReportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  editReportBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#60A5FA',
+  },
+  deleteReportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(220, 38, 38, 0.15)',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  deleteReportBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F87171',
+  },
+
+  // Mini Action Buttons (for recent reports cards)
+  miniActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  miniActionBtnDelete: {
+    backgroundColor: 'rgba(220, 38, 38, 0.15)',
+    borderColor: '#EF4444',
   },
 });

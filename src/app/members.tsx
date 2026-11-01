@@ -64,14 +64,11 @@ export default function MembersScreen() {
 
   // Líderes disponibles para asignar (Pastores y Líderes de 12)
   const availableLeaders = useMemo(() => {
-    return members.filter(
-      (m) =>
-        m.role === 'senior_pastor' ||
-        m.role === 'network_pastor' ||
-        m.role === 'g12_leader' ||
-        m.isLeaderOf12 ||
-        m.generationLevel === 2
-    );
+    return members.filter((m) => {
+      if (m.role === 'senior_pastor' || m.role === 'network_pastor') return true;
+      if (m.generationLevel === 3 || m.generationLevel === 4) return false;
+      return m.role === 'g12_leader' || m.isLeaderOf12 || m.generationLevel === 2;
+    });
   }, [members]);
 
   const filteredMembers = members.filter((m) => {
@@ -581,7 +578,7 @@ export default function MembersScreen() {
                       {member.leaderName ? (
                         <Text style={styles.leaderInfoText}>
                           <Ionicons name="git-network-outline" size={12} color="#64748B" />{' '}
-                          Líder: <Text style={{ fontWeight: '700', color: '#1E293B' }}>{member.leaderName}</Text>
+                          Líder: <Text style={{ fontWeight: '700', color: '#64748B' }}>{member.leaderName}</Text>
                         </Text>
                       ) : (
                         <Text style={[styles.leaderInfoText, { fontStyle: 'italic', color: '#94A3B8' }]}>

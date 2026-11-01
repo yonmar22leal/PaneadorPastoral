@@ -319,6 +319,11 @@ interface ChurchContextType {
   deleteEvent: (eventId: string) => Promise<void>;
   addCellGroup: (cell: Omit<CellGroup, 'id'>) => Promise<void>;
   submitLeaderReport: (report: Omit<LeaderAttendanceReport, 'id' | 'createdAt'>) => Promise<void>;
+  updateLeaderReport: (
+    reportId: string,
+    data: Partial<LeaderAttendanceReport>
+  ) => Promise<void>;
+  deleteLeaderReport: (reportId: string) => Promise<void>;
   addCellMeetingReport: (report: Omit<CellMeetingReport, 'id' | 'createdAt'>) => Promise<void>;
   updateUserProfile: (
     data: UpdateProfileData
@@ -437,8 +442,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           if (item.leader_id) {
             const parent = memberMap.get(item.leader_id);
             if (parent) {
-              if (parent.role === 'senior_pastor') return 1;
-              if (parent.role === 'network_pastor') return 2; // Discípulo de pastor de red = Líder 12
+              if (parent.role === 'senior_pastor' || parent.role === 'network_pastor') return 2; // Discípulo de pastor = Líder 12
               const parentLevel = resolveMemberGenLevel(parent, visited);
               if (parentLevel === 2) return 3; // Discípulo de Líder 12 = Líder 144
               if (parentLevel === 3) return 4; // Discípulo de 144 = Líder 1728
@@ -454,6 +458,23 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             lName.includes('norelis')
           ) {
             return 2; // Líder 12
+          }
+
+          // Si no tiene leader_id pero tiene leader_name, intentar buscar al líder por nombre
+          if (lName) {
+            const cleanLead = lName.replace(/^(líder|lider|pastor|pastora)\s+/i, '').trim();
+            const parentByName = membersData.find((m: any) => {
+              if (m.id === item.id) return false;
+              const full = `${m.first_name} ${m.last_name}`.toLowerCase();
+              return full.includes(cleanLead) || cleanLead.includes(m.first_name.toLowerCase());
+            });
+            if (parentByName) {
+              if (parentByName.role === 'senior_pastor' || parentByName.role === 'network_pastor') return 2;
+              const parentLevel = resolveMemberGenLevel(parentByName, visited);
+              if (parentLevel === 2) return 3;
+              if (parentLevel === 3) return 4;
+              return parentLevel + 1;
+            }
           }
 
           // Si tiene generation_level explícito >= 2
@@ -845,9 +866,15 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       } else {
         const leader = found.leaderId ? members.find((m) => m.id === found.leaderId) : undefined;
         if (leader) {
-          if (leader.role === 'senior_pastor') resolvedGenLevel = 1;
-          else if (leader.role === 'network_pastor') resolvedGenLevel = 2; // Líder 12
-          else resolvedGenLevel = 3; // Líder 144
+          if (leader.role === 'senior_pastor' || leader.role === 'network_pastor') {
+            resolvedGenLevel = 2; // Discípulo de pastor = Líder 12
+          } else if (leader.generationLevel === 2 || leader.isLeaderOf12) {
+            resolvedGenLevel = 3; // Discípulo de Líder 12 = Líder 144
+          } else if (leader.generationLevel === 3) {
+            resolvedGenLevel = 4; // Discípulo de Líder 144 = Líder 1728
+          } else {
+            resolvedGenLevel = (leader.generationLevel || 2) + 1;
+          }
         } else if (found.leaderName) {
           const lName = found.leaderName.toLowerCase();
           if (
@@ -860,7 +887,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             resolvedGenLevel = 3;
           }
         } else {
-          resolvedGenLevel = found.role === 'g12_leader' ? 2 : 3;
+          resolvedGenLevel = found.role === 'g12_leader' || found.isLeaderOf12 ? 2 : 3;
         }
       }
     }
@@ -1330,6 +1357,61 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateLeaderReport = async (
+    reportId: string,
+    data: Partial<LeaderAttendanceReport>
+  ) => {
+    setLeaderAttendanceReports((prev) =>
+      prev.map((r) => (r.id === reportId ? { ...r, ...data } : r))
+    );
+
+    if (isSupabaseConfigured) {
+      try {
+        const payload: Record<string, any> = {};
+        if (data.serviceId !== undefined) payload.service_id = data.serviceId;
+        if (data.serviceDate !== undefined) payload.service_date = data.serviceDate;
+        if (data.myAttendance !== undefined) payload.my_attendance = data.myAttendance;
+        if (data.leaderGender !== undefined) payload.leader_gender = data.leaderGender;
+        if (data.leaderAge !== undefined) payload.leader_age = data.leaderAge;
+        if (data.disciples !== undefined) payload.disciples_report = data.disciples;
+        if (data.visitorsCount !== undefined) payload.visitors_count = data.visitorsCount;
+        if (data.visitorNames !== undefined) payload.visitor_names = data.visitorNames;
+        if (data.visitors !== undefined) payload.visitors_list = data.visitors;
+        if (data.notes !== undefined) payload.notes = data.notes;
+
+        const { error } = await supabase
+          .from('leader_attendance_reports')
+          .update(payload)
+          .eq('id', reportId);
+
+        if (error) {
+          console.warn('Supabase update leader report error:', error.message);
+        }
+      } catch (err) {
+        console.warn('Error updating leader report in Supabase:', err);
+      }
+    }
+  };
+
+  const deleteLeaderReport = async (reportId: string) => {
+    setLeaderAttendanceReports((prev) => prev.filter((r) => r.id !== reportId));
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('leader_attendance_reports')
+          .delete()
+          .eq('id', reportId);
+
+        if (error) {
+          console.warn('Supabase delete leader report error:', error.message);
+        }
+      } catch (err) {
+        console.warn('Error deleting leader report from Supabase:', err);
+      }
+    }
+  };
+
   const getMyCellGroups = (): CellGroup[] => {
     if (!currentUser) return [];
 
@@ -1375,30 +1457,63 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const saveAttendance = async (recordData: Omit<AttendanceRecord, 'id'>) => {
-    const newId = generateUUID();
-    const newRecord: AttendanceRecord = {
-      ...recordData,
-      id: newId,
-    };
-    setAttendanceRecords((prev) => [newRecord, ...prev]);
+    // Verificar si ya existe un registro oficial para esta misma fecha y servicio
+    const existing = attendanceRecords.find(
+      (a) => a.date === recordData.date && a.serviceId === recordData.serviceId
+    );
 
-    if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('attendance_records').insert({
-          id: newId,
-          church_id: CHURCH_ID,
-          service_id: recordData.serviceId,
-          service_date: recordData.date,
-          network: recordData.network,
-          men_count: recordData.menCount,
-          women_count: recordData.womenCount,
-          kids_count: recordData.kidsCount,
-          visitors_count: recordData.visitorsCount,
-          notes: recordData.notes || null,
-        });
-        if (error) console.warn('Supabase saveAttendance error:', error.message);
-      } catch (err) {
-        console.warn('Error saving attendance in Supabase:', err);
+    if (existing) {
+      const updatedRecord: AttendanceRecord = {
+        ...existing,
+        ...recordData,
+      };
+      setAttendanceRecords((prev) =>
+        prev.map((a) => (a.id === existing.id ? updatedRecord : a))
+      );
+
+      if (isSupabaseConfigured) {
+        try {
+          const { error } = await supabase
+            .from('attendance_records')
+            .update({
+              men_count: recordData.menCount,
+              women_count: recordData.womenCount,
+              kids_count: recordData.kidsCount,
+              visitors_count: recordData.visitorsCount,
+              notes: recordData.notes || null,
+            })
+            .eq('id', existing.id);
+          if (error) console.warn('Supabase update attendance error:', error.message);
+        } catch (err) {
+          console.warn('Error updating attendance in Supabase:', err);
+        }
+      }
+    } else {
+      const newId = generateUUID();
+      const newRecord: AttendanceRecord = {
+        ...recordData,
+        id: newId,
+      };
+      setAttendanceRecords((prev) => [newRecord, ...prev]);
+
+      if (isSupabaseConfigured) {
+        try {
+          const { error } = await supabase.from('attendance_records').insert({
+            id: newId,
+            church_id: CHURCH_ID,
+            service_id: recordData.serviceId,
+            service_date: recordData.date,
+            network: recordData.network,
+            men_count: recordData.menCount,
+            women_count: recordData.womenCount,
+            kids_count: recordData.kidsCount,
+            visitors_count: recordData.visitorsCount,
+            notes: recordData.notes || null,
+          });
+          if (error) console.warn('Supabase saveAttendance error:', error.message);
+        } catch (err) {
+          console.warn('Error saving attendance in Supabase:', err);
+        }
       }
     }
   };
@@ -2419,6 +2534,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         deleteEvent,
         addCellGroup,
         submitLeaderReport,
+        updateLeaderReport,
+        deleteLeaderReport,
         addCellMeetingReport,
         updateUserProfile,
         updateMember,

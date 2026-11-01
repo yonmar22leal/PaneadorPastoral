@@ -227,15 +227,12 @@ export default function ProfileScreen() {
     if (currentUser.role === 'network_pastor') {
       return currentUser.network === 'juvenil' ? 'Pastor Juvenil' : 'Pastor Adultos';
     }
-    if (currentUser.generationLevel === 3) return 'Líder 144';
-    if (currentUser.generationLevel === 4) return 'Líder 1728';
-    if (currentUser.generationLevel === 2) return 'Líder 12';
 
     // Verificar por la cobertura de discipulado
     if (currentUser.leaderId) {
       const leader = members.find((m) => m.id === currentUser.leaderId);
       if (leader) {
-        if (leader.role === 'senior_pastor') return 'Líder 12';
+        if (leader.role === 'senior_pastor' || leader.role === 'network_pastor') return 'Líder 12';
         return 'Líder 144'; // Discípulo de un Líder 12
       }
     }
@@ -252,7 +249,9 @@ export default function ProfileScreen() {
       return 'Líder 144';
     }
 
-    if (currentUser.isLeaderOf12 || currentUser.role === 'g12_leader') {
+    if (currentUser.generationLevel === 3) return 'Líder 144';
+    if (currentUser.generationLevel === 4) return 'Líder 1728';
+    if (currentUser.generationLevel === 2 || currentUser.isLeaderOf12 || currentUser.role === 'g12_leader') {
       return 'Líder 12';
     }
     return 'Líder 144';

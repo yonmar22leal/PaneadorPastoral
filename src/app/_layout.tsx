@@ -1,8 +1,8 @@
-import { DarkTheme, ThemeProvider, usePathname, useRouter } from 'expo-router';
 import { NavigationBar } from 'expo-navigation-bar';
+import { DarkTheme, ThemeProvider, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
 import * as Updates from 'expo-updates';
 import { useEffect, useRef } from 'react';
 import { Alert, BackHandler, Platform, View } from 'react-native';
@@ -13,8 +13,8 @@ import { ChurchProvider } from '@/context/ChurchContext';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 if (Platform.OS !== 'web') {
-  SplashScreen.preventAutoHideAsync().catch(() => {});
-  SystemUI.setBackgroundColorAsync('#070A14').catch(() => {});
+  SplashScreen.preventAutoHideAsync().catch(() => { });
+  SystemUI.setBackgroundColorAsync('#070A14').catch(() => { });
 }
 
 const appDarkTheme = {
@@ -95,7 +95,7 @@ function AndroidBackHandler() {
       // 4. Si ya está en la pantalla principal (Home / Login), pedir confirmación
       Alert.alert(
         'Salir de la aplicación',
-        '¿Estás seguro de que deseas salir de Paneador Pastoral?',
+        '¿Estás seguro de que deseas salir?',
         [
           { text: 'Cancelar', style: 'cancel' },
           {
@@ -131,7 +131,7 @@ function AppContent() {
         if (update.isAvailable) {
           await Updates.fetchUpdateAsync();
         }
-      } catch {}
+      } catch { }
     }
     checkAutoUpdate();
   }, []);
