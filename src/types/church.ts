@@ -335,4 +335,50 @@ export interface PrayerRequest {
   createdAt: string; // ISO
 }
 
+export type MarriageStatus = 'active' | 'separated' | 'widowed' | 'divorced';
 
+export interface Marriage {
+  id: string;
+  husbandId: string;
+  husbandName: string;
+  wifeId: string;
+  wifeName: string;
+  marriageDate?: string;        // YYYY-MM-DD
+  anniversaryDate?: string;     // DD/MM o fecha descriptiva
+  status: MarriageStatus;
+  notes?: string;
+  pastorInChargeId?: string;    // ID del pastor de cobertura
+  pastorInChargeName?: string;  // Nombre del pastor de cobertura
+  createdById?: string;         // Pastor que registró la unión
+  createdByName?: string;
+  network?: ChurchNetwork;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+
+
+
+export type LadderStage = 'ganar' | 'consolidar' | 'discipular' | 'enviar';
+export type LadderStatus = 'active' | 'paused' | 'lost';
+
+export interface LadderHistoryEntry {
+  stage: LadderStage;
+  date: string; // ISO
+}
+
+export interface LadderPerson {
+  id: string;
+  leaderId: string;
+  leaderName: string;
+  name: string;
+  age?: number;
+  phone?: string;
+  stage: LadderStage;
+  status: LadderStatus; // active = en proceso, paused = en pausa (se puede retomar), lost = se fue
+  notes?: string;
+  history: LadderHistoryEntry[]; // fechas en que entr� a cada etapa
+  statusChangedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}

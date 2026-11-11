@@ -22,6 +22,10 @@ import {
   PrayerRequest,
   PrayerStatus,
   PrayerCategory,
+  Marriage,
+  LadderPerson,
+  LadderStage,
+  LadderStatus,
 } from '../types/church';
 import {
   churchServicesSchedule,
@@ -43,6 +47,8 @@ const STORAGE_CURRENT_USER = '@planeador_current_user_v1';
 const STORAGE_MINISTRIES = '@planeador_ministries_v1';
 const STORAGE_PASTORAL_POSTS = '@planeador_pastoral_posts_v1';
 const STORAGE_PRAYER_REQUESTS = '@planeador_prayer_requests_v1';
+const STORAGE_MARRIAGES = '@planeador_marriages_v1';
+const STORAGE_LADDER = '@planeador_ladder_v1';
 const STORAGE_MEMBER_BIRTHDAYS = '@planeador_member_birthdays_v1';
 const CHURCH_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -151,6 +157,209 @@ const defaultPastoralPosts: PastoralPost[] = [
     },
     likes: [],
     createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+  },
+];
+
+const nowQuarterISO = (daysAgo: number) =>
+  new Date(Date.now() - 86400000 * daysAgo).toISOString();
+
+const defaultLadderPeople: LadderPerson[] = [
+  // Líder 1: Carlos Mendoza (ganó 5: 2 pasaron a consolidar, 1 a discipular, 1 en pausa, 1 se fue)
+  {
+    id: 'lad-demo-1',
+    leaderId: 'demo-leader-carlos',
+    leaderName: 'Carlos Mendoza',
+    name: 'Andrés Pérez',
+    age: 19,
+    phone: '+58 412-5550101',
+    stage: 'consolidar',
+    status: 'active',
+    notes: 'Asistiendo fielmente a la célula de los jueves.',
+    history: [
+      { stage: 'ganar', date: nowQuarterISO(25) },
+      { stage: 'consolidar', date: nowQuarterISO(12) },
+    ],
+    createdAt: nowQuarterISO(25),
+    updatedAt: nowQuarterISO(12),
+  },
+  {
+    id: 'lad-demo-2',
+    leaderId: 'demo-leader-carlos',
+    leaderName: 'Carlos Mendoza',
+    name: 'María Fernanda Gómez',
+    age: 17,
+    phone: '+58 414-5550202',
+    stage: 'consolidar',
+    status: 'active',
+    notes: 'Completó la semana 2 de consolidación.',
+    history: [
+      { stage: 'ganar', date: nowQuarterISO(22) },
+      { stage: 'consolidar', date: nowQuarterISO(9) },
+    ],
+    createdAt: nowQuarterISO(22),
+    updatedAt: nowQuarterISO(9),
+  },
+  {
+    id: 'lad-demo-3',
+    leaderId: 'demo-leader-carlos',
+    leaderName: 'Carlos Mendoza',
+    name: 'José Gregorio Rivas',
+    age: 21,
+    phone: '+58 424-5550303',
+    stage: 'discipular',
+    status: 'active',
+    notes: 'Cursando nivel 1 de discipulado juvenil.',
+    history: [
+      { stage: 'ganar', date: nowQuarterISO(35) },
+      { stage: 'consolidar', date: nowQuarterISO(20) },
+      { stage: 'discipular', date: nowQuarterISO(5) },
+    ],
+    createdAt: nowQuarterISO(35),
+    updatedAt: nowQuarterISO(5),
+  },
+  {
+    id: 'lad-demo-4',
+    leaderId: 'demo-leader-carlos',
+    leaderName: 'Carlos Mendoza',
+    name: 'Luis Ramírez',
+    age: 18,
+    phone: '+58 412-5550404',
+    stage: 'ganar',
+    status: 'paused',
+    notes: 'De viaje por estudios universitarios este mes.',
+    history: [{ stage: 'ganar', date: nowQuarterISO(18) }],
+    statusChangedAt: nowQuarterISO(6),
+    createdAt: nowQuarterISO(18),
+    updatedAt: nowQuarterISO(6),
+  },
+  {
+    id: 'lad-demo-5',
+    leaderId: 'demo-leader-carlos',
+    leaderName: 'Carlos Mendoza',
+    name: 'Diego Torres',
+    age: 16,
+    phone: '+58 416-5550505',
+    stage: 'ganar',
+    status: 'lost',
+    notes: 'Se mudó de zona y dejó de asistir.',
+    history: [{ stage: 'ganar', date: nowQuarterISO(28) }],
+    statusChangedAt: nowQuarterISO(10),
+    createdAt: nowQuarterISO(28),
+    updatedAt: nowQuarterISO(10),
+  },
+
+  // Líder 2: Daniela Morales (ganó 4: 1 en ganar, 1 en discipular, 1 enviado, 1 se fue)
+  {
+    id: 'lad-demo-6',
+    leaderId: 'demo-leader-daniela',
+    leaderName: 'Daniela Morales',
+    name: 'Valentina Herrera',
+    age: 20,
+    phone: '+58 414-5550606',
+    stage: 'enviar',
+    status: 'active',
+    notes: 'Lista para abrir nueva célula juvenil.',
+    history: [
+      { stage: 'ganar', date: nowQuarterISO(40) },
+      { stage: 'consolidar', date: nowQuarterISO(28) },
+      { stage: 'discipular', date: nowQuarterISO(14) },
+      { stage: 'enviar', date: nowQuarterISO(3) },
+    ],
+    createdAt: nowQuarterISO(40),
+    updatedAt: nowQuarterISO(3),
+  },
+  {
+    id: 'lad-demo-7',
+    leaderId: 'demo-leader-daniela',
+    leaderName: 'Daniela Morales',
+    name: 'Camila Salazar',
+    age: 15,
+    phone: '+58 412-5550707',
+    stage: 'ganar',
+    status: 'active',
+    notes: 'Visitó por primera vez el viernes de adoración.',
+    history: [{ stage: 'ganar', date: nowQuarterISO(4) }],
+    createdAt: nowQuarterISO(4),
+    updatedAt: nowQuarterISO(4),
+  },
+  {
+    id: 'lad-demo-8',
+    leaderId: 'demo-leader-daniela',
+    leaderName: 'Daniela Morales',
+    name: 'Gabriela Pinto',
+    age: 18,
+    phone: '+58 424-5550808',
+    stage: 'discipular',
+    status: 'active',
+    notes: 'Sirviendo como apoyo en bienvenida.',
+    history: [
+      { stage: 'ganar', date: nowQuarterISO(30) },
+      { stage: 'consolidar', date: nowQuarterISO(18) },
+      { stage: 'discipular', date: nowQuarterISO(7) },
+    ],
+    createdAt: nowQuarterISO(30),
+    updatedAt: nowQuarterISO(7),
+  },
+  {
+    id: 'lad-demo-9',
+    leaderId: 'demo-leader-daniela',
+    leaderName: 'Daniela Morales',
+    name: 'Sofía Castillo',
+    age: 17,
+    stage: 'ganar',
+    status: 'lost',
+    notes: 'No contestó más las llamadas de seguimiento.',
+    history: [{ stage: 'ganar', date: nowQuarterISO(21) }],
+    statusChangedAt: nowQuarterISO(8),
+    createdAt: nowQuarterISO(21),
+    updatedAt: nowQuarterISO(8),
+  },
+
+  // Líder 3: Gabriel Silva (ganó 3: 2 en ganar, 1 en consolidar)
+  {
+    id: 'lad-demo-10',
+    leaderId: 'demo-leader-gabriel',
+    leaderName: 'Gabriel Silva',
+    name: 'Samuel Quintero',
+    age: 22,
+    phone: '+58 412-5550909',
+    stage: 'ganar',
+    status: 'active',
+    notes: 'Invitado del servicio juvenil del domingo.',
+    history: [{ stage: 'ganar', date: nowQuarterISO(3) }],
+    createdAt: nowQuarterISO(3),
+    updatedAt: nowQuarterISO(3),
+  },
+  {
+    id: 'lad-demo-11',
+    leaderId: 'demo-leader-gabriel',
+    leaderName: 'Gabriel Silva',
+    name: 'Sebastián Delgado',
+    age: 19,
+    phone: '+58 414-5551010',
+    stage: 'consolidar',
+    status: 'active',
+    notes: 'Ya recibió primera visita de consolidación.',
+    history: [
+      { stage: 'ganar', date: nowQuarterISO(16) },
+      { stage: 'consolidar', date: nowQuarterISO(6) },
+    ],
+    createdAt: nowQuarterISO(16),
+    updatedAt: nowQuarterISO(6),
+  },
+  {
+    id: 'lad-demo-12',
+    leaderId: 'demo-leader-gabriel',
+    leaderName: 'Gabriel Silva',
+    name: 'Mateo Villalobos',
+    age: 16,
+    phone: '+58 424-5551111',
+    stage: 'ganar',
+    status: 'active',
+    notes: 'Asistió a célula por primera vez.',
+    history: [{ stage: 'ganar', date: nowQuarterISO(2) }],
+    createdAt: nowQuarterISO(2),
+    updatedAt: nowQuarterISO(2),
   },
 ];
 
@@ -269,6 +478,29 @@ interface ChurchContextType {
   togglePrayerSupport: (prayerId: string) => Promise<void>;
   deletePrayerRequest: (id: string) => Promise<void>;
 
+  // Matrimonios & Cobertura Pastoral
+  marriages: Marriage[];
+  addMarriage: (marriage: Omit<Marriage, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  updateMarriage: (id: string, data: Partial<Marriage>) => Promise<void>;
+  deleteMarriage: (id: string) => Promise<void>;
+
+  // Escalera del Éxito
+  ladderPeople: LadderPerson[];
+  addLadderPerson: (data: {
+    name: string;
+    age?: number;
+    phone?: string;
+    notes?: string;
+    stage?: LadderStage;
+  }) => Promise<void>;
+  moveLadderPerson: (id: string, stage: LadderStage) => Promise<void>;
+  setLadderPersonStatus: (id: string, status: LadderStatus) => Promise<void>;
+  updateLadderPerson: (
+    id: string,
+    data: Partial<Pick<LadderPerson, 'name' | 'age' | 'phone' | 'notes'>>
+  ) => Promise<void>;
+  deleteLadderPerson: (id: string) => Promise<void>;
+
   isLoading: boolean;
   refreshData: () => Promise<void>;
 
@@ -350,6 +582,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   const [cellMeetingReports, setCellMeetingReports] = useState<CellMeetingReport[]>([]);
   const [pastoralPosts, setPastoralPosts] = useState<PastoralPost[]>(defaultPastoralPosts);
   const [prayerRequests, setPrayerRequests] = useState<PrayerRequest[]>(defaultPrayerRequests);
+  const [marriages, setMarriages] = useState<Marriage[]>([]);
+  const [ladderPeople, setLadderPeople] = useState<LadderPerson[]>(defaultLadderPeople);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // 1. CARGA DE SESIÓN DE USUARIO, MINISTERIOS Y MENSAJES PASTORALES DESDE ASYNCSTORAGE
@@ -397,6 +631,22 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           const parsedPrayers = JSON.parse(storedPrayers);
           if (Array.isArray(parsedPrayers) && parsedPrayers.length > 0) {
             setPrayerRequests(parsedPrayers);
+          }
+        }
+
+        const storedMarriages = await AsyncStorage.getItem(STORAGE_MARRIAGES);
+        if (storedMarriages) {
+          const parsedMarriages = JSON.parse(storedMarriages);
+          if (Array.isArray(parsedMarriages) && parsedMarriages.length > 0) {
+            setMarriages(parsedMarriages);
+          }
+        }
+
+        const storedLadder = await AsyncStorage.getItem(STORAGE_LADDER);
+        if (storedLadder) {
+          const parsedLadder = JSON.parse(storedLadder);
+          if (Array.isArray(parsedLadder) && parsedLadder.length > 0) {
+            setLadderPeople(parsedLadder);
           }
         }
       } catch (e) {
@@ -761,6 +1011,57 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           }));
           setPrayerRequests(mappedPr);
           AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(mappedPr)).catch(() => {});
+        }
+      } catch {}
+
+      // K. Matrimonios de Supabase (si existe la tabla)
+      try {
+        const { data: marData } = await supabase.from('marriages').select('*');
+        if (marData && marData.length > 0) {
+          const mappedMar: Marriage[] = marData.map((m) => ({
+            id: m.id,
+            husbandId: m.husband_id,
+            husbandName: m.husband_name,
+            wifeId: m.wife_id,
+            wifeName: m.wife_name,
+            marriageDate: m.marriage_date || undefined,
+            anniversaryDate: m.anniversary_date || undefined,
+            status: m.status || 'active',
+            notes: m.notes || undefined,
+            pastorInChargeId: m.pastor_in_charge_id || undefined,
+            pastorInChargeName: m.pastor_in_charge_name || undefined,
+            createdById: m.created_by_id || undefined,
+            createdByName: m.created_by_name || undefined,
+            network: m.network || 'adulta',
+            createdAt: m.created_at || new Date().toISOString(),
+            updatedAt: m.updated_at || undefined,
+          }));
+          setMarriages(mappedMar);
+          AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(mappedMar)).catch(() => {});
+        }
+      } catch {}
+
+      // L. Escalera del Éxito de Supabase (si existe la tabla)
+      try {
+        const { data: ladData } = await supabase.from('ladder_people').select('*');
+        if (ladData && ladData.length > 0) {
+          const mappedLad: LadderPerson[] = ladData.map((l) => ({
+            id: l.id,
+            leaderId: l.leader_id,
+            leaderName: l.leader_name,
+            name: l.name,
+            age: typeof l.age === 'number' ? l.age : undefined,
+            phone: l.phone || undefined,
+            stage: l.stage || 'ganar',
+            status: l.status || 'active',
+            notes: l.notes || undefined,
+            history: Array.isArray(l.history) ? l.history : [],
+            statusChangedAt: l.status_changed_at || undefined,
+            createdAt: l.created_at || new Date().toISOString(),
+            updatedAt: l.updated_at || undefined,
+          }));
+          setLadderPeople(mappedLad);
+          AsyncStorage.setItem(STORAGE_LADDER, JSON.stringify(mappedLad)).catch(() => {});
         }
       } catch {}
     } catch (e) {
@@ -2476,6 +2777,214 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // ============================================================================
+  // GESTIÓN DE MATRIMONIOS & PAREJAS (EXCLUSIVO PARA CUERPO PASTORAL)
+  // ============================================================================
+  const addMarriage = async (
+    marriageData: Omit<Marriage, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<string> => {
+    const isPastor =
+      currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
+    if (!isPastor) {
+      throw new Error('Solo los pastores tienen autorización para registrar matrimonios.');
+    }
+
+    const newId = generateUUID();
+    const now = new Date().toISOString();
+    const newMarriage: Marriage = {
+      ...marriageData,
+      id: newId,
+      createdById: currentUser?.id,
+      createdByName: `${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`.trim(),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const updated = [newMarriage, ...marriages];
+    setMarriages(updated);
+    AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(updated)).catch(() => {});
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('marriages').insert({
+          id: newId,
+          church_id: CHURCH_ID,
+          husband_id: newMarriage.husbandId,
+          husband_name: newMarriage.husbandName,
+          wife_id: newMarriage.wifeId,
+          wife_name: newMarriage.wifeName,
+          marriage_date: newMarriage.marriageDate || null,
+          anniversary_date: newMarriage.anniversaryDate || null,
+          status: newMarriage.status || 'active',
+          notes: newMarriage.notes || null,
+          pastor_in_charge_id: newMarriage.pastorInChargeId || null,
+          pastor_in_charge_name: newMarriage.pastorInChargeName || null,
+          created_by_id: newMarriage.createdById || null,
+          created_by_name: newMarriage.createdByName || null,
+          network: newMarriage.network || 'adulta',
+          created_at: now,
+          updated_at: now,
+        });
+      } catch (e) {
+        console.warn('Error al guardar matrimonio en Supabase:', e);
+      }
+    }
+
+    return newId;
+  };
+
+  const updateMarriage = async (id: string, data: Partial<Marriage>): Promise<void> => {
+    const isPastor =
+      currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
+    if (!isPastor) {
+      throw new Error('Solo los pastores tienen autorización para editar matrimonios.');
+    }
+
+    const now = new Date().toISOString();
+    const updated = marriages.map((m) =>
+      m.id === id ? { ...m, ...data, updatedAt: now } : m
+    );
+    setMarriages(updated);
+    AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(updated)).catch(() => {});
+
+    if (isSupabaseConfigured) {
+      try {
+        const payload: any = { updated_at: now };
+        if (data.husbandId !== undefined) payload.husband_id = data.husbandId;
+        if (data.husbandName !== undefined) payload.husband_name = data.husbandName;
+        if (data.wifeId !== undefined) payload.wife_id = data.wifeId;
+        if (data.wifeName !== undefined) payload.wife_name = data.wifeName;
+        if (data.marriageDate !== undefined) payload.marriage_date = data.marriageDate || null;
+        if (data.anniversaryDate !== undefined) payload.anniversary_date = data.anniversaryDate || null;
+        if (data.status !== undefined) payload.status = data.status;
+        if (data.notes !== undefined) payload.notes = data.notes || null;
+        if (data.pastorInChargeId !== undefined) payload.pastor_in_charge_id = data.pastorInChargeId || null;
+        if (data.pastorInChargeName !== undefined) payload.pastor_in_charge_name = data.pastorInChargeName || null;
+        if (data.network !== undefined) payload.network = data.network;
+
+        await supabase.from('marriages').update(payload).eq('id', id);
+      } catch (e) {
+        console.warn('Error al actualizar matrimonio en Supabase:', e);
+      }
+    }
+  };
+
+  const deleteMarriage = async (id: string): Promise<void> => {
+    const isPastor =
+      currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
+    if (!isPastor) {
+      throw new Error('Solo los pastores tienen autorización para eliminar registros de matrimonio.');
+    }
+
+    const updated = marriages.filter((m) => m.id !== id);
+    setMarriages(updated);
+    AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(updated)).catch(() => {});
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('marriages').delete().eq('id', id);
+      } catch (e) {
+        console.warn('Error al eliminar matrimonio en Supabase:', e);
+      }
+    }
+  };
+
+  // ============================================================================
+  // ESCALERA DEL ÉXITO: GANAR → CONSOLIDAR → DISCIPULAR → ENVIAR
+  // ============================================================================
+  const persistLadder = (list: LadderPerson[]) => {
+    setLadderPeople(list);
+    AsyncStorage.setItem(STORAGE_LADDER, JSON.stringify(list)).catch(() => {});
+  };
+
+  const syncLadderPerson = async (p: LadderPerson) => {
+    if (!isSupabaseConfigured) return;
+    try {
+      await supabase.from('ladder_people').upsert({
+        id: p.id,
+        church_id: CHURCH_ID,
+        leader_id: p.leaderId,
+        leader_name: p.leaderName,
+        name: p.name,
+        age: p.age ?? null,
+        phone: p.phone || null,
+        stage: p.stage,
+        status: p.status,
+        notes: p.notes || null,
+        history: p.history,
+        status_changed_at: p.statusChangedAt || null,
+        created_at: p.createdAt,
+        updated_at: p.updatedAt || p.createdAt,
+      });
+    } catch (e) {
+      console.warn('Error al sincronizar escalera del éxito:', e);
+    }
+  };
+
+  const addLadderPerson = async (data: {
+    name: string;
+    age?: number;
+    phone?: string;
+    notes?: string;
+    stage?: LadderStage;
+  }): Promise<void> => {
+    if (!currentUser) return;
+    const now = new Date().toISOString();
+    const initialStage: LadderStage = data.stage || 'ganar';
+    const person: LadderPerson = {
+      id: generateUUID(),
+      leaderId: currentUser.id,
+      leaderName: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+      name: data.name.trim(),
+      age: data.age,
+      phone: data.phone?.trim() || undefined,
+      notes: data.notes?.trim() || undefined,
+      stage: initialStage,
+      status: 'active',
+      history: [{ stage: initialStage, date: now }],
+      createdAt: now,
+      updatedAt: now,
+    };
+    persistLadder([person, ...ladderPeople]);
+    await syncLadderPerson(person);
+  };
+
+  const updateLadderItem = async (id: string, fn: (p: LadderPerson) => LadderPerson) => {
+    let changed: LadderPerson | undefined;
+    const updated = ladderPeople.map((p) => {
+      if (p.id !== id) return p;
+      changed = { ...fn(p), updatedAt: new Date().toISOString() };
+      return changed;
+    });
+    persistLadder(updated);
+    if (changed) await syncLadderPerson(changed);
+  };
+
+  const moveLadderPerson = (id: string, stage: LadderStage) =>
+    updateLadderItem(id, (p) => ({
+      ...p,
+      stage,
+      status: 'active',
+      history: [...p.history, { stage, date: new Date().toISOString() }],
+    }));
+
+  const setLadderPersonStatus = (id: string, status: LadderStatus) =>
+    updateLadderItem(id, (p) => ({ ...p, status, statusChangedAt: new Date().toISOString() }));
+
+  const updateLadderPerson = (
+    id: string,
+    data: Partial<Pick<LadderPerson, 'name' | 'age' | 'phone' | 'notes'>>
+  ) => updateLadderItem(id, (p) => ({ ...p, ...data }));
+
+  const deleteLadderPerson = async (id: string): Promise<void> => {
+    persistLadder(ladderPeople.filter((p) => p.id !== id));
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('ladder_people').delete().eq('id', id);
+      } catch {}
+    }
+  };
+
   return (
     <ChurchContext.Provider
       value={{
@@ -2540,6 +3049,16 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         updateUserProfile,
         updateMember,
         updateMembersBatch,
+        marriages,
+        addMarriage,
+        updateMarriage,
+        deleteMarriage,
+        ladderPeople,
+        addLadderPerson,
+        moveLadderPerson,
+        setLadderPersonStatus,
+        updateLadderPerson,
+        deleteLadderPerson,
       }}>
       {children}
     </ChurchContext.Provider>

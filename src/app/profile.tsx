@@ -29,7 +29,6 @@ export default function ProfileScreen() {
     logout,
     updateUserProfile,
     getLeadersByNetwork,
-    servicesSchedule,
   } = useChurch();
 
   // Si no hay usuario logueado, redirigir al login / inicio
@@ -60,12 +59,6 @@ export default function ProfileScreen() {
   // Avatar Photo state
   const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || '');
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
-
-  useEffect(() => {
-    if (currentUser?.avatarUrl) {
-      setAvatarUrl(currentUser.avatarUrl);
-    }
-  }, [currentUser?.avatarUrl]);
 
   // Status & Feedback
   const [isSaving, setIsSaving] = useState(false);

@@ -51,6 +51,8 @@ export default function DashboardScreen() {
     updatePrayerRequestStatus,
     togglePrayerSupport,
     deletePrayerRequest,
+    marriages,
+    ladderPeople,
   } = useChurch();
 
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -87,7 +89,8 @@ export default function DashboardScreen() {
   } | null>(null);
   const [verseFeedback, setVerseFeedback] = useState<string | null>(null);
 
-  const isPastor = currentUser?.role === 'senior_pastor';
+  const isPastor =
+    currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
 
   const handleOpenCreatePost = () => {
     setPostNetwork('general');
@@ -568,8 +571,14 @@ export default function DashboardScreen() {
                     <Ionicons name="people" size={24} color="#38BDF8" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.glassCardTitle}>Asistencia</Text>
-                    <Text style={styles.glassCardSubtitle}>Visitantes, asistencia y niños</Text>
+                    <Text style={styles.glassCardTitle}>
+                      {isPastor ? 'Control de Asistencia' : 'Reporte de Asistencia'}
+                    </Text>
+                    <Text style={styles.glassCardSubtitle}>
+                      {isPastor
+                        ? 'Consolidado total y reportes de líderes'
+                        : 'Envía tu reporte y consulta tus asistencias'}
+                    </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
                 </TouchableOpacity>
@@ -600,10 +609,10 @@ export default function DashboardScreen() {
                       ]}>
                       <Ionicons name="checkmark-done-circle-outline" size={17} color="#34D399" />
                     </View>
-                    <Text style={styles.subActionLabel}>Marcar asistencia</Text>
+                    <Text style={styles.subActionLabel}>
+                      {isPastor ? 'Consolidado total' : 'Enviar reporte'}
+                    </Text>
                   </TouchableOpacity>
-
-
                 </View>
               </LinearGradient>
 
@@ -628,8 +637,14 @@ export default function DashboardScreen() {
                     <Ionicons name="git-network" size={24} color="#2DD4BF" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.glassCardTitle}>Grupos de conexión</Text>
-                    <Text style={styles.glassCardSubtitle}>Tus sedes y células de crecimiento</Text>
+                    <Text style={styles.glassCardTitle}>
+                      {isPastor ? 'Células y Planilla' : 'Grupos de conexión'}
+                    </Text>
+                    <Text style={styles.glassCardSubtitle}>
+                      {isPastor
+                        ? 'Planilla consolidada y ofrendas totales'
+                        : 'Tus sedes y células de crecimiento'}
+                    </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
                 </TouchableOpacity>
@@ -660,7 +675,9 @@ export default function DashboardScreen() {
                       ]}>
                       <Ionicons name="document-text-outline" size={16} color="#34D399" />
                     </View>
-                    <Text style={styles.subActionLabel}>Reporte semanal</Text>
+                    <Text style={styles.subActionLabel}>
+                      {isPastor ? 'Planilla (Totales)' : 'Mis reportes'}
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -832,19 +849,7 @@ export default function DashboardScreen() {
                     <Text style={styles.subActionLabel}>Cronograma</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.subActionItem}
-                    activeOpacity={0.8}
-                    onPress={() => router.push('/ministries' as any)}>
-                    <View
-                      style={[
-                        styles.subActionIconBox,
-                        { backgroundColor: 'rgba(244, 114, 182, 0.2)' },
-                      ]}>
-                      <Ionicons name="musical-notes-outline" size={16} color="#F472B6" />
-                    </View>
-                    <Text style={styles.subActionLabel}>Ministerios</Text>
-                  </TouchableOpacity>
+
                 </View>
               </LinearGradient>
 
@@ -869,7 +874,7 @@ export default function DashboardScreen() {
                     <Ionicons name="ribbon" size={24} color="#A78BFA" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.glassCardTitle}>Ministerios & Equipos</Text>
+                    <Text style={styles.glassCardTitle}>Ministerios</Text>
                     <Text style={styles.glassCardSubtitle}>
                       {ministries.length > 0
                         ? `${ministries.length} ministerios activos • Alabanza, Audiovisual, Protocolo...`
@@ -910,20 +915,112 @@ export default function DashboardScreen() {
                     </TouchableOpacity>
                   )}
 
+                </View>
+              </LinearGradient>
+
+              {/* CARD DEDICADA: MATRIMONIOS & COBERTURA PASTORAL (solo pastores) */}
+              {isPastor && (
+              <LinearGradient
+                colors={['rgba(244, 63, 94, 0.30)', 'rgba(15, 23, 42, 0.85)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.glassCard, { borderColor: 'rgba(251, 113, 133, 0.35)' }]}>
+                <TouchableOpacity
+                  style={styles.glassCardHeader}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/marriages' as any)}>
+                  <View
+                    style={[
+                      styles.badgeGlowCircle,
+                      {
+                        backgroundColor: 'rgba(244, 63, 94, 0.22)',
+                        borderColor: 'rgba(251, 113, 133, 0.5)',
+                      },
+                    ]}>
+                    <Ionicons name="heart" size={24} color="#FB7185" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.glassCardTitle}>
+                      {isPastor ? 'Matrimonios & Cobertura' : 'Mi Matrimonio'}
+                    </Text>
+                    <Text style={styles.glassCardSubtitle}>
+                      {isPastor
+                        ? `${marriages.length} parejas bajo cobertura pastoral • Asignación y cuidado`
+                        : 'Acompañamiento, bendición y cobertura pastoral para tu hogar'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                </TouchableOpacity>
+
+                <View style={styles.subActionsRow}>
                   <TouchableOpacity
                     style={styles.subActionItem}
                     activeOpacity={0.8}
-                    onPress={() => router.push('/members' as any)}>
+                    onPress={() => router.push('/marriages' as any)}>
                     <View
                       style={[
                         styles.subActionIconBox,
-                        { backgroundColor: 'rgba(16, 185, 129, 0.2)' },
+                        { backgroundColor: 'rgba(244, 63, 94, 0.2)' },
                       ]}>
-                      <Ionicons name="shield-checkmark-outline" size={16} color="#10B981" />
+                      <Ionicons name="people-outline" size={16} color="#FB7185" />
                     </View>
-                    <Text style={styles.subActionLabel}>Servidores</Text>
+                    <Text style={styles.subActionLabel}>
+                      {isPastor ? 'Ver Parejas' : 'Ver Matrimonio'}
+                    </Text>
                   </TouchableOpacity>
+
+                  {isPastor && (
+                    <TouchableOpacity
+                      style={styles.subActionItem}
+                      activeOpacity={0.8}
+                      onPress={() => router.push('/marriages' as any)}>
+                      <View
+                        style={[
+                          styles.subActionIconBox,
+                          { backgroundColor: 'rgba(56, 189, 248, 0.2)' },
+                        ]}>
+                        <Ionicons name="add-circle-outline" size={16} color="#38BDF8" />
+                      </View>
+                      <Text style={styles.subActionLabel}>+ Asignar Pareja</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
+              </LinearGradient>
+              )}
+
+              {/* CARD DEDICADA: ESCALERA DEL ÉXITO */}
+              <LinearGradient
+                colors={['rgba(16, 185, 129, 0.28)', 'rgba(15, 23, 42, 0.85)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.glassCard, { borderColor: 'rgba(52, 211, 153, 0.35)' }]}>
+                <TouchableOpacity
+                  style={styles.glassCardHeader}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/ladder' as any)}>
+                  <View
+                    style={[
+                      styles.badgeGlowCircle,
+                      {
+                        backgroundColor: 'rgba(16, 185, 129, 0.22)',
+                        borderColor: 'rgba(52, 211, 153, 0.5)',
+                      },
+                    ]}>
+                    <Ionicons name="trending-up" size={24} color="#34D399" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.glassCardTitle}>Escalera del Éxito</Text>
+                    <Text style={styles.glassCardSubtitle}>
+                      {`Ganar • Consolidar • Discipular • Enviar · ${
+                        (isPastor
+                          ? ladderPeople.filter((p) => p.status === 'active')
+                          : ladderPeople.filter((p) => p.leaderId === currentUser?.id && p.status === 'active')
+                        ).length
+                      } en proceso`}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                </TouchableOpacity>
               </LinearGradient>
             </View>
           )}

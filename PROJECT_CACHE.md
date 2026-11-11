@@ -319,6 +319,41 @@ cmd /c npx eas-cli build --profile preview --platform android       # Genera APK
    - La píldora superior *"Mi Perfil"* muestra una mini miniatura redonda del avatar del usuario.
    - En el feed de mensajes del Muro Pastoral (*Palabra de los Pastores*), los autores con foto registrada muestran su avatar real (`postAuthorAvatarImage`), manteniendo alta presencia e identidad pastoral.
 
+10. **Segregación Estricta de Permisos: Reportes Totales (Pastoral) vs Reportes Individuales**:
+    - **Definición Pastoral:** `isPastor` identifica a Pastores Principales y Pastores de Red (`currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor'`).
+    - **Asistencia Dominical (`attendance.tsx`):**
+      - **Solo Pastores:** Acceso al *Conteo por Reportes (Consolidado General)* con Gran Total del servicio (Hombres, Mujeres, Prejuveniles <14 y Visitas), guardado oficial de asistencia y vista de todos los reportes agrupados por Líder 12 de la congregación.
+      - **Demás Miembros y Líderes:** Tienen bloqueado el acceso a totales generales. Cuentan con el modo de *Envío de Reporte* y la pestaña *Mis Reportes Individuales*, donde consultan, editan y eliminan exclusivamente los reportes que ellos mismos han enviado con su desglose de aporte personal.
+    - **Células de Crecimiento (`cells.tsx`):**
+      - **Solo Pastores:** Acceso a la *Planilla Excel Consolidada* con todas las células de la iglesia, subtotales de Líder 12, fila inferior de TOTALES, modal a pantalla completa con zoom y descarga de archivo `.xls`, además del resumen financiero global de ofrendas ($ USD, Bs. Efectivo y Pago Móvil).
+      - **Demás Miembros y Líderes:** Tienen bloqueada la Planilla Consolidada. En la pestaña de reportes ven exclusivamente sus fichas individuales de células reportadas por ellos y un resumen financiero acotado a sus propias reuniones, acompañado de un banner informativo de restricción pastoral.
+    - **Muro y Navegación (`index.tsx` & `app-tabs.tsx`):** Las tarjetas de acceso rápido adaptan sus títulos y subtítulos (para pastores indican "Consolidado total y Planilla", para líderes "Enviar mi reporte y Mis células").
+
+11. **Módulo de Matrimonios y Asignación Exclusiva por Pastores (`marriages.tsx`)**:
+    - **Regla Fundamental:** Los miembros o usuarios generales **NO** eligen ni auto-asignan su pareja matrimonial en la aplicación; la creación, edición, vinculación y desvinculación de parejas es una potestad exclusiva del Cuerpo Pastoral (`senior_pastor` y `network_pastor`).
+    - **Esquema de Base de Datos (`supabase/schema.sql`):**
+      - Tabla `public.marriages`: `id`, `church_id`, `husband_id`, `husband_name`, `wife_id`, `wife_name`, `marriage_date`, `anniversary_date`, `status` ('active', 'separated', 'widowed', 'divorced'), `notes`, `pastor_in_charge_id`, `pastor_in_charge_name`, `created_by_id`, `created_by_name`, `network`, `created_at`, `updated_at`.
+      - RLS universal habilitado con políticas `allow_all_anon` y `allow_all_authenticated`.
+    - **Estado y Contexto (`ChurchContext.tsx`):**
+      - Tipos `Marriage` y `MarriageStatus` añadidos a `src/types/church.ts`.
+      - Métodos CRUD expuestos: `addMarriage`, `updateMarriage`, `deleteMarriage`, protegidos verificando rol pastoral activo.
+      - Almacenamiento local persistente con `@planeador_marriages_v1` y sincronización bidireccional en Supabase.
+    - **Pantalla y Experiencia de Usuario (`marriages.tsx`):**
+      - **Enfoque de Red Única:** Toda la congregación y la app operan bajo la Red Juvenil, por lo que se eliminaron todas las etiquetas, selectores y filtros visibles de redes (sin badges de red adulta ni juvenil) para una interfaz limpia y directa. Los registros se configuran internamente en `'juvenil'`.
+      - **Vista Pastoral:** Métricas rápidas (Total parejas, Activos, Aniversarios del mes actual), buscador de cónyuges o pastores, y filtro rápido *"Todos los Matrimonios"* vs *"Bajo Mi Cobertura"*. Tarjetas con visualización de ambos cónyuges, cálculo dinámico de años de casados, fecha de aniversario, pastor responsable, notas confidenciales pastorales, y botones de edición y eliminación.
+      - **Modal de Creación/Edición:** Selector interactivo de miembros con filtrado por género y buscador para elegir al Esposo y a la Esposa, fecha de boda, asignación de pastor de cobertura y notas pastorales confidenciales.
+      - **Vista para No-Pastores (Miembros / Líderes):** Vista de solo lectura. Si están registrados en un matrimonio, visualizan su tarjeta conmemorativa con su cónyuge, años de matrimonio, fecha de aniversario y pastor de cobertura con un mensaje pastoral de bendición. Si no tienen matrimonio asignado, se despliega un banner informativo indicando que la vinculación es efectuada formalmente por los pastores.
+    - **Navegación e Integración:**
+      - Registrado en `src/components/app-tabs.tsx` como ruta modal/oculta de navegación.
+      - Tarjeta de acceso directo añadida en la pantalla principal (`src/app/index.tsx`) en la sección de Discipulado con gradiente rosa/carmín e icono conmemorativo con distinción de títulos y botones para pastores vs miembros.
 
 
 
+
+
+
+12. **Matrimonios solo para pastores + Escalera del �xito**:
+    - **Matrimonios (marriages.tsx):** ahora solo los pastores los ven. La tarjeta del inicio solo se muestra a pastores y los dem�s usuarios que entren a la ruta ven un aviso de acceso exclusivo.
+    - **Escalera del �xito (ladder.tsx):** etapas Ganar ? Consolidar ? Discipular ? Enviar. Cada l�der anota sus personas (tabla ladder_people, tipo LadderPerson, ChurchContext: ddLadderPerson, moveLadderPerson, setLadderPersonStatus, updateLadderPerson, deleteLadderPerson, storage @planeador_ladder_v1).
+    - **Pausa / Se fue:** en vez de eliminar, la persona pasa al *Archivo* (paused o lost) y se puede retomar.
+    - **Reporte trimestral:** calculado autom�ticamente por trimestre calendario a partir del historial de etapas (ganados, pasaron a cada etapa, en pausa, se fueron, en proceso). Cada l�der ve el suyo; los pastores pueden alternar a *Todos los l�deres* con desglose por l�der.

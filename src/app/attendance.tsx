@@ -52,7 +52,8 @@ export default function AttendanceScreen() {
 
   const leaderInCharge = getLeaderInCharge(currentUser);
   const myLeaderAttendanceReports = getMyLeaderAttendanceReports();
-  const isPastor = currentUser?.role === 'senior_pastor';
+  const isPastor =
+    currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
   const isLider12 =
     currentUser?.role === 'g12_leader' ||
     currentUser?.isLeaderOf12 ||
@@ -72,13 +73,26 @@ export default function AttendanceScreen() {
   const [pastorTab, setPastorTab] = useState<'consolidado' | 'reportes'>('consolidado');
   const [selectedServiceId, setSelectedServiceId] = useState(defaultServiceId);
 
-  // Reportes disponibles para la congregación y líderes
+  // Reportes individuales enviados por el usuario actual
+  const myIndividualAttendanceReports = useMemo(() => {
+    if (!currentUser) return [];
+    const myId = currentUser.id;
+    const myFullName = `${currentUser.firstName} ${currentUser.lastName}`.toLowerCase().trim();
+    const myFirst = currentUser.firstName.toLowerCase().trim();
+    return leaderAttendanceReports.filter((r) => {
+      if (r.leaderId === myId) return true;
+      const author = (r.leaderName || '').toLowerCase().trim();
+      return author === myFullName || (myFirst && author.includes(myFirst));
+    });
+  }, [currentUser, leaderAttendanceReports]);
+
+  // Reportes disponibles: Pastores ven todos los reportes de la congregación; los demás solo los suyos
   const networkReports = useMemo(() => {
-    if (currentUser?.role === 'senior_pastor') {
+    if (isPastor) {
       return leaderAttendanceReports;
     }
-    return myLeaderAttendanceReports;
-  }, [currentUser, leaderAttendanceReports, myLeaderAttendanceReports]);
+    return myIndividualAttendanceReports;
+  }, [isPastor, leaderAttendanceReports, myIndividualAttendanceReports]);
 
   // Fechas disponibles en los reportes de su red
   const localTodayStr = useMemo(() => getLocalDateString(new Date()), []);
@@ -672,9 +686,51 @@ export default function AttendanceScreen() {
             </View>
           </View>
           {/* ============================================================== */}
-          {/* SELECTOR DE MODO PARA LÍDERES 12 (ENVIAR REPORTE / VER RED)   */}
+          {/* SELECTOR DE MODO SUPERIOR: PASTORES VS NO-PASTORES             */}
           {/* ============================================================== */}
-          {canViewReports && !isPastor && (
+          {isPastor ? (
+            <View style={styles.topModeSelector}>
+              <TouchableOpacity
+                style={[
+                  styles.topModeBtn,
+                  activeViewMode === 'reports' && styles.topModeBtnActive,
+                ]}
+                onPress={() => setActiveViewMode('reports')}>
+                <Ionicons
+                  name="analytics"
+                  size={16}
+                  color={activeViewMode === 'reports' ? '#FFFFFF' : '#1E3A8A'}
+                />
+                <Text
+                  style={[
+                    styles.topModeBtnText,
+                    activeViewMode === 'reports' && styles.topModeBtnTextActive,
+                  ]}>
+                  Reportes Totales (Consolidado)
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.topModeBtn,
+                  activeViewMode === 'form' && styles.topModeBtnActive,
+                ]}
+                onPress={() => setActiveViewMode('form')}>
+                <Ionicons
+                  name="create-outline"
+                  size={16}
+                  color={activeViewMode === 'form' ? '#FFFFFF' : '#1E3A8A'}
+                />
+                <Text
+                  style={[
+                    styles.topModeBtnText,
+                    activeViewMode === 'form' && styles.topModeBtnTextActive,
+                  ]}>
+                  {editingReportId ? 'Editar mi Reporte' : 'Enviar mi Reporte'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
             <View style={styles.topModeSelector}>
               <TouchableOpacity
                 style={[
@@ -692,7 +748,7 @@ export default function AttendanceScreen() {
                     styles.topModeBtnText,
                     activeViewMode === 'form' && styles.topModeBtnTextActive,
                   ]}>
-                  Enviar mi Reporte
+                  {editingReportId ? 'Editar mi Reporte' : 'Enviar mi Reporte'}
                 </Text>
               </TouchableOpacity>
 
@@ -703,7 +759,7 @@ export default function AttendanceScreen() {
                 ]}
                 onPress={() => setActiveViewMode('reports')}>
                 <Ionicons
-                  name="bar-chart-outline"
+                  name="person-outline"
                   size={16}
                   color={activeViewMode === 'reports' ? '#FFFFFF' : '#1E3A8A'}
                 />
@@ -712,16 +768,16 @@ export default function AttendanceScreen() {
                     styles.topModeBtnText,
                     activeViewMode === 'reports' && styles.topModeBtnTextActive,
                   ]}>
-                  Reportes de mi Red ({reportsForSelectedService.length})
+                  Mis Reportes Individuales ({myIndividualAttendanceReports.length})
                 </Text>
               </TouchableOpacity>
             </View>
           )}
 
           {/* ============================================================== */}
-          {/* IF CURRENT USER IS NOT PASTOR IN FORM MODE (LEADER SUBMISSION) */}
+          {/* MODO FORMULARIO: ENVÍO DE REPORTE INDIVIDUAL                   */}
           {/* ============================================================== */}
-          {!isPastor && activeViewMode === 'form' ? (
+          {activeViewMode === 'form' ? (
             <View>
               {/* Editing Banner */}
               {editingReportId && (
@@ -1416,13 +1472,19 @@ export default function AttendanceScreen() {
                   })}
               </View>
             </View>
-          ) : (
+          ) : isPastor ? (
             /* ============================================================== */
-            /* IF CURRENT USER IS PASTOR (CONSOLIDADO POR REPORTES G12)       */
+            /* VISTA EXCLUSIVA PARA PASTORES (REPORTES TOTALES Y CONSOLIDADO) */
             /* ============================================================== */
             <View>
               {/* Header */}
               <View style={styles.header}>
+                <View style={[styles.leaderBadgeRow, { backgroundColor: 'rgba(234, 179, 8, 0.15)', borderColor: 'rgba(234, 179, 8, 0.4)' }]}>
+                  <Ionicons name="ribbon" size={14} color="#FBBF24" />
+                  <Text style={[styles.leaderBadgeText, { color: '#FBBF24' }]}>
+                    Acceso Pastoral Exclusivo • Reportes Totales
+                  </Text>
+                </View>
                 <Text style={styles.headerTitle}>Pase & Control de Asistencia</Text>
                 <Text style={styles.headerSubtitle}>
                   La asistencia del servicio la da el conteo de los reportes: Hombres, Mujeres y Prejuveniles (&lt;14 años)
@@ -1964,6 +2026,178 @@ export default function AttendanceScreen() {
                 </View>
               )}
             </View>
+          ) : (
+            /* ============================================================== */
+            /* VISTA DE NO-PASTORES: MIS REPORTES INDIVIDUALES               */
+            /* ============================================================== */
+            <View>
+              {/* Header */}
+              <View style={styles.header}>
+                <View style={styles.leaderBadgeRow}>
+                  <Ionicons name="person" size={14} color="#38BDF8" />
+                  <Text style={styles.leaderBadgeText}>Reportes Individuales</Text>
+                </View>
+                <Text style={styles.headerTitle}>Mis Reportes de Asistencia</Text>
+                <Text style={styles.headerSubtitle}>
+                  Historial y detalle de los reportes individuales que has enviado personalmente
+                </Text>
+              </View>
+
+              {/* Banner de Acceso Restringido Pastoral */}
+              <View style={styles.pastoralLockNoticeCard}>
+                <Ionicons name="lock-closed" size={20} color="#FBBF24" />
+                <Text style={styles.pastoralLockNoticeText}>
+                  <Text style={{ fontWeight: '800', color: '#FBBF24' }}>Acceso Pastoral Exclusivo: </Text>
+                  Los reportes totales y el conteo consolidado de toda la iglesia son de acceso exclusivo para los Pastores. Aquí puedes consultar y gestionar tus reportes individuales.
+                </Text>
+              </View>
+
+              {myIndividualAttendanceReports.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <View style={[styles.emptyIconCircle, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+                    <Ionicons name="document-text-outline" size={38} color="#38BDF8" />
+                  </View>
+                  <Text style={styles.emptyTitle}>Sin reportes individuales enviados</Text>
+                  <Text style={styles.emptySubtitle}>
+                    Aún no has registrado ningún reporte de asistencia individual. Presiona el botón de abajo para enviar el primero.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.saveLiveBtn, { alignSelf: 'center', marginTop: 14 }]}
+                    onPress={() => setActiveViewMode('form')}>
+                    <Ionicons name="add-circle-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.saveLiveBtnText}>Enviar mi Primer Reporte</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={{ gap: 14 }}>
+                  {myIndividualAttendanceReports.map((rep) => {
+                    const rSummary = summarizeReports([rep], members);
+                    return (
+                      <View key={rep.id} style={styles.innerReportCard}>
+                        {/* Cabecera del Reporte Individual */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.reportLeaderName}>
+                              {rep.serviceId}
+                            </Text>
+                            <Text style={styles.reportServiceDateText}>
+                              📅 {formatDisplayDate(rep.serviceDate)} ({rep.serviceDate})
+                            </Text>
+                          </View>
+                          <View style={styles.individualContributionBadge}>
+                            <Text style={styles.individualContributionText}>
+                              +{rSummary.total} personas
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Desglose de Asistencia */}
+                        <View style={styles.groupBreakdownRow}>
+                          <View style={styles.groupStatBox}>
+                            <Text style={[styles.groupStatVal, { color: '#38BDF8' }]}>
+                              {rep.myAttendance ? '1' : '0'}
+                            </Text>
+                            <Text style={styles.groupStatLbl}>Titular</Text>
+                          </View>
+                          <View style={styles.groupStatBox}>
+                            <Text style={[styles.groupStatVal, { color: '#34D399' }]}>
+                              {rSummary.disciplesTotal}
+                            </Text>
+                            <Text style={styles.groupStatLbl}>Discípulos</Text>
+                          </View>
+                          <View style={styles.groupStatBox}>
+                            <Text style={[styles.groupStatVal, { color: '#F472B6' }]}>
+                              {rSummary.visitorsTotal}
+                            </Text>
+                            <Text style={styles.groupStatLbl}>Visitas</Text>
+                          </View>
+                        </View>
+
+                        {/* Destinatario */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 8 }}>
+                          <Ionicons name="paper-plane-outline" size={13} color="#94A3B8" />
+                          <Text style={{ fontSize: 12, color: '#94A3B8' }}>
+                            Enviado a:{' '}
+                            <Text style={{ fontWeight: '700', color: '#F1F5F9' }}>
+                              {rep.recipientLeaderName || leaderInCharge.name}
+                            </Text>
+                          </Text>
+                        </View>
+
+                        {/* Discípulos detallados */}
+                        {rep.disciples && rep.disciples.length > 0 && (
+                          <View style={{ marginTop: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.06)' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#CBD5E1', marginBottom: 4 }}>
+                              Discípulos Reportados ({rep.disciples.length}):
+                            </Text>
+                            <View style={{ gap: 4 }}>
+                              {rep.disciples.map((d, dIdx) => (
+                                <View key={d.memberId || dIdx} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                  <Ionicons
+                                    name={d.attended ? 'checkmark-circle' : 'close-circle'}
+                                    size={14}
+                                    color={d.attended ? '#10B981' : '#64748B'}
+                                  />
+                                  <Text style={{ fontSize: 12, color: d.attended ? '#FFFFFF' : '#64748B' }}>
+                                    {d.name} ({d.gender === 'F' ? 'Mujer' : 'Hombre'} • {d.age} años)
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        )}
+
+                        {/* Visitas detalladas */}
+                        {rep.visitors && rep.visitors.length > 0 && (
+                          <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.06)' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#CBD5E1', marginBottom: 4 }}>
+                              Invitados / Visitas ({rep.visitors.length}):
+                            </Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                              {rep.visitors.map((v, vIdx) => (
+                                <View key={v.id || vIdx} style={styles.visitorPill}>
+                                  <Ionicons name="sparkles" size={11} color="#FBBF24" />
+                                  <Text style={styles.visitorPillText}>
+                                    {v.name} ({v.gender === 'F' ? 'F' : 'M'}, {v.age}a)
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        )}
+
+                        {/* Notas */}
+                        {rep.notes ? (
+                          <View style={{ marginTop: 8, backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: 8, borderRadius: 8 }}>
+                            <Text style={{ fontSize: 11, fontStyle: 'italic', color: '#94A3B8' }}>
+                              📝 {rep.notes}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {/* Botones de Acción */}
+                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.06)' }}>
+                          <TouchableOpacity
+                            style={styles.editReportBtn}
+                            onPress={() => handleStartEditReport(rep)}
+                            activeOpacity={0.75}>
+                            <Ionicons name="pencil-outline" size={13} color="#38BDF8" />
+                            <Text style={styles.editReportBtnText}>Editar Reporte</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.deleteReportBtn}
+                            onPress={() => handleDeleteReport(rep)}
+                            activeOpacity={0.75}>
+                            <Ionicons name="trash-outline" size={13} color="#DC2626" />
+                            <Text style={styles.deleteReportBtnText}>Eliminar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
           )}
 
           <View style={{ height: 80 }} />
@@ -2048,6 +2282,74 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  pastoralLockNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+  },
+  pastoralLockNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#FDE68A',
+    lineHeight: 18,
+  },
+  emptyContainer: {
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    borderRadius: 18,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginTop: 10,
+  },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  reportServiceDateText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  visitorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  visitorPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FDE68A',
   },
   recipientNoticeTitle: {
     fontSize: 11,

@@ -409,6 +409,47 @@ ALTER TABLE public.prayer_requests ADD COLUMN IF NOT EXISTS praying_users TEXT[]
 ALTER TABLE public.prayer_requests ADD COLUMN IF NOT EXISTS praying_pastors TEXT[] DEFAULT '{}';
 ALTER TABLE public.prayer_requests ADD COLUMN IF NOT EXISTS praying_count INT DEFAULT 0;
 
+-- 18. Matrimonios y Parejas (Asignación exclusiva por Pastores)
+CREATE TABLE IF NOT EXISTS public.marriages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  church_id UUID REFERENCES public.churches(id) ON DELETE CASCADE,
+  husband_id TEXT NOT NULL,
+  husband_name TEXT NOT NULL,
+  wife_id TEXT NOT NULL,
+  wife_name TEXT NOT NULL,
+  marriage_date DATE,
+  anniversary_date TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'separated', 'widowed', 'divorced')),
+  notes TEXT,
+  pastor_in_charge_id TEXT,
+  pastor_in_charge_name TEXT,
+  created_by_id TEXT,
+  created_by_name TEXT,
+  network TEXT DEFAULT 'adulta' CHECK (network IN ('adulta', 'juvenil', 'general')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 19. Escalera del Éxito (Ganar, Consolidar, Discipular, Enviar)
+CREATE TABLE IF NOT EXISTS public.ladder_people (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  church_id UUID REFERENCES public.churches(id) ON DELETE CASCADE,
+  leader_id TEXT NOT NULL,
+  leader_name TEXT NOT NULL,
+  name TEXT NOT NULL,
+  age INT,
+  phone TEXT,
+  stage TEXT NOT NULL DEFAULT 'ganar' CHECK (stage IN ('ganar', 'consolidar', 'discipular', 'enviar')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'lost')),
+  notes TEXT,
+  history JSONB DEFAULT '[]',
+  status_changed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.ladder_people ADD COLUMN IF NOT EXISTS age INT;
+
 -- 2. Habilitar RLS y configurar políticas universales en todas las tablas
 DO $$ 
 DECLARE
@@ -418,7 +459,8 @@ DECLARE
       'kid_classrooms', 'kids', 'kid_check_ins', 'attendance_records',
       'church_events', 'cell_groups', 'leader_attendance_reports',
       'cell_meeting_reports', 'ministries', 'service_plans',
-      'service_schedule_items', 'service_volunteers', 'prayer_requests'
+      'service_schedule_items', 'service_volunteers', 'prayer_requests',
+      'marriages', 'ladder_people'
     ];
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP

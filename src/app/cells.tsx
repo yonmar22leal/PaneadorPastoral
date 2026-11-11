@@ -41,17 +41,34 @@ export default function CellsScreen() {
     getLeaderInCharge,
   } = useChurch();
 
-  const isPastor = currentUser?.role === 'senior_pastor';
+  const isPastor =
+    currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
 
   const leaderInCharge = getLeaderInCharge(currentUser);
   const cellGroups = getMyCellGroups();
   const myDisciples = getMyDisciples();
   const myCellReports = getMyCellMeetingReports();
 
+  // Reportes individuales enviados por el usuario actual
+  const myIndividualCellReports = useMemo(() => {
+    if (!currentUser) return [];
+    const myId = currentUser.id;
+    const myFullName = `${currentUser.firstName} ${currentUser.lastName}`.toLowerCase().trim();
+    const myFirst = currentUser.firstName.toLowerCase().trim();
+    return myCellReports.filter((r) => {
+      if (r.leaderId === myId) return true;
+      const author = (r.cellLeaderName || '').toLowerCase().trim();
+      return author === myFullName || (myFirst && author.includes(myFirst));
+    });
+  }, [currentUser, myCellReports]);
+
+  // Reportes a mostrar: Pastores ven todos los reportes de células; los demás solo sus individuales
+  const displayReports = isPastor ? myCellReports : myIndividualCellReports;
+
   // Tab State: Células vs Reportes de Reunión
   const [activeTab, setActiveTab] = useState<'cells' | 'reports'>('cells');
 
-  // Modo de visualización de reportes (Planilla Excel para Pastores por defecto)
+  // Modo de visualización de reportes (Planilla Excel exclusiva para Pastores por defecto)
   const [reportsViewMode, setReportsViewMode] = useState<'sheet' | 'cards'>(
     isPastor ? 'sheet' : 'cards'
   );
@@ -760,6 +777,7 @@ export default function CellsScreen() {
   };
 
   const handleOpenSheetModal = () => {
+    if (!isPastor) return;
     const screenWidth = Dimensions.get('window').width;
     const initialFit = Math.min(1, Math.max(0.25, parseFloat(((screenWidth - 24) / 1290).toFixed(2))));
     setSheetZoom(initialFit);
@@ -956,21 +974,21 @@ ${groupedSheetData.leaderGroups
     }
   };
 
-  // Calculations for Reports Summary
-  const totalUsdOffering = myCellReports.reduce(
+  // Calculations for Reports Summary (Pastores ven el total de toda la iglesia; los demás ven sus reportes individuales)
+  const totalUsdOffering = displayReports.reduce(
     (acc, r) => acc + (r.offeringDetails?.usdCash || (r.offeringDetails ? 0 : r.offering || 0)),
     0
   );
-  const totalVesOffering = myCellReports.reduce(
+  const totalVesOffering = displayReports.reduce(
     (acc, r) => acc + (r.offeringDetails?.vesCash || 0),
     0
   );
-  const totalPmOffering = myCellReports.reduce(
+  const totalPmOffering = displayReports.reduce(
     (acc, r) => acc + (r.offeringDetails?.pagoMovilAmount || 0),
     0
   );
-  const totalReportedMembers = myCellReports.reduce((acc, r) => acc + (r.membersCount || 0), 0);
-  const totalReportedVisitors = myCellReports.reduce((acc, r) => acc + (r.visitorsCount || 0), 0);
+  const totalReportedMembers = displayReports.reduce((acc, r) => acc + (r.membersCount || 0), 0);
+  const totalReportedVisitors = displayReports.reduce((acc, r) => acc + (r.visitorsCount || 0), 0);
 
   const renderSheetTableContent = () => (
     <View style={styles.sheetTable}>
@@ -1684,9 +1702,21 @@ ${groupedSheetData.leaderGroups
           {/* ========================================================= */}
           {activeTab === 'reports' && (
             <View>
+              {/* Pastoral Badge if Pastor */}
+              {isPastor && (
+                <View style={styles.pastoralBadgePill}>
+                  <Ionicons name="ribbon" size={14} color="#FBBF24" />
+                  <Text style={styles.pastoralBadgePillText}>
+                    Acceso Pastoral Exclusivo • Reportes Totales
+                  </Text>
+                </View>
+              )}
+
               {/* Reports Financial & Growth Metrics */}
               <View style={styles.multiOfferingSummaryCard}>
-                <Text style={styles.offeringSummaryTitle}>💰 Ofrendas Recolectadas en Células</Text>
+                <Text style={styles.offeringSummaryTitle}>
+                  {isPastor ? '💰 Ofrendas Recolectadas en Células (Totales)' : '📋 Mis Ofrendas y Asistencias Reportadas'}
+                </Text>
                 <View style={styles.offeringBreakdownRow}>
                   <View style={styles.offeringBadgeItem}>
                     <Text style={styles.offeringBadgeLbl}>💵 Dólares Efectivo:</Text>
@@ -1720,58 +1750,71 @@ ${groupedSheetData.leaderGroups
               <View style={styles.inboxBanner}>
                 <Ionicons name="paper-plane" size={16} color="#2563EB" />
                 <Text style={styles.inboxBannerText}>
-                  {currentUser?.role === 'senior_pastor'
+                  {isPastor
                     ? 'Bandeja Pastoral: Mostrando reportes recibidos de las células y discípulos.'
                     : `Tus reportes son enviados directamente a tu pastor/líder encargado: ${leaderInCharge.name}.`}
                 </Text>
               </View>
 
-              {/* View Mode Toggle: Planilla Consolidada vs Fichas Detalladas */}
-              <View style={styles.viewModeToggleRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.viewModeBtn,
-                    reportsViewMode === 'sheet' && styles.viewModeBtnActiveGreen,
-                  ]}
-                  onPress={() => setReportsViewMode('sheet')}
-                  activeOpacity={0.8}>
-                  <Ionicons
-                    name="grid"
-                    size={15}
-                    color={reportsViewMode === 'sheet' ? '#FFFFFF' : '#15803D'}
-                  />
-                  <Text
-                    style={[
-                      styles.viewModeBtnText,
-                      reportsViewMode === 'sheet' && styles.viewModeBtnTextActive,
-                    ]}>
-                    Planilla Excel (Consolidado)
+              {/* Pastoral Restriction Notice for Non-Pastors */}
+              {!isPastor && (
+                <View style={styles.pastoralNoticeBanner}>
+                  <Ionicons name="lock-closed" size={16} color="#FBBF24" />
+                  <Text style={styles.pastoralNoticeText}>
+                    <Text style={{ fontWeight: '700', color: '#FBBF24' }}>Acceso Pastoral Exclusivo: </Text>
+                    La planilla consolidada y las ofrendas totales de la congregación son visibles únicamente por los Pastores. Aquí puedes consultar tus reportes individuales.
                   </Text>
-                </TouchableOpacity>
+                </View>
+              )}
 
-                <TouchableOpacity
-                  style={[
-                    styles.viewModeBtn,
-                    reportsViewMode === 'cards' && styles.viewModeBtnActiveBlue,
-                  ]}
-                  onPress={() => setReportsViewMode('cards')}
-                  activeOpacity={0.8}>
-                  <Ionicons
-                    name="albums-outline"
-                    size={15}
-                    color={reportsViewMode === 'cards' ? '#FFFFFF' : '#2563EB'}
-                  />
-                  <Text
+              {/* View Mode Toggle: Planilla Consolidada vs Fichas Detalladas (SOLO PASTORES) */}
+              {isPastor && (
+                <View style={styles.viewModeToggleRow}>
+                  <TouchableOpacity
                     style={[
-                      styles.viewModeBtnText,
-                      reportsViewMode === 'cards' && styles.viewModeBtnTextActive,
-                    ]}>
-                    Fichas Individuales
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                      styles.viewModeBtn,
+                      reportsViewMode === 'sheet' && styles.viewModeBtnActiveGreen,
+                    ]}
+                    onPress={() => setReportsViewMode('sheet')}
+                    activeOpacity={0.8}>
+                    <Ionicons
+                      name="grid"
+                      size={15}
+                      color={reportsViewMode === 'sheet' ? '#FFFFFF' : '#15803D'}
+                    />
+                    <Text
+                      style={[
+                        styles.viewModeBtnText,
+                        reportsViewMode === 'sheet' && styles.viewModeBtnTextActive,
+                      ]}>
+                      Planilla Excel (Consolidado)
+                    </Text>
+                  </TouchableOpacity>
 
-              {reportsViewMode === 'sheet' ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.viewModeBtn,
+                      reportsViewMode === 'cards' && styles.viewModeBtnActiveBlue,
+                    ]}
+                    onPress={() => setReportsViewMode('cards')}
+                    activeOpacity={0.8}>
+                    <Ionicons
+                      name="albums-outline"
+                      size={15}
+                      color={reportsViewMode === 'cards' ? '#FFFFFF' : '#2563EB'}
+                    />
+                    <Text
+                      style={[
+                        styles.viewModeBtnText,
+                        reportsViewMode === 'cards' && styles.viewModeBtnTextActive,
+                      ]}>
+                      Fichas Individuales
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {isPastor && reportsViewMode === 'sheet' ? (
                 <View>
                   {/* Control Panel: Header, Redes y Buscador */}
                   <View style={styles.sheetControlsCard}>
@@ -1864,7 +1907,7 @@ ${groupedSheetData.leaderGroups
                     </View>
                   )}
                 </View>
-              ) : myCellReports.length === 0 ? (
+              ) : displayReports.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <View style={[styles.emptyIconCircle, { backgroundColor: '#FEF3C7' }]}>
                     <Ionicons name="receipt-outline" size={38} color="#D97706" />
@@ -1875,7 +1918,7 @@ ${groupedSheetData.leaderGroups
                   </Text>
                 </View>
               ) : (
-                myCellReports.map((rep) => (
+                displayReports.map((rep) => (
                   <View key={rep.id} style={styles.reportCard}>
                     <View style={styles.reportHeader}>
                       <View style={{ flex: 1 }}>
@@ -2631,7 +2674,7 @@ ${groupedSheetData.leaderGroups
         {/* MODAL 3: PANTALLA COMPLETA / VISOR PLANILLA EXCEL         */}
         {/* ========================================================= */}
         <Modal
-          visible={sheetModalVisible}
+          visible={isPastor && sheetModalVisible}
           animationType="slide"
           transparent={false}
           onRequestClose={handleCloseSheetModal}>
@@ -3697,6 +3740,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
     flex: 1,
+  },
+  pastoralBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(234, 179, 8, 0.4)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  pastoralBadgePillText: {
+    color: '#FBBF24',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  pastoralNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    gap: 8,
+  },
+  pastoralNoticeText: {
+    fontSize: 12,
+    color: '#FDE68A',
+    flex: 1,
+    lineHeight: 17,
   },
   recipientBadgeRow: {
     flexDirection: 'row',
