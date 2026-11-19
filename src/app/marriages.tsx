@@ -1,9 +1,12 @@
+import { DatePickerField } from '@/components/date-picker-field';
+import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 import { Marriage, MarriageStatus } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -17,8 +20,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { DoodleBackground } from '@/components/doodle-background';
 
 const STATUS_CONFIG: Record<MarriageStatus, { label: string; color: string; bg: string }> = {
   active: { label: 'Activo', color: '#10B981', bg: 'rgba(16, 185, 129, 0.18)' },
@@ -93,7 +94,6 @@ export default function MarriagesScreen() {
   const [wifeId, setWifeId] = useState('');
   const [wifeName, setWifeName] = useState('');
   const [marriageDate, setMarriageDate] = useState('');
-  const dateInputRef = useRef<any>(null);
   const [selectedStatus, setSelectedStatus] = useState<MarriageStatus>('active');
   const [pastorInChargeId, setPastorInChargeId] = useState('');
   const [pastorInChargeName, setPastorInChargeName] = useState('');
@@ -661,74 +661,12 @@ export default function MarriagesScreen() {
                 </TouchableOpacity>
 
                 {/* FECHA DE MATRIMONIO */}
-                <Text style={styles.fieldLabel}>Fecha de Matrimonio / Boda (Opcional):</Text>
-                {Platform.OS === 'web' ? (
-                  <View style={styles.modernDatePickerCard}>
-                    <View style={styles.datePickerIconWrapper}>
-                      <Ionicons name="calendar" size={18} color="#38BDF8" />
-                    </View>
-
-                    <View style={{ flex: 1, justifyContent: 'center' }}>
-                      {marriageDate ? (
-                        <>
-                          <Text style={styles.datePickerSelectedText}>
-                            {formatWeddingDate(marriageDate)}
-                          </Text>
-                          <Text style={styles.datePickerSubtext}>
-                            {marriageDate} • Toca la barra para cambiar fecha
-                          </Text>
-                        </>
-                      ) : (
-                        <>
-                          <Text style={styles.datePickerPlaceholderText}>
-                            Seleccionar fecha de boda o aniversario
-                          </Text>
-                          <Text style={styles.datePickerSubtext}>
-                            Toca aquí para abrir el calendario
-                          </Text>
-                        </>
-                      )}
-                    </View>
-
-                    <View style={styles.datePickerBadge}>
-                      <Ionicons name="chevron-down" size={16} color="#38BDF8" />
-                    </View>
-
-                    {React.createElement('input', {
-                      ref: dateInputRef,
-                      type: 'date',
-                      value: marriageDate ? marriageDate.replace(/\//g, '-').split('T')[0] : '',
-                      onChange: (e: any) => setMarriageDate(e.target.value),
-                      onClick: (e: any) => {
-                        try {
-                          e.currentTarget.showPicker();
-                        } catch {}
-                      },
-                      style: {
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        opacity: 0,
-                        cursor: 'pointer',
-                        zIndex: 10,
-                        margin: 0,
-                        padding: 0,
-                        border: 'none',
-                        display: 'block',
-                      },
-                    })}
-                  </View>
-                ) : (
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="AAAA-MM-DD (ej: 2018-06-15)"
-                    placeholderTextColor="#64748B"
-                    value={marriageDate}
-                    onChangeText={setMarriageDate}
-                  />
-                )}
+                <DatePickerField
+                  label="Fecha de Matrimonio / Boda (Opcional):"
+                  value={marriageDate}
+                  onChange={setMarriageDate}
+                  placeholder="Seleccionar fecha de boda o aniversario"
+                />
 
                 {/* PASTOR DE COBERTURA */}
                 <Text style={styles.fieldLabel}>Pastor de Cobertura:</Text>

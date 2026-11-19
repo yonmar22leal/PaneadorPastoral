@@ -1,3 +1,4 @@
+import { DatePickerField } from '@/components/date-picker-field';
 import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 import { calcAge } from '@/lib/attendance';
@@ -5,7 +6,7 @@ import { ChurchNetwork, ChurchServiceSlotId } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,25 +19,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-function formatDisplayDate(dateStr?: string): string {
-  if (!dateStr) return '';
-  const clean = dateStr.replace(/\//g, '-').split('T')[0];
-  const parts = clean.split('-');
-  if (parts.length === 3) {
-    const y = parseInt(parts[0], 10);
-    const m = parseInt(parts[1], 10) - 1;
-    const d = parseInt(parts[2], 10);
-    const months = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-    ];
-    if (m >= 0 && m < 12 && !isNaN(d) && !isNaN(y)) {
-      return `${d} de ${months[m]} de ${y}`;
-    }
-  }
-  return dateStr;
-}
 
 interface RegisterScreenProps {
   onGoLogin?: () => void;
@@ -53,7 +35,6 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
   const [username, setUsername] = useState('');
   const [gender, setGender] = useState<'M' | 'F'>('M');
   const [birthDate, setBirthDate] = useState('');
-  const dateInputRef = useRef<any>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [secureText, setSecureText] = useState(true);
@@ -339,74 +320,12 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.fieldLabel}>Fecha de Nacimiento</Text>
-            {Platform.OS === 'web' ? (
-              <View style={styles.modernDatePickerCard}>
-                <View style={styles.datePickerIconWrapper}>
-                  <Ionicons name="calendar" size={18} color="#38BDF8" />
-                </View>
-
-                <View style={{ flex: 1, justifyContent: 'center' }}>
-                  {birthDate ? (
-                    <>
-                      <Text style={styles.datePickerSelectedText}>
-                        {formatDisplayDate(birthDate)}
-                      </Text>
-                      <Text style={styles.datePickerSubtext}>
-                        {birthDate} • Toca la barra para cambiar fecha
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.datePickerPlaceholderText}>
-                        Seleccionar fecha de nacimiento
-                      </Text>
-                      <Text style={styles.datePickerSubtext}>
-                        Toca aquí para abrir el calendario
-                      </Text>
-                    </>
-                  )}
-                </View>
-
-                <View style={styles.datePickerBadge}>
-                  <Ionicons name="chevron-down" size={16} color="#38BDF8" />
-                </View>
-
-                {React.createElement('input', {
-                  ref: dateInputRef,
-                  type: 'date',
-                  value: birthDate ? birthDate.replace(/\//g, '-').split('T')[0] : '',
-                  onChange: (e: any) => setBirthDate(e.target.value),
-                  onClick: (e: any) => {
-                    try {
-                      e.currentTarget.showPicker();
-                    } catch {}
-                  },
-                  style: {
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    opacity: 0,
-                    cursor: 'pointer',
-                    zIndex: 10,
-                    margin: 0,
-                    padding: 0,
-                    border: 'none',
-                    display: 'block',
-                  },
-                })}
-              </View>
-            ) : (
-              <TextInput
-                style={styles.input}
-                placeholder="AAAA-MM-DD (Ej: 2004-06-15)"
-                placeholderTextColor="#94A3B8"
-                value={birthDate}
-                onChangeText={setBirthDate}
-              />
-            )}
+            <DatePickerField
+              label="Fecha de Nacimiento"
+              value={birthDate}
+              onChange={setBirthDate}
+              placeholder="Seleccionar fecha (Día Mes Año)"
+            />
             {calcAge(birthDate) !== undefined && (
               <Text
                 style={{
