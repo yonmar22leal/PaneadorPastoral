@@ -19,6 +19,7 @@ import {
   ServiceScheduleItem,
   VolunteerRoster,
   PastoralPost,
+  PastoralPostComment,
   PrayerRequest,
   PrayerStatus,
   PrayerCategory,
@@ -467,8 +468,9 @@ interface ChurchContextType {
   leaderAttendanceReports: LeaderAttendanceReport[];
   cellMeetingReports: CellMeetingReport[];
   pastoralPosts: PastoralPost[];
-  addPastoralPost: (post: Omit<PastoralPost, 'id' | 'likes' | 'createdAt'>) => Promise<string>;
+  addPastoralPost: (post: Omit<PastoralPost, 'id' | 'likes' | 'comments' | 'createdAt'>) => Promise<string>;
   toggleLikePost: (postId: string) => Promise<void>;
+  addPostComment: (postId: string, content: string) => Promise<void>;
   deletePastoralPost: (postId: string) => Promise<void>;
 
   // Peticiones de Oración & Cuidado Pastoral
@@ -1062,6 +1064,32 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           }));
           setLadderPeople(mappedLad);
           AsyncStorage.setItem(STORAGE_LADDER, JSON.stringify(mappedLad)).catch(() => {});
+        }
+      } catch {}
+
+      // M. Mensajes y Publicaciones Pastorales de Supabase (Zona Interactiva)
+      try {
+        const { data: postsData } = await supabase
+          .from('pastoral_posts')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (postsData && postsData.length > 0) {
+          const mappedPosts: PastoralPost[] = postsData.map((p) => ({
+            id: p.id,
+            authorId: p.author_id,
+            authorName: p.author_name,
+            authorRole: p.author_role || 'senior_pastor',
+            authorNetwork: p.author_network || undefined,
+            network: p.network || 'general',
+            title: p.title || '',
+            content: p.content || '',
+            verse: p.verse || undefined,
+            likes: Array.isArray(p.likes) ? p.likes : [],
+            comments: Array.isArray(p.comments) ? p.comments : [],
+            createdAt: p.created_at || new Date().toISOString(),
+          }));
+          setPastoralPosts(mappedPosts);
+          AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(mappedPosts)).catch(() => {});
         }
       } catch {}
     } catch (e) {
@@ -2591,40 +2619,121 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addPastoralPost = async (
-    data: Omit<PastoralPost, 'id' | 'likes' | 'createdAt'>
+    data: Omit<PastoralPost, 'id' | 'likes' | 'comments' | 'createdAt'>
   ): Promise<string> => {
     const newId = generateUUID();
+    const now = new Date().toISOString();
     const newPost: PastoralPost = {
       ...data,
       id: newId,
       likes: [],
-      createdAt: new Date().toISOString(),
+      comments: [],
+      createdAt: now,
     };
     const updated = [newPost, ...pastoralPosts];
     setPastoralPosts(updated);
     AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => {});
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('pastoral_posts').insert({
+          id: newId,
+          church_id: CHURCH_ID,
+          author_id: newPost.authorId,
+          author_name: newPost.authorName,
+          author_role: newPost.authorRole,
+          author_network: newPost.authorNetwork || null,
+          network: newPost.network || 'general',
+          title: newPost.title,
+          content: newPost.content,
+          verse: newPost.verse || null,
+          likes: [],
+          comments: [],
+          created_at: now,
+          updated_at: now,
+        });
+      } catch (e) {
+        console.warn('Error al guardar mensaje pastoral en Supabase:', e);
+      }
+    }
+
     return newId;
   };
 
   const toggleLikePost = async (postId: string): Promise<void> => {
     if (!currentUser) return;
     const userId = currentUser.id;
+    let targetLikes: string[] = [];
     const updated = pastoralPosts.map((post) => {
       if (post.id !== postId) return post;
       const alreadyLiked = post.likes.includes(userId);
       const newLikes = alreadyLiked
         ? post.likes.filter((id) => id !== userId)
         : [...post.likes, userId];
+      targetLikes = newLikes;
       return { ...post, likes: newLikes };
     });
     setPastoralPosts(updated);
     AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => {});
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase
+          .from('pastoral_posts')
+          .update({ likes: targetLikes })
+          .eq('id', postId);
+      } catch (e) {
+        console.warn('Error al actualizar likes en Supabase:', e);
+      }
+    }
+  };
+
+  const addPostComment = async (postId: string, content: string): Promise<void> => {
+    if (!currentUser || !content.trim()) return;
+    const newComment: PastoralPostComment = {
+      id: generateUUID(),
+      authorId: currentUser.id,
+      authorName: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+      authorRole: currentUser.role,
+      authorAvatarUrl: currentUser.avatarUrl,
+      content: content.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    let updatedComments: PastoralPostComment[] = [];
+    const updated = pastoralPosts.map((post) => {
+      if (post.id !== postId) return post;
+      const curComments = Array.isArray(post.comments) ? post.comments : [];
+      updatedComments = [...curComments, newComment];
+      return { ...post, comments: updatedComments };
+    });
+    setPastoralPosts(updated);
+    AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => {});
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase
+          .from('pastoral_posts')
+          .update({ comments: updatedComments })
+          .eq('id', postId);
+      } catch (e) {
+        console.warn('Error al guardar comentario en Supabase:', e);
+      }
+    }
   };
 
   const deletePastoralPost = async (postId: string): Promise<void> => {
     const updated = pastoralPosts.filter((p) => p.id !== postId);
     setPastoralPosts(updated);
     AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => {});
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('pastoral_posts').delete().eq('id', postId);
+      } catch (e) {
+        console.warn('Error al eliminar mensaje pastoral en Supabase:', e);
+      }
+    }
   };
 
   const addPrayerRequest = async (
@@ -3002,6 +3111,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         pastoralPosts,
         addPastoralPost,
         toggleLikePost,
+        addPostComment,
         deletePastoralPost,
         prayerRequests,
         addPrayerRequest,

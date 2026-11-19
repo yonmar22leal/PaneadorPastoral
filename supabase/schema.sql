@@ -450,6 +450,28 @@ CREATE TABLE IF NOT EXISTS public.ladder_people (
 
 ALTER TABLE public.ladder_people ADD COLUMN IF NOT EXISTS age INT;
 
+-- 20. Publicaciones Pastorales & Zona Interactiva
+CREATE TABLE IF NOT EXISTS public.pastoral_posts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  church_id UUID REFERENCES public.churches(id) ON DELETE CASCADE,
+  author_id TEXT NOT NULL,
+  author_name TEXT NOT NULL,
+  author_role TEXT NOT NULL DEFAULT 'senior_pastor',
+  author_network TEXT,
+  network TEXT DEFAULT 'general',
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  verse JSONB,
+  likes TEXT[] DEFAULT '{}',
+  comments JSONB DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Asegurar columnas si la tabla ya existía
+ALTER TABLE public.pastoral_posts ADD COLUMN IF NOT EXISTS comments JSONB DEFAULT '[]';
+ALTER TABLE public.pastoral_posts ADD COLUMN IF NOT EXISTS likes TEXT[] DEFAULT '{}';
+
 -- 2. Habilitar RLS y configurar políticas universales en todas las tablas
 DO $$ 
 DECLARE
@@ -460,7 +482,7 @@ DECLARE
       'church_events', 'cell_groups', 'leader_attendance_reports',
       'cell_meeting_reports', 'ministries', 'service_plans',
       'service_schedule_items', 'service_volunteers', 'prayer_requests',
-      'marriages', 'ladder_people'
+      'marriages', 'ladder_people', 'pastoral_posts'
     ];
 BEGIN
     FOREACH tbl IN ARRAY tables LOOP

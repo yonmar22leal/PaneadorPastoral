@@ -45,6 +45,7 @@ export default function DashboardScreen() {
     pastoralPosts,
     addPastoralPost,
     toggleLikePost,
+    addPostComment,
     deletePastoralPost,
     prayerRequests,
     addPrayerRequest,
@@ -63,6 +64,11 @@ export default function DashboardScreen() {
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
   const [postNetwork, setPostNetwork] = useState<'general' | 'adulta' | 'juvenil'>('general');
+
+  // Estado para Comentarios en Publicaciones
+  const [activeCommentsPostId, setActiveCommentsPostId] = useState<string | null>(null);
+  const [commentInputText, setCommentInputText] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
   // Modales adicionales de cuidado pastoral
   const [birthdayModalVisible, setBirthdayModalVisible] = useState(false);
@@ -326,8 +332,13 @@ export default function DashboardScreen() {
 
   // Publicar mensaje pastoral
   const handlePublishPost = async () => {
+    if (!currentUser) return;
     if (!postTitle.trim() || !postContent.trim()) {
-      Alert.alert('Faltan datos', 'Por favor ingresa un título y el contenido del mensaje.');
+      if (Platform.OS === 'web') {
+        window.alert('Por favor ingresa un título y el contenido del mensaje.');
+      } else {
+        Alert.alert('Faltan datos', 'Por favor ingresa un título y el contenido del mensaje.');
+      }
       return;
     }
 
@@ -350,9 +361,35 @@ export default function DashboardScreen() {
       setVerseQuery('');
       setVerseFeedback(null);
       setModalVisible(false);
-      Alert.alert('¡Publicado!', 'Tu mensaje ha sido compartido con la congregación.');
+      if (Platform.OS === 'web') {
+        window.alert('Tu mensaje ha sido compartido con la congregación.');
+      } else {
+        Alert.alert('¡Publicado!', 'Tu mensaje ha sido compartido con la congregación.');
+      }
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'No se pudo publicar el mensaje.');
+      if (Platform.OS === 'web') {
+        window.alert(e?.message || 'No se pudo publicar el mensaje.');
+      } else {
+        Alert.alert('Error', e?.message || 'No se pudo publicar el mensaje.');
+      }
+    }
+  };
+
+  // Enviar comentario en una publicación pastoral
+  const handleSendComment = async (postId: string) => {
+    if (!commentInputText.trim() || isSubmittingComment) return;
+    try {
+      setIsSubmittingComment(true);
+      await addPostComment(postId, commentInputText.trim());
+      setCommentInputText('');
+    } catch (e: any) {
+      if (Platform.OS === 'web') {
+        window.alert(e?.message || 'Error al enviar comentario');
+      } else {
+        Alert.alert('Error', e?.message || 'Error al enviar comentario');
+      }
+    } finally {
+      setIsSubmittingComment(false);
     }
   };
 
@@ -1184,7 +1221,100 @@ export default function DashboardScreen() {
                             {post.likes.length}
                           </Text>
                         </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.commentButton,
+                            activeCommentsPostId === post.id && styles.commentButtonActive,
+                          ]}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            setActiveCommentsPostId((prev) =>
+                              prev === post.id ? null : post.id
+                            );
+                            setCommentInputText('');
+                          }}>
+                          <Ionicons
+                            name="chatbubble-outline"
+                            size={17}
+                            color={activeCommentsPostId === post.id ? '#38BDF8' : '#94A3B8'}
+                          />
+                          <Text
+                            style={[
+                              styles.commentButtonText,
+                              activeCommentsPostId === post.id && styles.commentButtonTextActive,
+                            ]}>
+                            {post.comments && post.comments.length > 0
+                              ? `${post.comments.length} comentarios`
+                              : 'Comentar'}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
+
+                      {/* SECCIÓN DESPLEGABLE DE COMENTARIOS */}
+                      {activeCommentsPostId === post.id && (
+                        <View style={styles.commentsContainer}>
+                          <Text style={styles.commentsSectionTitle}>
+                            Comentarios ({post.comments?.length || 0})
+                          </Text>
+
+                          {(!post.comments || post.comments.length === 0) ? (
+                            <View style={styles.emptyCommentsBox}>
+                              <Ionicons name="chatbubbles-outline" size={22} color="#64748B" />
+                              <Text style={styles.emptyCommentsText}>
+                                Aún no hay comentarios. ¡Sé el primero en bendecir o responder!
+                              </Text>
+                            </View>
+                          ) : (
+                            <View style={{ gap: 8, marginVertical: 8 }}>
+                              {post.comments.map((c) => {
+                                let cRoleLabel = 'Miembro';
+                                if (c.authorRole === 'senior_pastor') cRoleLabel = 'Pastor Principal';
+                                else if (c.authorRole === 'network_pastor') cRoleLabel = 'Pastor';
+                                else if (c.authorRole === 'g12_leader') cRoleLabel = 'Líder';
+
+                                return (
+                                  <View key={c.id} style={styles.commentItem}>
+                                    <View style={styles.commentAvatarCircle}>
+                                      <Text style={styles.commentAvatarText}>
+                                        {c.authorName?.[0] || 'U'}
+                                      </Text>
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <Text style={styles.commentAuthorName}>{c.authorName}</Text>
+                                        <Text style={styles.commentRolePill}>{cRoleLabel}</Text>
+                                      </View>
+                                      <Text style={styles.commentContentText}>{c.content}</Text>
+                                    </View>
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          )}
+
+                          {/* INPUT PARA AGREGAR COMENTARIO */}
+                          <View style={styles.commentInputRow}>
+                            <TextInput
+                              style={styles.commentTextInput}
+                              placeholder="Escribe un comentario..."
+                              placeholderTextColor="#64748B"
+                              value={commentInputText}
+                              onChangeText={setCommentInputText}
+                              maxLength={300}
+                            />
+                            <TouchableOpacity
+                              style={[
+                                styles.commentSendBtn,
+                                (!commentInputText.trim() || isSubmittingComment) && styles.commentSendBtnDisabled,
+                              ]}
+                              disabled={!commentInputText.trim() || isSubmittingComment}
+                              onPress={() => handleSendComment(post.id)}>
+                              <Ionicons name="send" size={16} color="#FFFFFF" />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
                     </View>
                   );
                 })
@@ -2383,6 +2513,123 @@ const styles = StyleSheet.create({
   },
   likeButtonTextActive: {
     color: '#FB7185',
+  },
+  commentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
+    marginLeft: 8,
+  },
+  commentButtonActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: 'rgba(56, 189, 248, 0.45)',
+  },
+  commentButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  commentButtonTextActive: {
+    color: '#38BDF8',
+  },
+  commentsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  commentsSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
+    marginBottom: 6,
+  },
+  emptyCommentsBox: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 4,
+  },
+  emptyCommentsText: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  commentItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  commentAvatarCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentAvatarText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
+  commentAuthorName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  commentRolePill: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#94A3B8',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  commentContentText: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  commentTextInput: {
+    flex: 1,
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: '#FFFFFF',
+    fontSize: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  commentSendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#38BDF8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentSendBtnDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
 
   // MODALES

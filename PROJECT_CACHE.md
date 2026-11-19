@@ -352,8 +352,12 @@ cmd /c npx eas-cli build --profile preview --platform android       # Genera APK
 
 
 
-12. **Matrimonios solo para pastores + Escalera del �xito**:
-    - **Matrimonios (marriages.tsx):** ahora solo los pastores los ven. La tarjeta del inicio solo se muestra a pastores y los dem�s usuarios que entren a la ruta ven un aviso de acceso exclusivo.
-    - **Escalera del �xito (ladder.tsx):** etapas Ganar ? Consolidar ? Discipular ? Enviar. Cada l�der anota sus personas (tabla ladder_people, tipo LadderPerson, ChurchContext: ddLadderPerson, moveLadderPerson, setLadderPersonStatus, updateLadderPerson, deleteLadderPerson, storage @planeador_ladder_v1).
-    - **Pausa / Se fue:** en vez de eliminar, la persona pasa al *Archivo* (paused o lost) y se puede retomar.
-    - **Reporte trimestral:** calculado autom�ticamente por trimestre calendario a partir del historial de etapas (ganados, pasaron a cada etapa, en pausa, se fueron, en proceso). Cada l�der ve el suyo; los pastores pueden alternar a *Todos los l�deres* con desglose por l�der.
+12. **Matrimonios solo para pastores + Escalera del Éxito**:
+    - **Matrimonios (`marriages.tsx`):** ahora solo los pastores los ven. La tarjeta del inicio solo se muestra a pastores y los demás usuarios que entren a la ruta ven un aviso de acceso exclusivo.
+    - **Escalera del Éxito (`ladder.tsx`):** etapas Ganar → Consolidar → Discipular → Enviar. Cada líder anota sus personas (tabla `ladder_people`, tipo `LadderPerson`, `ChurchContext`: `addLadderPerson`, `moveLadderPerson`, `setLadderPersonStatus`, `updateLadderPerson`, `deleteLadderPerson`, storage `@planeador_ladder_v1`).
+    - **Pausa / Se fue:** en vez de eliminar, la persona pasa al *Archivo* (`paused` o `lost`) y se puede retomar.
+    - **Reporte trimestral:** calculado automáticamente por trimestre calendario a partir del historial de etapas (ganados, pasaron a cada etapa, en pausa, se fueron, en proceso). Cada líder ve el suyo; los pastores pueden alternar a *Todos los líderes* con desglose por líder y desplegar los miembros.
+
+13. **Sincronización de la Zona Interactiva y Comentarios en la Nube (`pastoral_posts` / `index.tsx` / `ChurchContext.tsx`):**
+    - **Persistencia en Supabase:** Se creó la tabla `public.pastoral_posts` con políticas universales RLS para sincronizar las reflexiones, versículos, me gustas y comentarios en tiempo real en todos los dispositivos y cuentas.
+    - **Interacción y Comentarios:** Se añadió el sistema de comentarios en las publicaciones (`PastoralPostComment`, `addPostComment`) permitiendo que pastores, líderes y miembros lean las publicaciones pastorales y comenten o respondan en la comunidad desde cualquier sesión o navegador.

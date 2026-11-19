@@ -302,6 +302,16 @@ export interface BibleVerseAttachment {
   translation?: string; // ej: "RVR1960" o "World English Bible"
 }
 
+export interface PastoralPostComment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorRole: MemberRole;
+  authorAvatarUrl?: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface PastoralPost {
   id: string;
   authorId: string;
@@ -313,6 +323,7 @@ export interface PastoralPost {
   content: string;
   verse?: BibleVerseAttachment;
   likes: string[]; // Lista de IDs de miembros que le dieron me gusta
+  comments?: PastoralPostComment[];
   createdAt: string;
 }
 
