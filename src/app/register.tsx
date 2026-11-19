@@ -5,7 +5,7 @@ import { ChurchNetwork, ChurchServiceSlotId } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -319,14 +319,38 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.fieldLabel}>Fecha de Nacimiento (YYYY-MM-DD)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ej: 2004-06-15"
-              placeholderTextColor="#94A3B8"
-              value={birthDate}
-              onChangeText={setBirthDate}
-            />
+            <Text style={styles.fieldLabel}>Fecha de Nacimiento</Text>
+            {Platform.OS === 'web' ? (
+              <View style={{ marginBottom: 14 }}>
+                {React.createElement('input', {
+                  type: 'date',
+                  value: birthDate ? birthDate.replace(/\//g, '-').split('T')[0] : '',
+                  onChange: (e: any) => setBirthDate(e.target.value),
+                  style: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '12px',
+                    padding: '10px 14px',
+                    fontSize: '14px',
+                    color: '#FFFFFF',
+                    colorScheme: 'dark',
+                    outline: 'none',
+                    width: '100%',
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer',
+                  },
+                })}
+              </View>
+            ) : (
+              <TextInput
+                style={styles.input}
+                placeholder="AAAA-MM-DD (Ej: 2004-06-15)"
+                placeholderTextColor="#94A3B8"
+                value={birthDate}
+                onChangeText={setBirthDate}
+              />
+            )}
             {calcAge(birthDate) !== undefined && (
               <Text
                 style={{

@@ -661,13 +661,37 @@ export default function MarriagesScreen() {
 
                 {/* FECHA DE MATRIMONIO */}
                 <Text style={styles.fieldLabel}>Fecha de Matrimonio / Boda (Opcional):</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="AAAA-MM-DD (ej: 2018-06-15)"
-                  placeholderTextColor="#64748B"
-                  value={marriageDate}
-                  onChangeText={setMarriageDate}
-                />
+                {Platform.OS === 'web' ? (
+                  <View style={{ marginBottom: 4 }}>
+                    {React.createElement('input', {
+                      type: 'date',
+                      value: marriageDate ? marriageDate.replace(/\//g, '-').split('T')[0] : '',
+                      onChange: (e: any) => setMarriageDate(e.target.value),
+                      style: {
+                        backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                        borderRadius: '12px',
+                        padding: '10px 12px',
+                        color: '#FFFFFF',
+                        colorScheme: 'dark',
+                        fontSize: '13px',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        outline: 'none',
+                        width: '100%',
+                        fontFamily: 'inherit',
+                        boxSizing: 'border-box',
+                        cursor: 'pointer',
+                      },
+                    })}
+                  </View>
+                ) : (
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="AAAA-MM-DD (ej: 2018-06-15)"
+                    placeholderTextColor="#64748B"
+                    value={marriageDate}
+                    onChangeText={setMarriageDate}
+                  />
+                )}
 
                 {/* PASTOR DE COBERTURA */}
                 <Text style={styles.fieldLabel}>Pastor de Cobertura:</Text>

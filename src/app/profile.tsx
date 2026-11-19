@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -170,7 +170,11 @@ export default function ProfileScreen() {
       if (!result.success) {
         const err = result.error || 'No se pudieron guardar los cambios.';
         setErrorMessage(err);
-        Alert.alert('Error al Actualizar', err);
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.alert(`Error: ${err}`);
+        } else {
+          Alert.alert('Error al Actualizar', err);
+        }
         return;
       }
 
@@ -180,9 +184,16 @@ export default function ProfileScreen() {
       setConfirmPassword('');
 
       if (Platform.OS === 'web') {
-        // En web el banner de éxito permanece visible
+        if (typeof window !== 'undefined') {
+          window.alert('✅ ¡Datos guardados con éxito!');
+        }
+        router.replace('/');
       } else {
-        Alert.alert('¡Perfil Guardado!', 'Tus cambios han sido actualizados exitosamente.');
+        Alert.alert(
+          '¡Perfil Guardado!',
+          'Tus cambios han sido actualizados exitosamente.',
+          [{ text: 'Aceptar', onPress: () => router.replace('/') }]
+        );
       }
     } catch (err: any) {
       const msg = err?.message || 'Error inesperado al guardar el perfil.';
@@ -531,20 +542,47 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.fieldLabel}>Fecha de Nacimiento (YYYY-MM-DD)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ej: 1998-05-20"
-              placeholderTextColor="#94A3B8"
-              value={birthDate}
-              onChangeText={(t) => {
-                setBirthDate(t);
-                if (successMessage) setSuccessMessage(null);
-              }}
-            />
+            <Text style={styles.fieldLabel}>Fecha de Nacimiento</Text>
+            {Platform.OS === 'web' ? (
+              <View style={{ marginBottom: 12 }}>
+                {React.createElement('input', {
+                  type: 'date',
+                  value: birthDate ? birthDate.replace(/\//g, '-').split('T')[0] : '',
+                  onChange: (e: any) => {
+                    setBirthDate(e.target.value);
+                    if (successMessage) setSuccessMessage(null);
+                  },
+                  style: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '12px',
+                    padding: '10px 14px',
+                    fontSize: '14px',
+                    color: '#FFFFFF',
+                    colorScheme: 'dark',
+                    outline: 'none',
+                    width: '100%',
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer',
+                  },
+                })}
+              </View>
+            ) : (
+              <TextInput
+                style={styles.input}
+                placeholder="AAAA-MM-DD (Ej: 1998-05-20)"
+                placeholderTextColor="#94A3B8"
+                value={birthDate}
+                onChangeText={(t) => {
+                  setBirthDate(t);
+                  if (successMessage) setSuccessMessage(null);
+                }}
+              />
+            )}
             {calcAge(birthDate) !== undefined && (
               <Text style={styles.ageIndicatorText}>
-                Edad calculada: {calcAge(birthDate)} años{' '}
+                🎂 Edad calculada: {calcAge(birthDate)} años{' '}
                 {calcAge(birthDate)! < 14 ? '• Prejuvenil (<14)' : ''}
               </Text>
             )}
