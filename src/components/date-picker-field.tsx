@@ -185,18 +185,24 @@ function WheelColumn<T>({
     }
   };
 
+  const webProps: any =
+    Platform.OS === 'web'
+      ? {
+          onMouseDown,
+          onMouseMove,
+          onMouseUp,
+          onMouseLeave: onMouseUp,
+        }
+      : {};
+
+  const columnStyle = [
+    styles.wheelColumnWrapper,
+    { flex },
+    Platform.OS === 'web' ? ({ cursor: 'grab', userSelect: 'none' } as any) : null,
+  ];
+
   return (
-    <View
-      style={[styles.wheelColumnWrapper, { flex }]}
-      {...(Platform.OS === 'web'
-        ? {
-            onMouseDown,
-            onMouseMove,
-            onMouseUp,
-            onMouseLeave: onMouseUp,
-            style: [styles.wheelColumnWrapper, { flex, cursor: 'grab', userSelect: 'none' as any }],
-          }
-        : {})}>
+    <View style={columnStyle} {...webProps}>
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
