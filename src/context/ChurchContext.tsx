@@ -124,7 +124,7 @@ const defaultPrayerRequests: PrayerRequest[] = [
 
 const defaultPastoralPosts: PastoralPost[] = [
   {
-    id: 'post-1',
+    id: 'd9b04838-89c5-43ea-9fc6-02e08c4ea311',
     authorId: 'pastor-josue-id',
     authorName: 'Pastor Josué Rodríguez',
     authorRole: 'senior_pastor',
@@ -139,10 +139,11 @@ const defaultPastoralPosts: PastoralPost[] = [
       translation: 'RVR1960',
     },
     likes: [],
+    comments: [],
     createdAt: new Date().toISOString(),
   },
   {
-    id: 'post-2',
+    id: 'e8a04838-89c5-43ea-9fc6-02e08c4ea322',
     authorId: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
     authorName: 'Pastor Josué Rodríguez',
     authorRole: 'senior_pastor',
@@ -157,6 +158,7 @@ const defaultPastoralPosts: PastoralPost[] = [
       translation: 'RVR1960',
     },
     likes: [],
+    comments: [],
     createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
   },
 ];
@@ -624,7 +626,12 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         if (storedPosts) {
           const parsedPosts = JSON.parse(storedPosts);
           if (Array.isArray(parsedPosts) && parsedPosts.length > 0) {
-            setPastoralPosts(parsedPosts);
+            const normalizedPosts = parsedPosts.map((p: any) => {
+              if (p.id === 'post-1') return { ...p, id: 'd9b04838-89c5-43ea-9fc6-02e08c4ea311' };
+              if (p.id === 'post-2') return { ...p, id: 'e8a04838-89c5-43ea-9fc6-02e08c4ea322' };
+              return p;
+            });
+            setPastoralPosts(normalizedPosts);
           }
         }
 
@@ -1069,10 +1076,26 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
 
       // M. Mensajes y Publicaciones Pastorales de Supabase (Zona Interactiva)
       try {
-        const { data: postsData } = await supabase
+        const { data: postsData, error: postsError } = await supabase
           .from('pastoral_posts')
           .select('*')
           .order('created_at', { ascending: false });
+
+        let localPosts: PastoralPost[] = [];
+        try {
+          const stored = await AsyncStorage.getItem(STORAGE_PASTORAL_POSTS);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+              localPosts = parsed.map((p: any) => {
+                if (p.id === 'post-1') return { ...p, id: 'd9b04838-89c5-43ea-9fc6-02e08c4ea311' };
+                if (p.id === 'post-2') return { ...p, id: 'e8a04838-89c5-43ea-9fc6-02e08c4ea322' };
+                return p;
+              });
+            }
+          }
+        } catch {}
+
         if (postsData && postsData.length > 0) {
           const mappedPosts: PastoralPost[] = postsData.map((p) => ({
             id: p.id,
@@ -1088,10 +1111,73 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             comments: Array.isArray(p.comments) ? p.comments : [],
             createdAt: p.created_at || new Date().toISOString(),
           }));
+
+          // Si en local había un mensaje o comentario que no está en Supabase, sincronizarlo
+          const remoteIds = new Set(mappedPosts.map((p) => p.id));
+          const missingInRemote = localPosts.filter((lp) => !remoteIds.has(lp.id));
+          for (const missing of missingInRemote) {
+            try {
+              const validId = missing.id.startsWith('post-') ? generateUUID() : missing.id;
+              await supabase.from('pastoral_posts').upsert({
+                id: validId,
+                church_id: CHURCH_ID,
+                author_id: missing.authorId,
+                author_name: missing.authorName,
+                author_role: missing.authorRole,
+                author_network: missing.authorNetwork || null,
+                network: missing.network || 'general',
+                title: missing.title,
+                content: missing.content,
+                verse: missing.verse || null,
+                likes: missing.likes || [],
+                comments: missing.comments || [],
+                created_at: missing.createdAt,
+              });
+              mappedPosts.push({ ...missing, id: validId });
+            } catch (errSync) {
+              console.warn('Error subiendo post local a Supabase:', errSync);
+            }
+          }
+
           setPastoralPosts(mappedPosts);
           AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(mappedPosts)).catch(() => {});
+        } else if (!postsError) {
+          // Si la tabla existe en Supabase pero está vacía, migrar posts locales o defaults a Supabase
+          const sourcePosts = localPosts.length > 0 ? localPosts : defaultPastoralPosts;
+          const seededPosts: PastoralPost[] = [];
+          for (const post of sourcePosts) {
+            const validId = post.id.startsWith('post-') ? generateUUID() : post.id;
+            const preparedPost: PastoralPost = { ...post, id: validId };
+            try {
+              await supabase.from('pastoral_posts').upsert({
+                id: validId,
+                church_id: CHURCH_ID,
+                author_id: preparedPost.authorId,
+                author_name: preparedPost.authorName,
+                author_role: preparedPost.authorRole,
+                author_network: preparedPost.authorNetwork || null,
+                network: preparedPost.network || 'general',
+                title: preparedPost.title,
+                content: preparedPost.content,
+                verse: preparedPost.verse || null,
+                likes: preparedPost.likes || [],
+                comments: preparedPost.comments || [],
+                created_at: preparedPost.createdAt,
+              });
+              seededPosts.push(preparedPost);
+            } catch (errSeed) {
+              console.warn('Error sembrando post pastoral en Supabase:', errSeed);
+              seededPosts.push(post);
+            }
+          }
+          if (seededPosts.length > 0) {
+            setPastoralPosts(seededPosts);
+            AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(seededPosts)).catch(() => {});
+          }
         }
-      } catch {}
+      } catch (err) {
+        console.warn('Error cargando o sincronizando publicaciones pastorales:', err);
+      }
     } catch (e) {
       console.warn('Supabase data load error:', e);
     } finally {
@@ -2678,10 +2764,30 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
 
     if (isSupabaseConfigured) {
       try {
-        await supabase
+        const { error: updateError } = await supabase
           .from('pastoral_posts')
           .update({ likes: targetLikes })
           .eq('id', postId);
+        if (updateError) {
+          const target = updated.find((p) => p.id === postId);
+          if (target) {
+            await supabase.from('pastoral_posts').upsert({
+              id: target.id,
+              church_id: CHURCH_ID,
+              author_id: target.authorId,
+              author_name: target.authorName,
+              author_role: target.authorRole,
+              author_network: target.authorNetwork || null,
+              network: target.network || 'general',
+              title: target.title,
+              content: target.content,
+              verse: target.verse || null,
+              likes: targetLikes,
+              comments: target.comments || [],
+              created_at: target.createdAt,
+            });
+          }
+        }
       } catch (e) {
         console.warn('Error al actualizar likes en Supabase:', e);
       }
@@ -2712,10 +2818,30 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
 
     if (isSupabaseConfigured) {
       try {
-        await supabase
+        const { error: updateError } = await supabase
           .from('pastoral_posts')
           .update({ comments: updatedComments })
           .eq('id', postId);
+        if (updateError) {
+          const target = updated.find((p) => p.id === postId);
+          if (target) {
+            await supabase.from('pastoral_posts').upsert({
+              id: target.id,
+              church_id: CHURCH_ID,
+              author_id: target.authorId,
+              author_name: target.authorName,
+              author_role: target.authorRole,
+              author_network: target.authorNetwork || null,
+              network: target.network || 'general',
+              title: target.title,
+              content: target.content,
+              verse: target.verse || null,
+              likes: target.likes || [],
+              comments: updatedComments,
+              created_at: target.createdAt,
+            });
+          }
+        }
       } catch (e) {
         console.warn('Error al guardar comentario en Supabase:', e);
       }

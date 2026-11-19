@@ -21,6 +21,7 @@ import {
   Linking,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -54,7 +55,20 @@ export default function DashboardScreen() {
     deletePrayerRequest,
     marriages,
     ladderPeople,
+    refreshData,
   } = useChurch();
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshData();
+    } catch (err) {
+      console.warn('Error refrescando datos:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [mainTab, setMainTab] = useState<'discipulado' | 'interactiva'>('discipulado');
@@ -435,7 +449,17 @@ export default function DashboardScreen() {
 
       {/* CONTENEDOR CON FONDO DEGRADADO Y LUCES AMBIENTALES */}
       <AuroraBackground>
-        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor="#38BDF8"
+              colors={['#38BDF8']}
+            />
+          }>
           {/* ========================================================= */}
           {/* HEADER HERO (Glassmorphic)                                */}
           {/* ========================================================= */}
@@ -1090,7 +1114,23 @@ export default function DashboardScreen() {
                   <Ionicons name="sparkles" size={18} color="#38BDF8" />
                   <Text style={styles.feedTitle}>Palabra de los Pastores</Text>
                 </View>
-                <Text style={styles.feedSubtitle}>{visiblePosts.length} mensajes</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TouchableOpacity
+                    style={styles.refreshBadgeBtn}
+                    onPress={handleRefresh}
+                    disabled={isRefreshing}
+                    activeOpacity={0.7}>
+                    <Ionicons
+                      name={isRefreshing ? 'sync-outline' : 'refresh'}
+                      size={13}
+                      color="#38BDF8"
+                    />
+                    <Text style={styles.refreshBadgeText}>
+                      {isRefreshing ? 'Actualizando...' : 'Actualizar'}
+                    </Text>
+                  </TouchableOpacity>
+                  <Text style={styles.feedSubtitle}>{visiblePosts.length} mensajes</Text>
+                </View>
               </View>
 
               {visiblePosts.length === 0 ? (
@@ -2359,6 +2399,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     fontWeight: '600',
+  },
+  refreshBadgeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  refreshBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#38BDF8',
   },
   emptyFeedBox: {
     backgroundColor: 'rgba(15, 23, 42, 0.65)',
