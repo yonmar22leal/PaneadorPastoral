@@ -412,7 +412,7 @@ ALTER TABLE public.prayer_requests ADD COLUMN IF NOT EXISTS praying_count INT DE
 -- 18. Matrimonios y Parejas (Asignación exclusiva por Pastores)
 CREATE TABLE IF NOT EXISTS public.marriages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  church_id UUID REFERENCES public.churches(id) ON DELETE CASCADE,
+  church_id UUID DEFAULT '11111111-1111-1111-1111-111111111111'::uuid,
   husband_id TEXT NOT NULL,
   husband_name TEXT NOT NULL,
   wife_id TEXT NOT NULL,
@@ -433,7 +433,7 @@ CREATE TABLE IF NOT EXISTS public.marriages (
 -- 19. Escalera del Éxito (Ganar, Consolidar, Discipular, Enviar)
 CREATE TABLE IF NOT EXISTS public.ladder_people (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  church_id UUID REFERENCES public.churches(id) ON DELETE CASCADE,
+  church_id UUID DEFAULT '11111111-1111-1111-1111-111111111111'::uuid,
   leader_id TEXT NOT NULL,
   leader_name TEXT NOT NULL,
   name TEXT NOT NULL,
@@ -453,7 +453,7 @@ ALTER TABLE public.ladder_people ADD COLUMN IF NOT EXISTS age INT;
 -- 20. Publicaciones Pastorales & Zona Interactiva
 CREATE TABLE IF NOT EXISTS public.pastoral_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  church_id UUID REFERENCES public.churches(id) ON DELETE CASCADE,
+  church_id UUID DEFAULT '11111111-1111-1111-1111-111111111111'::uuid,
   author_id TEXT NOT NULL,
   author_name TEXT NOT NULL,
   author_role TEXT NOT NULL DEFAULT 'senior_pastor',
