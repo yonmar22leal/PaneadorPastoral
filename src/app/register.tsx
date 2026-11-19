@@ -5,7 +5,7 @@ import { ChurchNetwork, ChurchServiceSlotId } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,25 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+function formatDisplayDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  const clean = dateStr.replace(/\//g, '-').split('T')[0];
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+    ];
+    if (m >= 0 && m < 12 && !isNaN(d) && !isNaN(y)) {
+      return `${d} de ${months[m]} de ${y}`;
+    }
+  }
+  return dateStr;
+}
 
 interface RegisterScreenProps {
   onGoLogin?: () => void;
@@ -34,6 +53,7 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
   const [username, setUsername] = useState('');
   const [gender, setGender] = useState<'M' | 'F'>('M');
   const [birthDate, setBirthDate] = useState('');
+  const dateInputRef = useRef<any>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [secureText, setSecureText] = useState(true);
@@ -321,24 +341,60 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
 
             <Text style={styles.fieldLabel}>Fecha de Nacimiento</Text>
             {Platform.OS === 'web' ? (
-              <View style={{ marginBottom: 14 }}>
+              <View style={styles.modernDatePickerCard}>
+                <View style={styles.datePickerIconWrapper}>
+                  <Ionicons name="calendar" size={18} color="#38BDF8" />
+                </View>
+
+                <View style={{ flex: 1, justifyContent: 'center' }}>
+                  {birthDate ? (
+                    <>
+                      <Text style={styles.datePickerSelectedText}>
+                        {formatDisplayDate(birthDate)}
+                      </Text>
+                      <Text style={styles.datePickerSubtext}>
+                        {birthDate} • Toca la barra para cambiar fecha
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.datePickerPlaceholderText}>
+                        Seleccionar fecha de nacimiento
+                      </Text>
+                      <Text style={styles.datePickerSubtext}>
+                        Toca aquí para abrir el calendario
+                      </Text>
+                    </>
+                  )}
+                </View>
+
+                <View style={styles.datePickerBadge}>
+                  <Ionicons name="chevron-down" size={16} color="#38BDF8" />
+                </View>
+
                 {React.createElement('input', {
+                  ref: dateInputRef,
                   type: 'date',
                   value: birthDate ? birthDate.replace(/\//g, '-').split('T')[0] : '',
                   onChange: (e: any) => setBirthDate(e.target.value),
+                  onClick: (e: any) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch {}
+                  },
                   style: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: '12px',
-                    padding: '10px 14px',
-                    fontSize: '14px',
-                    color: '#FFFFFF',
-                    colorScheme: 'dark',
-                    outline: 'none',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
                     width: '100%',
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box',
+                    height: '100%',
+                    opacity: 0,
                     cursor: 'pointer',
+                    zIndex: 10,
+                    margin: 0,
+                    padding: 0,
+                    border: 'none',
+                    display: 'block',
                   },
                 })}
               </View>
@@ -732,6 +788,62 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: '#FFFFFF',
+  },
+  modernDatePickerCard: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+    marginBottom: 8,
+    shadowColor: '#0284C7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  datePickerIconWrapper: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  datePickerSelectedText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#F8FAFC',
+    letterSpacing: 0.2,
+  },
+  datePickerPlaceholderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  datePickerSubtext: {
+    fontSize: 11,
+    color: '#38BDF8',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  datePickerBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   passwordWrapper: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
