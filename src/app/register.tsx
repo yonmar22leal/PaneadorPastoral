@@ -294,8 +294,8 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
                     onPress={() => setSelectedLeaderId(lead.id)}>
                     <View style={styles.leaderAvatar}>
                       <Text style={styles.leaderAvatarText}>
-                        {lead.firstName[0]}
-                        {lead.lastName[0]}
+                        {lead.firstName?.[0] || ''}
+                        {lead.lastName?.[0] || ''}
                       </Text>
                     </View>
 

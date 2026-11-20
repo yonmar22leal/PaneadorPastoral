@@ -40,8 +40,15 @@ export default function ProfileScreen() {
   }, [currentUser, router]);
 
   // Form states initialized with currentUser data
+  const initialLoginIdentifier =
+    currentUser?.username ||
+    (currentUser?.email?.endsWith('@iglesia.local')
+      ? currentUser.email.split('@')[0]
+      : currentUser?.email) ||
+    '';
   const [firstName, setFirstName] = useState(currentUser?.firstName || '');
   const [lastName, setLastName] = useState(currentUser?.lastName || '');
+  const [username, setUsername] = useState(initialLoginIdentifier);
   const [phone, setPhone] = useState(currentUser?.phone || '');
   const [gender, setGender] = useState<'M' | 'F'>(currentUser?.gender || 'M');
   const [birthDate, setBirthDate] = useState(currentUser?.birthDate || '');
@@ -86,18 +93,27 @@ export default function ProfileScreen() {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (!firstName.trim() || !lastName.trim()) {
-      const msg = 'Por favor ingresa tu nombre y apellido.';
+    if (!firstName.trim()) {
+      const msg = 'Por favor ingresa tu nombre.';
       setErrorMessage(msg);
       Alert.alert('Faltan Campos', msg);
       return;
     }
 
-    if (!phone.trim()) {
-      const msg = 'Por favor ingresa tu número de WhatsApp / teléfono móvil.';
-      setErrorMessage(msg);
-      Alert.alert('Faltan Campos', msg);
-      return;
+    const cleanUsername = username.trim().toLowerCase();
+    if (cleanUsername) {
+      if (cleanUsername.length < 3) {
+        const msg = 'El nombre de usuario debe tener al menos 3 caracteres.';
+        setErrorMessage(msg);
+        Alert.alert('Usuario Inválido', msg);
+        return;
+      }
+      if (/\s/.test(cleanUsername)) {
+        const msg = 'El nombre de usuario no puede contener espacios.';
+        setErrorMessage(msg);
+        Alert.alert('Usuario Inválido', msg);
+        return;
+      }
     }
 
     // Validar cambio de contraseña: Se debe ingresar primero la contraseña actual
@@ -157,6 +173,7 @@ export default function ProfileScreen() {
       const result = await updateUserProfile({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
+        username: cleanUsername || undefined,
         phone: phone.trim(),
         gender,
         birthDate: birthDate.trim() || undefined,
@@ -492,7 +509,7 @@ export default function ProfileScreen() {
               }}
             />
 
-            <Text style={styles.fieldLabel}>Apellido *</Text>
+            <Text style={styles.fieldLabel}>Apellido</Text>
             <TextInput
               style={styles.input}
               placeholder="Ej: Mendoza"
@@ -505,7 +522,7 @@ export default function ProfileScreen() {
               }}
             />
 
-            <Text style={styles.fieldLabel}>Teléfono Móvil (WhatsApp) *</Text>
+            <Text style={styles.fieldLabel}>Teléfono Móvil (WhatsApp)</Text>
             <TextInput
               style={styles.input}
               placeholder="+1 555-0123"
@@ -604,8 +621,8 @@ export default function ProfileScreen() {
                         }}>
                         <View style={styles.leaderAvatar}>
                           <Text style={styles.leaderAvatarText}>
-                            {lead.firstName[0]}
-                            {lead.lastName[0]}
+                            {lead.firstName?.[0] || ''}
+                            {lead.lastName?.[0] || ''}
                           </Text>
                         </View>
                         <View style={{ flex: 1 }}>
@@ -633,18 +650,34 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          {/* SECTION 3: SEGURIDAD Y CONTRASEÑA */}
+          {/* SECTION 3: USUARIO, SEGURIDAD Y CONTRASEÑA */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
-              <Ionicons name="lock-closed" size={18} color="#1E3A8A" />
-              <Text style={styles.sectionHeaderTitle}>3. Seguridad y Contraseña</Text>
+              <Ionicons name="lock-closed" size={18} color="#38BDF8" />
+              <Text style={styles.sectionHeaderTitle}>3. Usuario y Contraseña de Acceso</Text>
             </View>
             <Text style={styles.sectionSub}>
-              Para cambiar tu contraseña, ingresa primero tu contraseña actual y luego define la nueva.
+              Puedes personalizar tu nombre de usuario (o correo) para iniciar sesión y cambiar tu contraseña actual.
             </Text>
 
+            {/* 0. Nombre de Usuario / Acceso */}
+            <Text style={styles.fieldLabel}>Nombre de Usuario (para iniciar sesión)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej: miguel.rodriguez (sin espacios)"
+              placeholderTextColor="#94A3B8"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={username}
+              onChangeText={(t) => {
+                setUsername(t);
+                if (errorMessage) setErrorMessage(null);
+                if (successMessage) setSuccessMessage(null);
+              }}
+            />
+
             {/* 1. Contraseña Actual */}
-            <Text style={styles.fieldLabel}>Contraseña Actual</Text>
+            <Text style={[styles.fieldLabel, { marginTop: 4 }]}>Contraseña Actual (si deseas cambiarla)</Text>
             <View style={styles.passwordWrapper}>
               <TextInput
                 style={styles.passwordInput}

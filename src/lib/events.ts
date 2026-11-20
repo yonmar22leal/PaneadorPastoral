@@ -6,12 +6,17 @@ export const EVENT_TYPE_META: Record<
 > = {
   Servicio: { label: 'Servicio', icon: 'sunny', color: '#2563EB', soft: '#DBEAFE' },
   evento: { label: 'Evento', icon: 'calendar', color: '#7C3AED', soft: '#EDE9FE' },
+  recordatorio: { label: 'Recordatorio', icon: 'alarm', color: '#F59E0B', soft: '#FEF3C7' },
 };
 
-export const EVENT_TYPES: ChurchEventType[] = ['Servicio', 'evento'];
+export const EVENT_TYPES: ChurchEventType[] = ['Servicio', 'evento', 'recordatorio'];
+
+/** Los recordatorios (viajes, salidas, visitas) no tienen cronograma, ministerios ni servidores. */
+export const isReminderType = (type?: string): boolean => type === 'recordatorio';
 
 export function normalizeEventType(type?: string): ChurchEventType {
   if (type === 'Servicio' || type === 'Servicio_domingo') return 'Servicio';
+  if (type === 'recordatorio') return 'recordatorio';
   return 'evento';
 }
 
@@ -148,6 +153,7 @@ const TEMPLATES: Record<ChurchEventType, TemplateItem[]> = {
     { title: 'Tema Central / Ministración', durationMinutes: 45, type: 'preaching', responsible: '' },
     { title: 'Tiempo de Compartir & Despedida', durationMinutes: 20, type: 'other', responsible: '' },
   ],
+  recordatorio: [],
 };
 
 export function buildTemplate(type: ChurchEventType, startTime: string): ServiceScheduleItem[] {

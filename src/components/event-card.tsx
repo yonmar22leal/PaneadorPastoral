@@ -74,14 +74,18 @@ export function EventCard({ event, onPress, compact }: Props) {
         <View style={styles.metaRow}>
           <Ionicons name="time-outline" size={12} color="#38BDF8" />
           <Text style={styles.metaText}>
-            {event.time}
+            {event.time ? event.time : 'Sin hora definida'}
             {end ? ` – ${end}` : ''}
           </Text>
-          <Text style={styles.metaDot}>•</Text>
-          <Ionicons name="list-outline" size={12} color="#38BDF8" />
-          <Text style={styles.metaText}>
-            {event.schedule.length} bloques
-          </Text>
+          {normType !== 'recordatorio' && (
+            <>
+              <Text style={styles.metaDot}>•</Text>
+              <Ionicons name="list-outline" size={12} color="#38BDF8" />
+              <Text style={styles.metaText}>
+                {event.schedule.length} bloques
+              </Text>
+            </>
+          )}
         </View>
 
         {!compact && (

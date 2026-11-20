@@ -549,8 +549,8 @@ export default function MembersScreen() {
                         />
                       ) : (
                         <Text style={styles.avatarText}>
-                          {member.firstName[0]}
-                          {member.lastName[0]}
+                          {member.firstName?.[0] || ''}
+                          {member.lastName?.[0] || ''}
                         </Text>
                       )}
                     </View>

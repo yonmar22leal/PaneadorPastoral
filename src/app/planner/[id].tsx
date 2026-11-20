@@ -4,6 +4,7 @@ import {
   addDaysISO,
   EVENT_TYPE_META,
   formatEventDate,
+  isReminderType,
   ITEM_TYPE_META,
   localId,
   normalizeEventType,
@@ -197,6 +198,7 @@ export default function EventDetailScreen() {
   }
 
   const meta = EVENT_TYPE_META[normalizeEventType(event.type)];
+  const isReminder = isReminderType(event.type);
   const end = scheduleEndTime(event);
   const confirmed = event.volunteers.filter((v) => v.confirmed).length;
   const totalMinutes = event.schedule.reduce(
@@ -441,7 +443,7 @@ export default function EventDetailScreen() {
               <View style={styles.infoItem}>
                 <Ionicons name="time" size={14} color="#93C5FD" />
                 <Text style={styles.infoText}>
-                  {event.time}
+                  {event.time || 'Sin hora definida'}
                   {end ? ` – ${end}` : ''}
                 </Text>
               </View>
@@ -471,7 +473,7 @@ export default function EventDetailScreen() {
             )}
 
             {/* EQUIPO DE COORDINADORES DELEGADOS */}
-            {eventMinistries.length > 0 && (
+            {!isReminder && eventMinistries.length > 0 && (
               <View style={styles.ministriesHeroCard}>
                 <Text style={styles.ministriesHeroTitle}>COORDINACIÓN DE MINISTERIOS</Text>
                 <ScrollView
@@ -514,7 +516,7 @@ export default function EventDetailScreen() {
           </LinearGradient>
 
           {/* BANNER PARA COORDINADOR ASIGNADO */}
-          {!canEditAll && coordinatedMinistries.length > 0 && (
+          {!isReminder && !canEditAll && coordinatedMinistries.length > 0 && (
             <View style={styles.coordCalloutCard}>
               <View style={styles.coordCalloutIcon}>
                 <Ionicons name="sparkles" size={22} color="#1E3A8A" />
@@ -547,7 +549,7 @@ export default function EventDetailScreen() {
             </View>
           ) : null}
 
-          {!canManageEvents && !canEditPart && (
+          {!isReminder && !canManageEvents && !canEditPart && (
             <View style={styles.readOnlyNotice}>
               <Ionicons name="eye-outline" size={14} color="#64748B" />
               <Text style={styles.readOnlyText}>
@@ -556,6 +558,19 @@ export default function EventDetailScreen() {
             </View>
           )}
 
+          {/* RECORDATORIO: sin cronograma ni servidores */}
+          {isReminder && (
+            <View style={styles.descCard}>
+              <Ionicons name="alarm" size={16} color="#F59E0B" />
+              <Text style={styles.descText}>
+                Recordatorio de calendario: solo para tener presente la fecha
+                {event.time ? ` y la hora de salida (${event.time})` : ''}.
+              </Text>
+            </View>
+          )}
+
+          {!isReminder && (
+          <>
           {/* TABS */}
           <View style={styles.segment}>
             <TouchableOpacity
@@ -782,6 +797,8 @@ export default function EventDetailScreen() {
               )}
             </View>
           )}
+          </>
+          )}
         </ScrollView>
       </DoodleBackground>
 
@@ -794,7 +811,7 @@ export default function EventDetailScreen() {
           <Ionicons name="create" size={20} color="#FFFFFF" />
           <Text style={styles.fabText}>Editar evento completo</Text>
         </TouchableOpacity>
-      ) : coordinatedMinistries.length > 0 ? (
+      ) : !isReminder && coordinatedMinistries.length > 0 ? (
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: '#7C3AED' }]}
           activeOpacity={0.9}

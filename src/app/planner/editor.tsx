@@ -9,6 +9,7 @@ import {
   fromISODate,
   ITEM_TYPE_META,
   ITEM_TYPES,
+  isReminderType,
   localId,
   nextWeekdayISO,
   normalizeEventType,
@@ -30,7 +31,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo, useState } from 'react';
+import { ComponentRef, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -75,9 +76,12 @@ export default function EventEditorScreen() {
     existing?.time ??
     (initialType === 'Servicio'
       ? '11:00 AM'
-      : '7:00 PM');
+      : initialType === 'recordatorio'
+        ? ''
+        : '7:00 PM');
 
   const [type, setType] = useState<ChurchEventType>(initialType);
+  const isReminder = isReminderType(type);
   const [serviceSlotId, setServiceSlotId] = useState<ChurchServiceSlotId | undefined>(
     existing?.serviceSlotId ?? (initialType === 'Servicio' ? 'domingo_11am' : undefined)
   );
@@ -91,7 +95,9 @@ export default function EventEditorScreen() {
     existing?.date ?? params.date ?? (initialType === 'Servicio' ? nextWeekdayISO(0) : todayISO())
   );
   const [time, setTime] = useState(initialTime);
-  const [location, setLocation] = useState(existing?.location ?? 'Templo Principal');
+  const [location, setLocation] = useState(
+    existing?.location ?? (initialType === 'recordatorio' ? '' : 'Templo Principal')
+  );
   const [network, setNetwork] = useState<ChurchEvent['network']>(
     existing?.network ?? 'general'
   );
@@ -180,6 +186,16 @@ export default function EventEditorScreen() {
   const [scheduleTouched, setScheduleTouched] = useState(!!existing);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const errorList = Object.values(errors);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const clearError = (key: string) =>
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
 
   const finalSchedule = useMemo(
     () =>
@@ -303,17 +319,40 @@ export default function EventEditorScreen() {
 
   // ---- handlers ----
   const handleTypeChange = (t: ChurchEventType) => {
+    const wasReminder = isReminderType(type);
     setType(t);
+    setErrors({});
     const prevDefaultTitle =
       title === EVENT_TYPE_META[type]?.label ||
       sundayServices.some((s) => s.name === title) ||
       title === 'Servicio' ||
       !title.trim();
+
+    if (t === 'recordatorio') {
+      setServiceSlotId(undefined);
+      if (prevDefaultTitle) setTitle('');
+      if (location === 'Templo Principal') setLocation('');
+      setSchedule([]);
+      setScheduleTouched(false);
+      return;
+    }
+
+    // Al volver desde un recordatorio, restaurar valores base de eventos con cronograma
+    let effectiveTime = time;
+    if (wasReminder) {
+      if (!parseTime(time)) {
+        effectiveTime = t === 'Servicio' && defaultSlot ? defaultSlot.time.split(' - ')[0] : '7:00 PM';
+        setTime(effectiveTime);
+      }
+      if (!location.trim()) setLocation('Templo Principal');
+    }
+
     if (t === 'Servicio') {
       const slot = sundayServices.find((s) => s.id === serviceSlotId) ?? defaultSlot;
       setServiceSlotId(slot?.id);
       if (slot) {
-        setTime(slot.time.split(' - ')[0]);
+        effectiveTime = slot.time.split(' - ')[0];
+        setTime(effectiveTime);
         setNetwork(slot.network);
         if (prevDefaultTitle) setTitle(slot.name);
       } else if (prevDefaultTitle) {
@@ -324,10 +363,9 @@ export default function EventEditorScreen() {
       setServiceSlotId(undefined);
       if (prevDefaultTitle) setTitle('');
     }
-    if (!scheduleTouched) {
-      const startTime =
-        t === 'Servicio' && defaultSlot ? defaultSlot.time.split(' - ')[0] : time;
-      setSchedule(buildTemplate(t, startTime));
+    if (!scheduleTouched || wasReminder) {
+      setSchedule(buildTemplate(t, effectiveTime));
+      setScheduleTouched(false);
     }
   };
 
@@ -394,19 +432,45 @@ export default function EventEditorScreen() {
     setVolunteers((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)));
 
   const handleSave = async () => {
+    const newErrors: Record<string, string> = {};
     if (!title.trim()) {
-      Alert.alert('Falta el nombre', 'Escribe el nombre del evento.');
+      newErrors.title = isReminder
+        ? 'Escribe el nombre del recordatorio (ej: Viaje a Maracaibo).'
+        : 'Escribe el nombre del evento.';
+    }
+    if (!date) {
+      newErrors.date = 'Selecciona la fecha.';
+    }
+    if (isReminder) {
+      if (time.trim() && parseTime(time) === undefined) {
+        newErrors.time = 'La hora de salida no es válida. Ej: 5:00 AM o 17:30 (o déjala vacía).';
+      }
+    } else {
+      if (!time.trim()) {
+        newErrors.time = 'Escribe la hora de inicio. Ej: 9:00 AM o 19:30.';
+      } else if (parseTime(time) === undefined) {
+        newErrors.time = 'La hora de inicio no es válida. Ej: 9:00 AM o 19:30.';
+      }
+      const untitledCount = finalSchedule.filter((s) => !s.title.trim()).length;
+      if (untitledCount > 0) {
+        newErrors.blocks = `Hay ${untitledCount} bloque(s) del cronograma sin título. Complétalos o elimínalos.`;
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      Alert.alert(
+        'Faltan datos',
+        'Completa lo siguiente para continuar:\n\n' +
+          Object.values(newErrors)
+            .map((m) => `• ${m}`)
+            .join('\n')
+      );
       return;
     }
-    if (parseTime(time) === undefined) {
-      Alert.alert('Hora inválida', 'Escribe la hora de inicio, por ejemplo: 9:00 AM o 19:30.');
-      return;
-    }
-    const untitled = finalSchedule.filter((s) => !s.title.trim());
-    if (untitled.length > 0) {
-      Alert.alert('Bloques sin nombre', 'Hay bloques del cronograma sin título. Complétalos o elimínalos.');
-      return;
-    }
+
+    setErrors({});
     setSaving(true);
     try {
       const id = await saveEvent({
@@ -418,18 +482,23 @@ export default function EventEditorScreen() {
         location: location.trim() || undefined,
         network,
         serviceSlotId: type === 'Servicio' ? serviceSlotId : undefined,
-        theme: theme.trim() || undefined,
-        preacher: preacher.trim() || undefined,
-        worshipLeader: worshipLeader.trim() || undefined,
+        theme: isReminder ? undefined : theme.trim() || undefined,
+        preacher: isReminder ? undefined : preacher.trim() || undefined,
+        worshipLeader: isReminder ? undefined : worshipLeader.trim() || undefined,
         description: description.trim() || undefined,
-        schedule: finalSchedule,
-        volunteers: volunteers.filter((v) => v.assignedTo.trim() || v.area.trim()),
-        ministries: eventMinistries,
+        schedule: isReminder ? [] : finalSchedule,
+        volunteers: isReminder ? [] : volunteers.filter((v) => v.assignedTo.trim() || v.area.trim()),
+        ministries: isReminder ? [] : eventMinistries,
         createdById: existing?.createdById,
         createdByName: existing?.createdByName,
       });
       if (existing) goBack();
       else router.replace(`/planner/${id}` as any);
+    } catch (err: any) {
+      Alert.alert(
+        'No se pudo guardar',
+        err?.message || 'Ocurrió un error al guardar. Intenta nuevamente.'
+      );
     } finally {
       setSaving(false);
     }
@@ -459,9 +528,27 @@ export default function EventEditorScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <DoodleBackground>
           <ScrollView
+            ref={scrollRef}
             contentContainerStyle={{ paddingBottom: 140 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
+            {/* AVISO DE CAMPOS FALTANTES */}
+            {errorList.length > 0 && (
+              <View style={styles.errorBanner}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="alert-circle" size={20} color="#FCA5A5" />
+                  <Text style={styles.errorBannerTitle}>
+                    Falta completar para poder guardar:
+                  </Text>
+                </View>
+                {errorList.map((msg, i) => (
+                  <Text key={i} style={styles.errorBannerItem}>
+                    • {msg}
+                  </Text>
+                ))}
+              </View>
+            )}
+
             {/* BANNER DE AUTORÍA Y PROPIEDAD */}
             <View
               style={{
@@ -530,10 +617,15 @@ export default function EventEditorScreen() {
                   );
                 })}
               </View>
+              <Text style={styles.cardSub}>
+                {isReminder
+                  ? 'Solo para agendar y recordar (viajes, salidas, visitas). Sin cronograma ni servidores.'
+                  : type === 'Servicio'
+                    ? 'Orden de culto con cronograma, ministerios y servidores.'
+                    : 'Actividad especial con cronograma, ministerios y servidores.'}
+              </Text>
 
             </View>
-
-            {/* 2. WHEN & WHERE */}
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Fecha y hora</Text>
               <Text style={styles.dateSelected}>
@@ -574,22 +666,28 @@ export default function EventEditorScreen() {
 
               <View style={styles.row2}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Hora de inicio</Text>
+                  <Text style={[styles.label, errors.time && styles.labelError]}>
+                    {isReminder ? 'Hora de salida (opcional)' : 'Hora de inicio *'}
+                  </Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, errors.time && styles.inputError]}
                     value={time}
-                    onChangeText={setTime}
-                    placeholder="9:00 AM"
+                    onChangeText={(v) => {
+                      setTime(v);
+                      clearError('time');
+                    }}
+                    placeholder={isReminder ? 'Ej: 5:00 AM' : '9:00 AM'}
                     placeholderTextColor="#94A3B8"
                   />
+                  {errors.time ? <Text style={styles.errorText}>{errors.time}</Text> : null}
                 </View>
                 <View style={{ flex: 1.4 }}>
-                  <Text style={styles.label}>Lugar</Text>
+                  <Text style={styles.label}>{isReminder ? 'Lugar / Destino' : 'Lugar'}</Text>
                   <TextInput
                     style={styles.input}
                     value={location}
                     onChangeText={setLocation}
-                    placeholder="Templo Principal"
+                    placeholder={isReminder ? 'Ej: Maracaibo' : 'Templo Principal'}
                     placeholderTextColor="#94A3B8"
                   />
                 </View>
@@ -601,55 +699,71 @@ export default function EventEditorScreen() {
             {/* 3. DETAILS */}
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Detalles</Text>
-              <Text style={styles.label}>Nombre del evento *</Text>
+              <Text style={[styles.label, errors.title && styles.labelError]}>
+                {isReminder ? 'Nombre del recordatorio *' : 'Nombre del evento *'}
+              </Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.title && styles.inputError]}
                 value={title}
-                onChangeText={setTitle}
-                placeholder="Ej: Encuentro de Mujeres"
+                onChangeText={(v) => {
+                  setTitle(v);
+                  clearError('title');
+                }}
+                placeholder={isReminder ? 'Ej: Viaje a Maracaibo' : 'Ej: Encuentro de Mujeres'}
                 placeholderTextColor="#94A3B8"
               />
-              <Text style={styles.label}>Tema / Lema</Text>
-              <TextInput
-                style={styles.input}
-                value={theme}
-                onChangeText={setTheme}
-                placeholder="Ej: Mujeres de Fe y Propósito"
-                placeholderTextColor="#94A3B8"
-              />
-              <View style={styles.row2}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Predica</Text>
+              {errors.title ? <Text style={styles.errorText}>{errors.title}</Text> : null}
+              {!isReminder && (
+                <>
+                  <Text style={styles.label}>Tema / Lema</Text>
                   <TextInput
                     style={styles.input}
-                    value={preacher}
-                    onChangeText={setPreacher}
-                    placeholder="Pastor(a)..."
+                    value={theme}
+                    onChangeText={setTheme}
+                    placeholder="Ej: Mujeres de Fe y Propósito"
                     placeholderTextColor="#94A3B8"
                   />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Alabanza</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={worshipLeader}
-                    onChangeText={setWorshipLeader}
-                    placeholder="Equipo..."
-                    placeholderTextColor="#94A3B8"
-                  />
-                </View>
-              </View>
-              <Text style={styles.label}>Indicaciones generales</Text>
+                  <View style={styles.row2}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.label}>Predica</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={preacher}
+                        onChangeText={setPreacher}
+                        placeholder="Pastor(a)..."
+                        placeholderTextColor="#94A3B8"
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.label}>Alabanza</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={worshipLeader}
+                        onChangeText={setWorshipLeader}
+                        placeholder="Equipo..."
+                        placeholderTextColor="#94A3B8"
+                      />
+                    </View>
+                  </View>
+                </>
+              )}
+              <Text style={styles.label}>{isReminder ? 'Notas' : 'Indicaciones generales'}</Text>
               <TextInput
                 style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
                 value={description}
                 onChangeText={setDescription}
                 multiline
-                placeholder="Notas para el equipo (vestimenta, llegada, etc.)"
+                placeholder={
+                  isReminder
+                    ? 'Ej: Salida desde el templo, llevar documentos, punto de encuentro...'
+                    : 'Notas para el equipo (vestimenta, llegada, etc.)'
+                }
                 placeholderTextColor="#94A3B8"
               />
             </View>
 
+            {!isReminder && (
+            <>
             {/* 3.1. MINISTERIOS & COORDINACIÓN */}
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
@@ -1109,6 +1223,8 @@ export default function EventEditorScreen() {
                 <Text style={styles.addBtnText}>Agregar servidor</Text>
               </TouchableOpacity>
             </View>
+            </>
+            )}
           </ScrollView>
         </DoodleBackground>
       </KeyboardAvoidingView>
@@ -1348,6 +1464,21 @@ const styles = StyleSheet.create({
   },
   inputSm: { paddingVertical: 8, fontSize: 13 },
   inputDisabled: { backgroundColor: 'rgba(255, 255, 255, 0.02)', color: '#64748B' },
+  inputError: { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.08)' },
+  labelError: { color: '#FCA5A5' },
+  errorText: { fontSize: 12, color: '#FCA5A5', fontWeight: '600', marginTop: 4 },
+  errorBanner: {
+    marginHorizontal: 16,
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(239, 68, 68, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+    gap: 4,
+  },
+  errorBannerTitle: { fontSize: 14, fontWeight: '800', color: '#FECACA' },
+  errorBannerItem: { fontSize: 13, color: '#FECACA', fontWeight: '600', marginLeft: 4 },
   row2: { flexDirection: 'row', gap: 10 },
   typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   typeChip: {

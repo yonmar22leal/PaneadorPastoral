@@ -271,7 +271,7 @@ export interface ServicePlan {
   volunteers: VolunteerRoster[];
 }
 
-export type ChurchEventType = 'Servicio' | 'evento';
+export type ChurchEventType = 'Servicio' | 'evento' | 'recordatorio';
 
 /** Evento de la iglesia con su orden / cronograma (Servicio, encuentros, etc.) */
 export interface ChurchEvent {

@@ -102,6 +102,16 @@ const sanitizeMemberNetwork = (
   return 'juvenil';
 };
 
+const deriveUsername = (emailVal?: string | null, explicitUsername?: string | null): string | undefined => {
+  if (explicitUsername && explicitUsername.trim()) return explicitUsername.trim();
+  if (!emailVal) return undefined;
+  const trimmed = emailVal.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.endsWith('@iglesia.local')) return trimmed.split('@')[0];
+  if (!trimmed.includes('@')) return trimmed;
+  return undefined;
+};
+
 const defaultPrayerRequests: PrayerRequest[] = [];
 
 const defaultPastoralPosts: PastoralPost[] = [];
@@ -119,6 +129,8 @@ export type RegisterMemberResult = {
 export type UpdateProfileData = {
   firstName?: string;
   lastName?: string;
+  username?: string;
+  email?: string;
   phone?: string;
   gender?: 'M' | 'F';
   birthDate?: string;
@@ -511,7 +523,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             lastName: item.last_name,
             phone: item.phone || '',
             email: item.email || undefined,
-            username: item.username || undefined,
+            username: deriveUsername(item.email, item.username),
             avatarUrl: item.avatar_url || undefined,
             role: item.role,
             network: item.network,
@@ -539,6 +551,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           if (
             prev.firstName === fresh.firstName &&
             prev.lastName === fresh.lastName &&
+            prev.email === fresh.email &&
+            prev.username === fresh.username &&
             prev.role === fresh.role &&
             prev.network === fresh.network &&
             prev.leaderId === fresh.leaderId &&
@@ -950,16 +964,22 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       (m) =>
         m.email?.toLowerCase() === cleanIdentifier ||
         m.username?.toLowerCase() === cleanIdentifier ||
-        (cleanIdentifier.includes('@') && m.username?.toLowerCase() === cleanIdentifier.split('@')[0])
+        (!cleanIdentifier.includes('@') &&
+          m.email?.toLowerCase() === `${cleanIdentifier}@iglesia.local`) ||
+        (cleanIdentifier.includes('@') &&
+          m.username?.toLowerCase() === cleanIdentifier.split('@')[0])
     );
 
     // 2. Si aún no está en memoria, consultar directamente en Supabase
     if (!found && isSupabaseConfigured) {
       try {
+        const orFilter = cleanIdentifier.includes('@')
+          ? `email.ilike.${cleanIdentifier}`
+          : `email.ilike.${cleanIdentifier},email.ilike.${cleanIdentifier}@iglesia.local`;
         const { data, error } = await supabase
           .from('members')
           .select('*')
-          .or(`email.ilike.${cleanIdentifier},username.ilike.${cleanIdentifier}`)
+          .or(orFilter)
           .limit(1);
 
         if (!error && data && data.length > 0) {
@@ -970,7 +990,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             lastName: item.last_name,
             phone: item.phone || '',
             email: item.email || undefined,
-            username: item.username || undefined,
+            username: deriveUsername(item.email, item.username),
             avatarUrl: item.avatar_url || undefined,
             role: item.role,
             network: item.network,
@@ -2262,6 +2282,54 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   ): Promise<{ success: boolean; error?: string }> => {
     if (!currentUser) return { success: false, error: 'No hay sesión de usuario activa' };
 
+    let nextEmail: string | undefined;
+    let nextUsername: string | undefined;
+    const rawIdentifierInput = (data.email ?? data.username)?.trim().toLowerCase();
+    if (rawIdentifierInput) {
+      const duplicate = members.find(
+        (m) =>
+          m.id !== currentUser.id &&
+          (m.email?.toLowerCase() === rawIdentifierInput ||
+            m.username?.toLowerCase() === rawIdentifierInput ||
+            (!rawIdentifierInput.includes('@') &&
+              m.email?.toLowerCase() === `${rawIdentifierInput}@iglesia.local`) ||
+            (rawIdentifierInput.includes('@') &&
+              m.username?.toLowerCase() === rawIdentifierInput.split('@')[0]))
+      );
+      if (duplicate) {
+        return {
+          success: false,
+          error: 'Ese nombre de usuario o correo ya está en uso por otra persona.',
+        };
+      }
+
+      if (isSupabaseConfigured) {
+        try {
+          const checkFilter = rawIdentifierInput.includes('@')
+            ? `email.ilike.${rawIdentifierInput}`
+            : `email.ilike.${rawIdentifierInput},email.ilike.${rawIdentifierInput}@iglesia.local`;
+          const { data: existingRows } = await supabase
+            .from('members')
+            .select('id')
+            .neq('id', currentUser.id)
+            .or(checkFilter)
+            .limit(1);
+          if (existingRows && existingRows.length > 0) {
+            return {
+              success: false,
+              error: 'Ese nombre de usuario o correo ya está en uso por otra persona.',
+            };
+          }
+        } catch { }
+      }
+
+      nextEmail = rawIdentifierInput;
+      nextUsername = deriveUsername(
+        rawIdentifierInput,
+        rawIdentifierInput.includes('@') ? rawIdentifierInput.split('@')[0] : rawIdentifierInput
+      );
+    }
+
     let calculatedLeaderName = data.leaderName;
     if (data.leaderId && !calculatedLeaderName) {
       const lead = members.find((m) => m.id === data.leaderId);
@@ -2271,6 +2339,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     const updatedUser: AuthUser = {
       ...currentUser,
       ...data,
+      ...(nextEmail !== undefined ? { email: nextEmail } : {}),
+      ...(nextUsername !== undefined ? { username: nextUsername } : {}),
       leaderName: calculatedLeaderName !== undefined ? calculatedLeaderName : currentUser.leaderName,
     };
     setCurrentUser(updatedUser);
@@ -2287,6 +2357,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             ...m,
             firstName: data.firstName ?? m.firstName,
             lastName: data.lastName ?? m.lastName,
+            ...(nextEmail !== undefined ? { email: nextEmail } : {}),
+            ...(nextUsername !== undefined ? { username: nextUsername } : {}),
             phone: data.phone !== undefined ? data.phone : m.phone,
             gender: data.gender !== undefined ? data.gender : m.gender,
             birthDate: data.birthDate !== undefined ? data.birthDate : m.birthDate,
@@ -2312,6 +2384,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         const payload: any = {};
         if (data.firstName !== undefined) payload.first_name = data.firstName;
         if (data.lastName !== undefined) payload.last_name = data.lastName;
+        if (nextEmail !== undefined) payload.email = nextEmail;
         if (data.phone !== undefined) payload.phone = data.phone;
         if (data.gender !== undefined) payload.gender = data.gender;
         if (data.birthDate !== undefined) {

@@ -220,6 +220,31 @@ export default function EventsListScreen() {
                   </View>
                   <Ionicons name="add-circle" size={22} color="#A78BFA" />
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.createSecondary,
+                    {
+                      flexBasis: '100%',
+                      backgroundColor: 'rgba(245, 158, 11, 0.14)',
+                      borderColor: 'rgba(252, 211, 77, 0.35)',
+                    },
+                  ]}
+                  activeOpacity={0.85}
+                  onPress={() =>
+                    router.push(
+                      `/planner/editor?type=recordatorio${selectedDate ? `&date=${selectedDate}` : ''}` as any
+                    )
+                  }>
+                  <View style={[styles.createSecondaryIcon, { backgroundColor: 'rgba(245, 158, 11, 0.18)' }]}>
+                    <Ionicons name="alarm" size={18} color="#FCD34D" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.createSecondaryTitle}>+ Recordatorio</Text>
+                    <Text style={styles.createSecondarySub}>Viajes, salidas, visitas</Text>
+                  </View>
+                  <Ionicons name="add-circle" size={22} color="#F59E0B" />
+                </TouchableOpacity>
               </View>
             )}
 
@@ -352,6 +377,7 @@ export default function EventsListScreen() {
                         const isSelected = item.date === selectedDate;
                         const hasServices = dayEvents.some((e: ChurchEvent) => normalizeEventType(e.type) === 'Servicio');
                         const hasEvents = dayEvents.some((e: ChurchEvent) => normalizeEventType(e.type) === 'evento');
+                        const hasReminders = dayEvents.some((e: ChurchEvent) => normalizeEventType(e.type) === 'recordatorio');
                         const hasBirthdays = members.some((m) => isBirthdayOnDate(m.birthDate, item.date));
 
                         return (
@@ -393,6 +419,14 @@ export default function EventsListScreen() {
                                   ]}
                                 />
                               )}
+                              {hasReminders && (
+                                <View
+                                  style={[
+                                    styles.eventDot,
+                                    { backgroundColor: isSelected ? '#FDE68A' : '#F59E0B' },
+                                  ]}
+                                />
+                              )}
                               {hasBirthdays && (
                                 <Text style={{ fontSize: 8, lineHeight: 10 }}>🎂</Text>
                               )}
@@ -413,6 +447,10 @@ export default function EventsListScreen() {
                   <View style={styles.legendItem}>
                     <View style={[styles.legendDot, { backgroundColor: '#7C3AED' }]} />
                     <Text style={styles.legendText}>Evento</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#F59E0B' }]} />
+                    <Text style={styles.legendText}>Recordatorio</Text>
                   </View>
                   <View style={styles.legendItem}>
                     <Text style={{ fontSize: 11 }}>🎂</Text>
@@ -667,7 +705,7 @@ const styles = StyleSheet.create({
   heroSubtitle: { color: '#94A3B8', fontSize: 13, marginTop: 4, lineHeight: 19 },
 
   // Botones de creación rápida
-  createRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  createRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
   createPrimary: {
     flex: 1,
     flexDirection: 'row',
