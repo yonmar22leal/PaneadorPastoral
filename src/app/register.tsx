@@ -2,7 +2,7 @@ import { DatePickerField } from '@/components/date-picker-field';
 import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 import { calcAge } from '@/lib/attendance';
-import { ChurchNetwork, ChurchServiceSlotId } from '@/types/church';
+import { ChurchServiceSlotId } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -26,7 +26,10 @@ interface RegisterScreenProps {
 
 export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) {
   const router = useRouter();
-  const { registerMember, getLeadersByNetwork } = useChurch();
+  const { currentUser, registerMember, getLeadersByNetwork } = useChurch();
+
+  const isPastor =
+    currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor';
 
   // Form Fields
   const [firstName, setFirstName] = useState('');
@@ -38,7 +41,6 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [secureText, setSecureText] = useState(true);
-  const network: ChurchNetwork = 'general';
   const [selectedLeaderId, setSelectedLeaderId] = useState<string>('');
   const preferredService: ChurchServiceSlotId = 'domingo_11am';
   const [familyName, setFamilyName] = useState('');
@@ -118,6 +120,8 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
     try {
       const leaderObj = availableLeaders.find((l) => l.id === effectiveLeaderId);
       const leaderName = leaderObj ? `${leaderObj.firstName} ${leaderObj.lastName}` : undefined;
+      const rawNet = leaderObj?.network || currentUser?.network;
+      const effectiveNetwork: 'juvenil' | 'adulta' = rawNet === 'adulta' ? 'adulta' : 'juvenil';
 
       const result = await registerMember({
         firstName: firstName.trim(),
@@ -126,7 +130,7 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
         username: cleanUsername,
         email: `${cleanUsername}@iglesia.local`,
         role: 'member',
-        network,
+        network: effectiveNetwork,
         gender,
         birthDate: birthDate.trim() || undefined,
         leaderId: effectiveLeaderId,
@@ -135,7 +139,7 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
         isActive: true,
         preferredService,
         password: password.trim(),
-        autoLogin: true,
+        autoLogin: false,
       });
 
       if (!result.success) {
@@ -145,22 +149,36 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
         return;
       }
 
-      // Con autoLogin: true, currentUser ya está activo en AsyncStorage y ChurchContext
+      const resetForm = () => {
+        setFirstName('');
+        setLastName('');
+        setPhone('');
+        setUsername('');
+        setBirthDate('');
+        setPassword('');
+        setConfirmPassword('');
+        setFamilyName('');
+      };
+
+      const successTitle = '¡Miembro Registrado!';
+      const successBody = `La cuenta de ${firstName.trim()} ${lastName.trim()} (@${cleanUsername}) fue creada exitosamente asignada a ${leaderName || 'el equipo pastoral'}.`;
+
       if (Platform.OS === 'web') {
-        router.replace('/');
+        window.alert(`${successTitle}\n\n${successBody}`);
+        resetForm();
         return;
       }
 
-      Alert.alert(
-        '¡Inscripción Exitosa!',
-        `Bienvenido(a) a la congregación. Tu líder asignado es ${leaderName || 'el equipo pastoral'}. Ya eres parte de la iglesia.`,
-        [
-          {
-            text: 'Continuar a la App',
-            onPress: () => router.replace('/'),
-          },
-        ]
-      );
+      Alert.alert(successTitle, successBody, [
+        {
+          text: 'Registrar otro miembro',
+          onPress: resetForm,
+        },
+        {
+          text: 'Volver al Inicio',
+          onPress: () => router.replace('/'),
+        },
+      ]);
     } catch (err: any) {
       const msg = err?.message || 'Ocurrió un error inesperado al procesar la inscripción.';
       setErrorMessage(msg);
@@ -180,6 +198,65 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
     }
   };
 
+  if (!isPastor) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <DoodleBackground>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+            <View
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 36,
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(239, 68, 68, 0.35)',
+                marginBottom: 18,
+              }}>
+              <Ionicons name="lock-closed" size={36} color="#EF4444" />
+            </View>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: '800',
+                color: '#F8FAFC',
+                textAlign: 'center',
+                marginBottom: 8,
+              }}>
+              Acceso Exclusivo para Pastores
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: '#94A3B8',
+                textAlign: 'center',
+                lineHeight: 22,
+                marginBottom: 24,
+                maxWidth: 360,
+              }}>
+              El registro general de nuevos miembros es una función reservada exclusivamente para los Pastores de la iglesia. Los líderes pueden inscribir a sus discípulos directamente desde la sección Red G12.
+            </Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#2563EB',
+                paddingHorizontal: 24,
+                paddingVertical: 12,
+                borderRadius: 14,
+              }}
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}>
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                Volver al Inicio
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </DoodleBackground>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
@@ -188,7 +265,7 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
           <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.8}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.topBarTitle}>Inscripción de Miembro</Text>
+          <Text style={styles.topBarTitle}>Registro Pastoral de Miembros</Text>
           <View style={{ width: 38 }} />
         </View>
 
@@ -327,17 +404,26 @@ export default function RegisterScreen({ onGoLogin }: RegisterScreenProps = {}) 
               placeholder="Seleccionar fecha (Día Mes Año)"
             />
             {calcAge(birthDate) !== undefined && (
-              <Text
+              <View
                 style={{
-                  fontSize: 12,
-                  color: '#2563EB',
-                  fontWeight: '700',
-                  marginTop: -8,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(56, 189, 248, 0.28)',
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  marginTop: 4,
                   marginBottom: 14,
                 }}>
-                Edad calculada: {calcAge(birthDate)} años{' '}
-                {calcAge(birthDate)! < 14 ? '• Prejuvenil (<14)' : ''}
-              </Text>
+                <Ionicons name="sparkles" size={16} color="#38BDF8" />
+                <Text style={{ fontSize: 13, color: '#38BDF8', fontWeight: '600' }}>
+                  Edad calculada: <Text style={{ color: '#F8FAFC', fontWeight: '800' }}>{calcAge(birthDate)} años</Text>
+                  {calcAge(birthDate)! < 14 ? ' • 🎒 Categoría Prejuvenil (<14)' : ''}
+                </Text>
+              </View>
             )}
 
             <Text style={styles.fieldLabel}>Nombre de Usuario (Para iniciar sesión) *</Text>
@@ -704,9 +790,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
+    paddingVertical: 12,
+    fontSize: 15,
     color: '#FFFFFF',
+    ...(Platform.OS === 'web'
+      ? ({
+          outlineStyle: 'none',
+          outlineWidth: 0,
+        } as any)
+      : {}),
   },
   modernDatePickerCard: {
     position: 'relative',

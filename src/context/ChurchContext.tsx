@@ -1,40 +1,39 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import {
+  churchServicesSchedule,
+  defaultMinistries,
+  mockClassrooms,
+} from '../data/mockChurchData';
+import { todayISO } from '../lib/events';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import {
+  AttendanceRecord,
+  AuthUser,
+  CellGroup,
+  CellMeetingReport,
+  ChurchEvent,
+  ChurchNetwork,
+  ChurchServiceSchedule,
+  ChurchServiceSlotId,
+  EventMinistryAssignment,
   Kid,
   KidClassroom,
-  Member,
-  AttendanceRecord,
-  ChurchEvent,
-  AuthUser,
-  ChurchNetwork,
-  ChurchServiceSlotId,
-  ChurchServiceSchedule,
-  CellGroup,
+  LadderPerson,
+  LadderStage,
+  LadderStatus,
   LeaderAttendanceReport,
-  CellMeetingReport,
+  Marriage,
+  Member,
   MemberRole,
   Ministry,
-  EventMinistryAssignment,
-  ServiceScheduleItem,
-  VolunteerRoster,
   PastoralPost,
   PastoralPostComment,
   PrayerRequest,
   PrayerStatus,
-  PrayerCategory,
-  Marriage,
-  LadderPerson,
-  LadderStage,
-  LadderStatus,
+  ServiceScheduleItem,
+  VolunteerRoster
 } from '../types/church';
-import {
-  churchServicesSchedule,
-  mockClassrooms,
-  defaultMinistries,
-} from '../data/mockChurchData';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { todayISO } from '../lib/events';
 
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -46,10 +45,10 @@ function generateUUID(): string {
 
 const STORAGE_CURRENT_USER = '@planeador_current_user_v1';
 const STORAGE_MINISTRIES = '@planeador_ministries_v1';
-const STORAGE_PASTORAL_POSTS = '@planeador_pastoral_posts_v1';
-const STORAGE_PRAYER_REQUESTS = '@planeador_prayer_requests_v1';
+const STORAGE_PASTORAL_POSTS = '@planeador_pastoral_posts_v2';
+const STORAGE_PRAYER_REQUESTS = '@planeador_prayer_requests_v2';
 const STORAGE_MARRIAGES = '@planeador_marriages_v1';
-const STORAGE_LADDER = '@planeador_ladder_v1';
+const STORAGE_LADDER = '@planeador_ladder_v2';
 const STORAGE_MEMBER_BIRTHDAYS = '@planeador_member_birthdays_v1';
 const CHURCH_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -94,277 +93,20 @@ const sanitizeServiceId = (serviceId?: string | null): string | null => {
   return null;
 };
 
-const defaultPrayerRequests: PrayerRequest[] = [
-  {
-    id: 'pr-1',
-    memberId: 'demo-1',
-    memberName: 'Hermana Carmen Gómez',
-    memberPhone: '+58 412-5550192',
-    category: 'salud',
-    title: 'Recuperación de cirugía de mi madre',
-    description: 'Pido oración por mi mamá Rosa, fue operada de la vesícula y pedimos al Señor pronta recuperación y fortaleza.',
-    isPrivateForPastors: false,
-    status: 'praying',
-    prayingPastors: ['Pastor Josué Rodríguez', 'Pastora Norelis de Rodríguez'],
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: 'pr-2',
-    memberId: 'demo-2',
-    memberName: 'Carlos Mendoza',
-    memberPhone: '+58 414-9988776',
-    category: 'finanzas',
-    title: 'Nueva oportunidad laboral y provisión',
-    description: 'Estoy en proceso de entrevistas para un nuevo empleo. Pido respaldo en oración a los pastores.',
-    isPrivateForPastors: true,
-    status: 'pending',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-];
+const sanitizeMemberNetwork = (
+  network?: ChurchNetwork | null,
+  fallback?: ChurchNetwork | null
+): 'juvenil' | 'adulta' => {
+  if (network === 'juvenil' || network === 'adulta') return network;
+  if (fallback === 'juvenil' || fallback === 'adulta') return fallback;
+  return 'juvenil';
+};
 
-const defaultPastoralPosts: PastoralPost[] = [
-  {
-    id: 'd9b04838-89c5-43ea-9fc6-02e08c4ea311',
-    authorId: 'pastor-josue-id',
-    authorName: 'Pastor Josué Rodríguez',
-    authorRole: 'senior_pastor',
-    authorNetwork: 'general',
-    network: 'general',
-    title: 'Nuestra confianza inquebrantable en el Señor',
-    content:
-      'Amada congregación, en cada temporada recordemos que Dios tiene planes de paz, bienestar y esperanza para cada familia. Permanezcamos firmes en oración, guardando nuestro corazón y apoyando a nuestras células.',
-    verse: {
-      reference: 'Jeremías 29:11',
-      text: 'Porque yo sé los pensamientos que tengo acerca de vosotros, dice Jehová, pensamientos de paz, y no de mal, para daros el fin que esperáis.',
-      translation: 'RVR1960',
-    },
-    likes: [],
-    comments: [],
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'e8a04838-89c5-43ea-9fc6-02e08c4ea322',
-    authorId: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    authorName: 'Pastor Josué Rodríguez',
-    authorRole: 'senior_pastor',
-    authorNetwork: 'general',
-    network: 'general',
-    title: '¡Conquisten con fe y valentía!',
-    content:
-      'Líderes y amada congregación, ningún desafío es demasiado grande cuando caminamos en el poder del Espíritu Santo. ¡Este domingo nos vemos a las 11:00 AM con expectativa de gloria!',
-    verse: {
-      reference: 'Filipenses 4:13',
-      text: 'Todo lo puedo en Cristo que me fortalece.',
-      translation: 'RVR1960',
-    },
-    likes: [],
-    comments: [],
-    createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-  },
-];
+const defaultPrayerRequests: PrayerRequest[] = [];
 
-const nowQuarterISO = (daysAgo: number) =>
-  new Date(Date.now() - 86400000 * daysAgo).toISOString();
+const defaultPastoralPosts: PastoralPost[] = [];
 
-const defaultLadderPeople: LadderPerson[] = [
-  // Líder 1: Carlos Mendoza (ganó 5: 2 pasaron a consolidar, 1 a discipular, 1 en pausa, 1 se fue)
-  {
-    id: 'lad-demo-1',
-    leaderId: 'demo-leader-carlos',
-    leaderName: 'Carlos Mendoza',
-    name: 'Andrés Pérez',
-    age: 19,
-    phone: '+58 412-5550101',
-    stage: 'consolidar',
-    status: 'active',
-    notes: 'Asistiendo fielmente a la célula de los jueves.',
-    history: [
-      { stage: 'ganar', date: nowQuarterISO(25) },
-      { stage: 'consolidar', date: nowQuarterISO(12) },
-    ],
-    createdAt: nowQuarterISO(25),
-    updatedAt: nowQuarterISO(12),
-  },
-  {
-    id: 'lad-demo-2',
-    leaderId: 'demo-leader-carlos',
-    leaderName: 'Carlos Mendoza',
-    name: 'María Fernanda Gómez',
-    age: 17,
-    phone: '+58 414-5550202',
-    stage: 'consolidar',
-    status: 'active',
-    notes: 'Completó la semana 2 de consolidación.',
-    history: [
-      { stage: 'ganar', date: nowQuarterISO(22) },
-      { stage: 'consolidar', date: nowQuarterISO(9) },
-    ],
-    createdAt: nowQuarterISO(22),
-    updatedAt: nowQuarterISO(9),
-  },
-  {
-    id: 'lad-demo-3',
-    leaderId: 'demo-leader-carlos',
-    leaderName: 'Carlos Mendoza',
-    name: 'José Gregorio Rivas',
-    age: 21,
-    phone: '+58 424-5550303',
-    stage: 'discipular',
-    status: 'active',
-    notes: 'Cursando nivel 1 de discipulado juvenil.',
-    history: [
-      { stage: 'ganar', date: nowQuarterISO(35) },
-      { stage: 'consolidar', date: nowQuarterISO(20) },
-      { stage: 'discipular', date: nowQuarterISO(5) },
-    ],
-    createdAt: nowQuarterISO(35),
-    updatedAt: nowQuarterISO(5),
-  },
-  {
-    id: 'lad-demo-4',
-    leaderId: 'demo-leader-carlos',
-    leaderName: 'Carlos Mendoza',
-    name: 'Luis Ramírez',
-    age: 18,
-    phone: '+58 412-5550404',
-    stage: 'ganar',
-    status: 'paused',
-    notes: 'De viaje por estudios universitarios este mes.',
-    history: [{ stage: 'ganar', date: nowQuarterISO(18) }],
-    statusChangedAt: nowQuarterISO(6),
-    createdAt: nowQuarterISO(18),
-    updatedAt: nowQuarterISO(6),
-  },
-  {
-    id: 'lad-demo-5',
-    leaderId: 'demo-leader-carlos',
-    leaderName: 'Carlos Mendoza',
-    name: 'Diego Torres',
-    age: 16,
-    phone: '+58 416-5550505',
-    stage: 'ganar',
-    status: 'lost',
-    notes: 'Se mudó de zona y dejó de asistir.',
-    history: [{ stage: 'ganar', date: nowQuarterISO(28) }],
-    statusChangedAt: nowQuarterISO(10),
-    createdAt: nowQuarterISO(28),
-    updatedAt: nowQuarterISO(10),
-  },
-
-  // Líder 2: Daniela Morales (ganó 4: 1 en ganar, 1 en discipular, 1 enviado, 1 se fue)
-  {
-    id: 'lad-demo-6',
-    leaderId: 'demo-leader-daniela',
-    leaderName: 'Daniela Morales',
-    name: 'Valentina Herrera',
-    age: 20,
-    phone: '+58 414-5550606',
-    stage: 'enviar',
-    status: 'active',
-    notes: 'Lista para abrir nueva célula juvenil.',
-    history: [
-      { stage: 'ganar', date: nowQuarterISO(40) },
-      { stage: 'consolidar', date: nowQuarterISO(28) },
-      { stage: 'discipular', date: nowQuarterISO(14) },
-      { stage: 'enviar', date: nowQuarterISO(3) },
-    ],
-    createdAt: nowQuarterISO(40),
-    updatedAt: nowQuarterISO(3),
-  },
-  {
-    id: 'lad-demo-7',
-    leaderId: 'demo-leader-daniela',
-    leaderName: 'Daniela Morales',
-    name: 'Camila Salazar',
-    age: 15,
-    phone: '+58 412-5550707',
-    stage: 'ganar',
-    status: 'active',
-    notes: 'Visitó por primera vez el viernes de adoración.',
-    history: [{ stage: 'ganar', date: nowQuarterISO(4) }],
-    createdAt: nowQuarterISO(4),
-    updatedAt: nowQuarterISO(4),
-  },
-  {
-    id: 'lad-demo-8',
-    leaderId: 'demo-leader-daniela',
-    leaderName: 'Daniela Morales',
-    name: 'Gabriela Pinto',
-    age: 18,
-    phone: '+58 424-5550808',
-    stage: 'discipular',
-    status: 'active',
-    notes: 'Sirviendo como apoyo en bienvenida.',
-    history: [
-      { stage: 'ganar', date: nowQuarterISO(30) },
-      { stage: 'consolidar', date: nowQuarterISO(18) },
-      { stage: 'discipular', date: nowQuarterISO(7) },
-    ],
-    createdAt: nowQuarterISO(30),
-    updatedAt: nowQuarterISO(7),
-  },
-  {
-    id: 'lad-demo-9',
-    leaderId: 'demo-leader-daniela',
-    leaderName: 'Daniela Morales',
-    name: 'Sofía Castillo',
-    age: 17,
-    stage: 'ganar',
-    status: 'lost',
-    notes: 'No contestó más las llamadas de seguimiento.',
-    history: [{ stage: 'ganar', date: nowQuarterISO(21) }],
-    statusChangedAt: nowQuarterISO(8),
-    createdAt: nowQuarterISO(21),
-    updatedAt: nowQuarterISO(8),
-  },
-
-  // Líder 3: Gabriel Silva (ganó 3: 2 en ganar, 1 en consolidar)
-  {
-    id: 'lad-demo-10',
-    leaderId: 'demo-leader-gabriel',
-    leaderName: 'Gabriel Silva',
-    name: 'Samuel Quintero',
-    age: 22,
-    phone: '+58 412-5550909',
-    stage: 'ganar',
-    status: 'active',
-    notes: 'Invitado del servicio juvenil del domingo.',
-    history: [{ stage: 'ganar', date: nowQuarterISO(3) }],
-    createdAt: nowQuarterISO(3),
-    updatedAt: nowQuarterISO(3),
-  },
-  {
-    id: 'lad-demo-11',
-    leaderId: 'demo-leader-gabriel',
-    leaderName: 'Gabriel Silva',
-    name: 'Sebastián Delgado',
-    age: 19,
-    phone: '+58 414-5551010',
-    stage: 'consolidar',
-    status: 'active',
-    notes: 'Ya recibió primera visita de consolidación.',
-    history: [
-      { stage: 'ganar', date: nowQuarterISO(16) },
-      { stage: 'consolidar', date: nowQuarterISO(6) },
-    ],
-    createdAt: nowQuarterISO(16),
-    updatedAt: nowQuarterISO(6),
-  },
-  {
-    id: 'lad-demo-12',
-    leaderId: 'demo-leader-gabriel',
-    leaderName: 'Gabriel Silva',
-    name: 'Mateo Villalobos',
-    age: 16,
-    phone: '+58 424-5551111',
-    stage: 'ganar',
-    status: 'active',
-    notes: 'Asistió a célula por primera vez.',
-    history: [{ stage: 'ganar', date: nowQuarterISO(2) }],
-    createdAt: nowQuarterISO(2),
-    updatedAt: nowQuarterISO(2),
-  },
-];
+const defaultLadderPeople: LadderPerson[] = [];
 
 export type ChurchEventInput = Omit<ChurchEvent, 'id' | 'createdAt'> & { id?: string };
 
@@ -393,7 +135,7 @@ export type UpdateProfileData = {
 function eventFromRow(item: any): ChurchEvent {
   return {
     id: item.id,
-    type: item.event_type || 'servicio',
+    type: item.event_type || 'Servicio',
     title: item.title,
     date: item.event_date,
     time: item.time_start || '',
@@ -409,8 +151,8 @@ function eventFromRow(item: any): ChurchEvent {
     ministries: Array.isArray(item.ministries)
       ? item.ministries
       : Array.isArray(item.ministry_assignments)
-      ? item.ministry_assignments
-      : [],
+        ? item.ministry_assignments
+        : [],
     createdById: item.created_by_id || undefined,
     createdByName: item.created_by_name || undefined,
     createdAt: item.created_at,
@@ -545,7 +287,7 @@ interface ChurchContextType {
   checkInKid: (kidId: string) => string;
   checkOutKid: (kidId: string) => boolean;
   addKid: (kid: Omit<Kid, 'id' | 'isCheckedIn'>) => Promise<void>;
-  addMember: (member: Omit<Member, 'id'>) => Promise<void>;
+  addMember: (member: Omit<Member, 'id'>) => Promise<RegisterMemberResult>;
   registerMember: (
     member: Omit<Member, 'id'> & { autoLogin?: boolean }
   ) => Promise<RegisterMemberResult>;
@@ -594,6 +336,15 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     async function restoreSession() {
       try {
+        // Limpieza de datos antiguos simulados guardados en almacenamiento local
+        AsyncStorage.multiRemove([
+          '@planeador_pastoral_posts_v1',
+          '@planeador_prayer_requests_v1',
+          '@planeador_ladder_v1',
+          '@planeador_attendance_records_v1',
+          '@planeador_leader_reports_v1',
+          '@planeador_cell_meeting_reports_v1',
+        ]).catch(() => { });
         const storedUser = await AsyncStorage.getItem(STORAGE_CURRENT_USER);
         if (storedUser) {
           const parsedUser: AuthUser = JSON.parse(storedUser);
@@ -748,7 +499,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         try {
           const rawB = await AsyncStorage.getItem(STORAGE_MEMBER_BIRTHDAYS);
           if (rawB) localBirthdays = JSON.parse(rawB);
-        } catch (_) {}
+        } catch { }
 
         const mappedMembers: Member[] = membersData.map((item) => {
           const leader = item.leader_id ? memberMap.get(item.leader_id) : undefined;
@@ -854,7 +605,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         setCellMeetingReports(mappedReps);
       }
 
-      // D. Reportes de asistencia al servicio dominical
+      // D. Reportes de asistencia al Servicio
       const { data: leaderRepsData, error: lrError } = await supabase
         .from('leader_attendance_reports')
         .select('*');
@@ -882,7 +633,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         setLeaderAttendanceReports(mappedLeaderReps);
       }
 
-      // E. Eventos y órdenes de servicio (solo activos hoy en adelante)
+      // E. Eventos y órdenes de Servicio (solo activos hoy en adelante)
       const { data: eventsData, error: evError } = await supabase.from('church_events').select('*');
       if (evError) {
         // Silenciar si la tabla aún no existe en Supabase para evitar saturar la consola
@@ -927,7 +678,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         setKids(mappedKids);
       }
 
-      // G. Registros de conteo de asistencia de servicios
+      // G. Registros de conteo de asistencia de Servicios
       const { data: attData, error: aError } = await supabase.from('attendance_records').select('*');
       if (aError) {
         console.warn('Supabase attendance_records fetch error:', aError.message);
@@ -996,7 +747,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           };
         });
         setMinistries(mappedMin);
-        AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(mappedMin)).catch(() => {});
+        AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(mappedMin)).catch(() => { });
       }
 
       // J. Peticiones de Oración de Supabase (si existe la tabla)
@@ -1019,9 +770,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             createdAt: p.created_at || new Date().toISOString(),
           }));
           setPrayerRequests(mappedPr);
-          AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(mappedPr)).catch(() => {});
+          AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(mappedPr)).catch(() => { });
         }
-      } catch {}
+      } catch { }
 
       // K. Matrimonios de Supabase (si existe la tabla)
       try {
@@ -1046,9 +797,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             updatedAt: m.updated_at || undefined,
           }));
           setMarriages(mappedMar);
-          AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(mappedMar)).catch(() => {});
+          AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(mappedMar)).catch(() => { });
         }
-      } catch {}
+      } catch { }
 
       // L. Escalera del Éxito de Supabase (si existe la tabla)
       try {
@@ -1070,9 +821,9 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
             updatedAt: l.updated_at || undefined,
           }));
           setLadderPeople(mappedLad);
-          AsyncStorage.setItem(STORAGE_LADDER, JSON.stringify(mappedLad)).catch(() => {});
+          AsyncStorage.setItem(STORAGE_LADDER, JSON.stringify(mappedLad)).catch(() => { });
         }
-      } catch {}
+      } catch { }
 
       // M. Mensajes y Publicaciones Pastorales de Supabase (Zona Interactiva)
       try {
@@ -1094,7 +845,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
               });
             }
           }
-        } catch {}
+        } catch { }
 
         if (postsData && postsData.length > 0) {
           const mappedPosts: PastoralPost[] = postsData.map((p) => ({
@@ -1140,7 +891,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           }
 
           setPastoralPosts(mappedPosts);
-          AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(mappedPosts)).catch(() => {});
+          AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(mappedPosts)).catch(() => { });
         } else if (!postsError) {
           // Si la tabla existe en Supabase pero está vacía, migrar posts locales o defaults a Supabase
           const sourcePosts = localPosts.length > 0 ? localPosts : defaultPastoralPosts;
@@ -1172,7 +923,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           }
           if (seededPosts.length > 0) {
             setPastoralPosts(seededPosts);
-            AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(seededPosts)).catch(() => {});
+            AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(seededPosts)).catch(() => { });
           }
         }
       } catch (err) {
@@ -1369,7 +1120,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       console.warn('Error removiendo sesión:', e);
     }
     if (isSupabaseConfigured) {
-      supabase.auth.signOut().catch(() => {});
+      supabase.auth.signOut().catch(() => { });
     }
   };
 
@@ -1396,11 +1147,11 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       prev.map((k) =>
         k.id === kidId
           ? {
-              ...k,
-              isCheckedIn: true,
-              securityCode: randomCode,
-              checkInTime: timeStr,
-            }
+            ...k,
+            isCheckedIn: true,
+            securityCode: randomCode,
+            checkInTime: timeStr,
+          }
           : k
       )
     );
@@ -1412,11 +1163,11 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       prev.map((k) =>
         k.id === kidId
           ? {
-              ...k,
-              isCheckedIn: false,
-              securityCode: undefined,
-              checkInTime: undefined,
-            }
+            ...k,
+            isCheckedIn: false,
+            securityCode: undefined,
+            checkInTime: undefined,
+          }
           : k
       )
     );
@@ -1526,9 +1277,15 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     const leaderName =
       newMemberData.leaderName || (leader ? `${leader.firstName} ${leader.lastName}` : undefined);
 
+    const resolvedNetwork = sanitizeMemberNetwork(
+      newMemberData.network,
+      leader?.network || currentUser?.network
+    );
+
     const newMember: Member = {
       ...newMemberData,
       id: newId,
+      network: resolvedNetwork,
       phone: newMemberData.phone?.trim() || '',
       email: cleanEmail || undefined,
       username: cleanUsername || undefined,
@@ -1652,8 +1409,8 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     return { success: true, member: newMember };
   };
 
-  const addMember = async (newMemberData: Omit<Member, 'id'>) => {
-    await registerMember({ ...newMemberData, autoLogin: false });
+  const addMember = async (newMemberData: Omit<Member, 'id'>): Promise<RegisterMemberResult> => {
+    return await registerMember({ ...newMemberData, autoLogin: false });
   };
 
   const addCellGroup = async (cellData: Omit<CellGroup, 'id'>) => {
@@ -1872,7 +1629,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const saveAttendance = async (recordData: Omit<AttendanceRecord, 'id'>) => {
-    // Verificar si ya existe un registro oficial para esta misma fecha y servicio
+    // Verificar si ya existe un registro oficial para esta misma fecha y Servicio
     const existing = attendanceRecords.find(
       (a) => a.date === recordData.date && a.serviceId === recordData.serviceId
     );
@@ -1996,15 +1753,15 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     const saved: ChurchEvent = existing
       ? { ...existing, ...input, id: existing.id, createdAt: existing.createdAt, updatedAt: now }
       : {
-          ...input,
-          id: generateUUID(),
-          createdAt: now,
-          updatedAt: now,
-          createdById: input.createdById ?? currentUser?.id,
-          createdByName:
-            input.createdByName ??
-            (currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : undefined),
-        };
+        ...input,
+        id: generateUUID(),
+        createdAt: now,
+        updatedAt: now,
+        createdById: input.createdById ?? currentUser?.id,
+        createdByName:
+          input.createdByName ??
+          (currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : undefined),
+      };
     const next = existing
       ? events.map((e) => (e.id === saved.id ? saved : e))
       : [saved, ...events];
@@ -2087,7 +1844,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     };
     const updated = [...ministries, newMin];
     setMinistries(updated);
-    AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -2128,7 +1885,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
 
     const updated = ministries.map((m) => (m.id === id ? { ...m, ...patch } : m));
     setMinistries(updated);
-    AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -2154,7 +1911,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     }
     const updated = ministries.filter((m) => m.id !== id);
     setMinistries(updated);
-    AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -2213,12 +1970,12 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       ev.ministries && ev.ministries.length > 0
         ? ev.ministries
         : ministries.map((m) => ({
-            ministryId: m.id,
-            ministryName: m.name,
-            coordinatorId: m.coordinatorId,
-            coordinatorName: m.coordinatorName,
-            coordinatorPhone: m.coordinatorPhone,
-          }));
+          ministryId: m.id,
+          ministryName: m.name,
+          coordinatorId: m.coordinatorId,
+          coordinatorName: m.coordinatorName,
+          coordinatorPhone: m.coordinatorPhone,
+        }));
 
     if (isOwnerOrSenior) return evMinistries;
 
@@ -2310,13 +2067,13 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       target.ministries && target.ministries.length > 0
         ? target.ministries
         : ministries.map((m) => ({
-            ministryId: m.id,
-            ministryName: m.name,
-            coordinatorId: m.coordinatorId,
-            coordinatorName: m.coordinatorName,
-            coordinatorPhone: m.coordinatorPhone,
-            notes: undefined,
-          }));
+          ministryId: m.id,
+          ministryName: m.name,
+          coordinatorId: m.coordinatorId,
+          coordinatorName: m.coordinatorName,
+          coordinatorPhone: m.coordinatorPhone,
+          notes: undefined,
+        }));
 
     const updatedMinistries: EventMinistryAssignment[] = currentMinistries.map((m) =>
       m.ministryId === ministryId ? { ...m, notes: notes !== undefined ? notes : m.notes } : m
@@ -2527,21 +2284,21 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       prev.map((m) =>
         m.id === currentUser.id
           ? {
-              ...m,
-              firstName: data.firstName ?? m.firstName,
-              lastName: data.lastName ?? m.lastName,
-              phone: data.phone !== undefined ? data.phone : m.phone,
-              gender: data.gender !== undefined ? data.gender : m.gender,
-              birthDate: data.birthDate !== undefined ? data.birthDate : m.birthDate,
-              familyName: data.familyName !== undefined ? data.familyName : m.familyName,
-              preferredService: data.preferredService !== undefined ? data.preferredService : m.preferredService,
-              notes: data.notes !== undefined ? data.notes : m.notes,
-              password: data.password !== undefined && data.password.trim() !== '' ? data.password.trim() : m.password,
-              network: data.network !== undefined ? data.network : m.network,
-              leaderId: data.leaderId !== undefined ? data.leaderId : m.leaderId,
-              leaderName: calculatedLeaderName !== undefined ? calculatedLeaderName : m.leaderName,
-              avatarUrl: data.avatarUrl !== undefined ? data.avatarUrl : m.avatarUrl,
-            }
+            ...m,
+            firstName: data.firstName ?? m.firstName,
+            lastName: data.lastName ?? m.lastName,
+            phone: data.phone !== undefined ? data.phone : m.phone,
+            gender: data.gender !== undefined ? data.gender : m.gender,
+            birthDate: data.birthDate !== undefined ? data.birthDate : m.birthDate,
+            familyName: data.familyName !== undefined ? data.familyName : m.familyName,
+            preferredService: data.preferredService !== undefined ? data.preferredService : m.preferredService,
+            notes: data.notes !== undefined ? data.notes : m.notes,
+            password: data.password !== undefined && data.password.trim() !== '' ? data.password.trim() : m.password,
+            network: data.network !== undefined ? data.network : m.network,
+            leaderId: data.leaderId !== undefined ? data.leaderId : m.leaderId,
+            leaderName: calculatedLeaderName !== undefined ? calculatedLeaderName : m.leaderName,
+            avatarUrl: data.avatarUrl !== undefined ? data.avatarUrl : m.avatarUrl,
+          }
           : m
       )
     );
@@ -2564,7 +2321,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         if (data.preferredService !== undefined) payload.preferred_service_id = sanitizeServiceId(data.preferredService);
         if (data.notes !== undefined) payload.notes = data.notes;
         if (data.password !== undefined && data.password.trim() !== '') payload.password = data.password.trim();
-        if (data.network !== undefined) payload.network = data.network;
+        if (data.network !== undefined) payload.network = sanitizeMemberNetwork(data.network, currentUser.network);
         if (data.leaderId !== undefined) payload.leader_id = data.leaderId;
         if (data.avatarUrl !== undefined) payload.avatar_url = data.avatarUrl;
 
@@ -2718,7 +2475,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     };
     const updated = [newPost, ...pastoralPosts];
     setPastoralPosts(updated);
-    AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -2760,7 +2517,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       return { ...post, likes: newLikes };
     });
     setPastoralPosts(updated);
-    AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -2814,7 +2571,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       return { ...post, comments: updatedComments };
     });
     setPastoralPosts(updated);
-    AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -2851,7 +2608,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   const deletePastoralPost = async (postId: string): Promise<void> => {
     const updated = pastoralPosts.filter((p) => p.id !== postId);
     setPastoralPosts(updated);
-    AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_PASTORAL_POSTS, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -2875,7 +2632,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     };
     const updated = [newReq, ...prayerRequests];
     setPrayerRequests(updated);
-    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -2920,7 +2677,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       };
     });
     setPrayerRequests(updated);
-    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -2979,7 +2736,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     });
 
     setPrayerRequests(updated);
-    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured && targetPrToSync) {
       try {
@@ -3001,7 +2758,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   const deletePrayerRequest = async (id: string): Promise<void> => {
     const updated = prayerRequests.filter((pr) => pr.id !== id);
     setPrayerRequests(updated);
-    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_PRAYER_REQUESTS, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -3037,7 +2794,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
 
     const updated = [newMarriage, ...marriages];
     setMarriages(updated);
-    AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -3080,7 +2837,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       m.id === id ? { ...m, ...data, updatedAt: now } : m
     );
     setMarriages(updated);
-    AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -3113,7 +2870,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
 
     const updated = marriages.filter((m) => m.id !== id);
     setMarriages(updated);
-    AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(updated)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_MARRIAGES, JSON.stringify(updated)).catch(() => { });
 
     if (isSupabaseConfigured) {
       try {
@@ -3129,7 +2886,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
   // ============================================================================
   const persistLadder = (list: LadderPerson[]) => {
     setLadderPeople(list);
-    AsyncStorage.setItem(STORAGE_LADDER, JSON.stringify(list)).catch(() => {});
+    AsyncStorage.setItem(STORAGE_LADDER, JSON.stringify(list)).catch(() => { });
   };
 
   const syncLadderPerson = async (p: LadderPerson) => {
@@ -3216,7 +2973,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
     if (isSupabaseConfigured) {
       try {
         await supabase.from('ladder_people').delete().eq('id', id);
-      } catch {}
+      } catch { }
     }
   };
 

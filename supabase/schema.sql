@@ -216,7 +216,7 @@ CREATE TABLE IF NOT EXISTS public.leader_attendance_reports (
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS password TEXT;
 
 -- ==============================================================================
--- DATOS INICIALES: IGLESIA, SERVICIOS Y EQUIPO PASTORAL G12
+-- DATOS INICIALES: IGLESIA, ServicioS Y EQUIPO PASTORAL G12
 -- ==============================================================================
 
 -- 1. Insertar la Iglesia Principal
@@ -318,13 +318,13 @@ ALTER TABLE public.cell_meeting_reports ADD COLUMN IF NOT EXISTS recipient_leade
 ALTER TABLE public.leader_attendance_reports ADD COLUMN IF NOT EXISTS recipient_leader_id UUID;
 ALTER TABLE public.leader_attendance_reports ADD COLUMN IF NOT EXISTS recipient_leader_name TEXT;
 
--- Conteo del servicio por Hombres / Mujeres / Prejuvenil (< 14 años)
+-- Conteo del Servicio por Hombres / Mujeres / Prejuvenil (< 14 años)
 -- Cada discípulo en disciples_report lleva { gender: 'M'|'F', age: number }
 ALTER TABLE public.leader_attendance_reports ADD COLUMN IF NOT EXISTS leader_gender TEXT;
 ALTER TABLE public.leader_attendance_reports ADD COLUMN IF NOT EXISTS leader_age INT;
 ALTER TABLE public.leader_attendance_reports ADD COLUMN IF NOT EXISTS visitors_list JSONB DEFAULT '[]'::jsonb;
 
--- 15. Eventos y Órdenes de Servicio (Servicio dominical, Encuentro de Mujeres, etc.)
+-- 15. Eventos y Órdenes de Servicio (Servicio, Encuentro de Mujeres, etc.)
 CREATE TABLE IF NOT EXISTS public.church_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   church_id UUID REFERENCES public.churches(id) ON DELETE CASCADE,

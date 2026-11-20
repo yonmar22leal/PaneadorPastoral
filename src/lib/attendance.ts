@@ -147,7 +147,7 @@ const normalizePersonName = (name?: string) =>
  * Suma la asistencia de varios reportes de líderes.
  * - Cuenta al líder (si asistió), a sus discípulos presentes y a sus invitados.
  * - Discípulos e invitados se desglosan por sexo (Hombres y Mujeres) por separado para evitar confusiones.
- * - Si una misma persona aparece en dos reportes del mismo servicio, se deduplica para no inflar los números.
+ * - Si una misma persona aparece en dos reportes del mismo Servicio, se deduplica para no inflar los números.
  */
 export function summarizeReports(
   reports: LeaderAttendanceReport[],

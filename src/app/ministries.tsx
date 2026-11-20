@@ -1,9 +1,11 @@
+import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 import { Member, Ministry } from '@/types/church';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -18,8 +20,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { DoodleBackground } from '@/components/doodle-background';
 
 const PRESET_COLORS = [
   { label: 'Morado Alabanza', hex: '#8B5CF6' },
@@ -482,174 +482,174 @@ export default function MinistriesScreen() {
 
       {/* LISTA DE MINISTERIOS */}
       <DoodleBackground>
-      <ScrollView
-        contentContainerStyle={styles.scrollList}
-        showsVerticalScrollIndicator={false}>
-        {filteredMinistries.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="ribbon-outline" size={48} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>
-              {searchQuery ? 'No se encontraron ministerios' : 'No hay ministerios registrados'}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {searchQuery
-                ? 'Prueba con otro término de búsqueda.'
-                : 'Crea ministerios independientes como Alabanza, Audiovisual o Protocolo para organizar a los servidores de la iglesia.'}
-            </Text>
-            {isPastor && (
-              <TouchableOpacity style={styles.emptyBtn} onPress={openCreateModal}>
-                <Ionicons name="add-circle" size={18} color="#FFFFFF" />
-                <Text style={styles.emptyBtnText}>Crear Ministerio</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : (
-          filteredMinistries.map((min) => {
-            const serverCount = getServersCount(min.name);
-            const isMyMinistry =
-              currentUser &&
-              (min.coordinatorId === currentUser.id ||
-                min.coordinatorName.toLowerCase().includes(currentUser.firstName.toLowerCase()));
+        <ScrollView
+          contentContainerStyle={styles.scrollList}
+          showsVerticalScrollIndicator={false}>
+          {filteredMinistries.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Ionicons name="ribbon-outline" size={48} color="#94A3B8" />
+              <Text style={styles.emptyTitle}>
+                {searchQuery ? 'No se encontraron ministerios' : 'No hay ministerios registrados'}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {searchQuery
+                  ? 'Prueba con otro término de búsqueda.'
+                  : 'Crea ministerios independientes como Alabanza, Audiovisual o Protocolo para organizar a los servidores de la iglesia.'}
+              </Text>
+              {isPastor && (
+                <TouchableOpacity style={styles.emptyBtn} onPress={openCreateModal}>
+                  <Ionicons name="add-circle" size={18} color="#FFFFFF" />
+                  <Text style={styles.emptyBtnText}>Crear Ministerio</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            filteredMinistries.map((min) => {
+              const serverCount = getServersCount(min.name);
+              const isMyMinistry =
+                currentUser &&
+                (min.coordinatorId === currentUser.id ||
+                  min.coordinatorName.toLowerCase().includes(currentUser.firstName.toLowerCase()));
 
-            return (
-              <View
-                key={min.id}
-                style={[styles.ministryCard, { borderLeftColor: min.color || '#38BDF8' }]}>
-                {/* Header de la tarjeta */}
-                <View style={styles.cardHeader}>
-                  <View
-                    style={[
-                      styles.iconContainer,
-                      { backgroundColor: (min.color || '#38BDF8') + '22' },
-                    ]}>
-                    <Ionicons
-                      name={(min.icon as any) || 'people'}
-                      size={22}
-                      color={min.color || '#38BDF8'}
-                    />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <View style={styles.titleRow}>
-                      <Text style={styles.ministryName}>{min.name}</Text>
-                      {isMyMinistry && (
-                        <View style={styles.myRoleBadge}>
-                          <Text style={styles.myRoleBadgeText}>Tu Coordinas</Text>
-                        </View>
-                      )}
+              return (
+                <View
+                  key={min.id}
+                  style={[styles.ministryCard, { borderLeftColor: min.color || '#38BDF8' }]}>
+                  {/* Header de la tarjeta */}
+                  <View style={styles.cardHeader}>
+                    <View
+                      style={[
+                        styles.iconContainer,
+                        { backgroundColor: (min.color || '#38BDF8') + '22' },
+                      ]}>
+                      <Ionicons
+                        name={(min.icon as any) || 'people'}
+                        size={22}
+                        color={min.color || '#38BDF8'}
+                      />
                     </View>
-                    <Text style={styles.ministryDesc} numberOfLines={2}>
-                      {min.description || 'Sin descripción especificada.'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Coordinador Box */}
-                <View style={styles.coordinatorBox}>
-                  <View style={styles.coordAvatar}>
-                    <Ionicons name="person" size={16} color="#38BDF8" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.coordKicker}>COORDINADOR(A) GENERAL</Text>
-                    <Text style={styles.coordName}>{min.coordinatorName}</Text>
-                    {min.coordinatorPhone ? (
-                      <View style={styles.coordPhoneRow}>
-                        <Text style={styles.coordPhone}>📞 {min.coordinatorPhone}</Text>
-                        <TouchableOpacity
-                          style={styles.quickContactBtn}
-                          onPress={() => handleWhatsApp(min.coordinatorPhone, min.coordinatorName)}>
-                          <Ionicons name="logo-whatsapp" size={14} color="#22C55E" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.quickContactBtn}
-                          onPress={() => handleCall(min.coordinatorPhone)}>
-                          <Ionicons name="call" size={13} color="#38BDF8" />
-                        </TouchableOpacity>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <View style={styles.titleRow}>
+                        <Text style={styles.ministryName}>{min.name}</Text>
+                        {isMyMinistry && (
+                          <View style={styles.myRoleBadge}>
+                            <Text style={styles.myRoleBadgeText}>Tu Coordinas</Text>
+                          </View>
+                        )}
                       </View>
-                    ) : null}
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.statsPill}
-                    activeOpacity={0.8}
-                    onPress={() => openTeamModal(min)}>
-                    <Ionicons name="people" size={13} color="#38BDF8" />
-                    <Text style={styles.statsPillText}>{serverCount} Servidores</Text>
-                    <Ionicons name="chevron-forward" size={12} color="#38BDF8" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Puestos y Roles de Servicio */}
-                {min.defaultRoles && min.defaultRoles.length > 0 && (
-                  <View style={styles.rolesSection}>
-                    <Text style={styles.rolesSectionTitle}>Puestos Habituales del Ministerio:</Text>
-                    <View style={styles.rolesChipsWrap}>
-                      {min.defaultRoles.map((roleName, rIdx) => (
-                        <View
-                          key={rIdx}
-                          style={[
-                            styles.roleChipBadge,
-                            { borderColor: (min.color || '#38BDF8') + '44' },
-                          ]}>
-                          <View
-                            style={[
-                              styles.roleChipDot,
-                              { backgroundColor: min.color || '#38BDF8' },
-                            ]}
-                          />
-                          <Text style={styles.roleChipBadgeText}>{roleName}</Text>
-                        </View>
-                      ))}
+                      <Text style={styles.ministryDesc} numberOfLines={2}>
+                        {min.description || 'Sin descripción especificada.'}
+                      </Text>
                     </View>
                   </View>
-                )}
 
-                {/* Footer Acciones */}
-                <View style={styles.cardActionsRow}>
-                  <TouchableOpacity
-                    style={styles.actionBtnTeam}
-                    activeOpacity={0.8}
-                    onPress={() => openTeamModal(min)}>
-                    <Ionicons name="people-circle-outline" size={17} color="#38BDF8" />
-                    <Text style={styles.actionBtnTeamText}>Ver Equipo ({serverCount})</Text>
-                  </TouchableOpacity>
+                  {/* Coordinador Box */}
+                  <View style={styles.coordinatorBox}>
+                    <View style={styles.coordAvatar}>
+                      <Ionicons name="person" size={16} color="#38BDF8" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.coordKicker}>COORDINADOR(A) GENERAL</Text>
+                      <Text style={styles.coordName}>{min.coordinatorName}</Text>
+                      {min.coordinatorPhone ? (
+                        <View style={styles.coordPhoneRow}>
+                          <Text style={styles.coordPhone}>📞 {min.coordinatorPhone}</Text>
+                          <TouchableOpacity
+                            style={styles.quickContactBtn}
+                            onPress={() => handleWhatsApp(min.coordinatorPhone, min.coordinatorName)}>
+                            <Ionicons name="logo-whatsapp" size={14} color="#22C55E" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.quickContactBtn}
+                            onPress={() => handleCall(min.coordinatorPhone)}>
+                            <Ionicons name="call" size={13} color="#38BDF8" />
+                          </TouchableOpacity>
+                        </View>
+                      ) : null}
+                    </View>
 
-                  {canEditMinistry(min) && (
                     <TouchableOpacity
-                      style={styles.actionBtnAddServer}
+                      style={styles.statsPill}
                       activeOpacity={0.8}
-                      onPress={() => {
-                        setActiveTeamMinistry(min);
-                        setAddServerSearch('');
-                        setAddServerModalVisible(true);
-                      }}>
-                      <Ionicons name="person-add-outline" size={15} color="#10B981" />
-                      <Text style={styles.actionBtnAddServerText}>+ Servidor</Text>
+                      onPress={() => openTeamModal(min)}>
+                      <Ionicons name="people" size={13} color="#38BDF8" />
+                      <Text style={styles.statsPillText}>{serverCount} Servidores</Text>
+                      <Ionicons name="chevron-forward" size={12} color="#38BDF8" />
                     </TouchableOpacity>
+                  </View>
+
+                  {/* Puestos y Roles de Servicio */}
+                  {min.defaultRoles && min.defaultRoles.length > 0 && (
+                    <View style={styles.rolesSection}>
+                      <Text style={styles.rolesSectionTitle}>Puestos Habituales del Ministerio:</Text>
+                      <View style={styles.rolesChipsWrap}>
+                        {min.defaultRoles.map((roleName, rIdx) => (
+                          <View
+                            key={rIdx}
+                            style={[
+                              styles.roleChipBadge,
+                              { borderColor: (min.color || '#38BDF8') + '44' },
+                            ]}>
+                            <View
+                              style={[
+                                styles.roleChipDot,
+                                { backgroundColor: min.color || '#38BDF8' },
+                              ]}
+                            />
+                            <Text style={styles.roleChipBadgeText}>{roleName}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
                   )}
 
-                  {canEditMinistry(min) && (
+                  {/* Footer Acciones */}
+                  <View style={styles.cardActionsRow}>
                     <TouchableOpacity
-                      style={styles.actionBtnEdit}
-                      onPress={() => openEditModal(min)}>
-                      <Ionicons name="create-outline" size={16} color="#38BDF8" />
+                      style={styles.actionBtnTeam}
+                      activeOpacity={0.8}
+                      onPress={() => openTeamModal(min)}>
+                      <Ionicons name="people-circle-outline" size={17} color="#38BDF8" />
+                      <Text style={styles.actionBtnTeamText}>Ver Equipo ({serverCount})</Text>
                     </TouchableOpacity>
-                  )}
 
-                  {isPastor && (
-                    <TouchableOpacity
-                      style={styles.actionBtnDelete}
-                      onPress={() => handleDelete(min)}>
-                      <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                    </TouchableOpacity>
-                  )}
+                    {canEditMinistry(min) && (
+                      <TouchableOpacity
+                        style={styles.actionBtnAddServer}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          setActiveTeamMinistry(min);
+                          setAddServerSearch('');
+                          setAddServerModalVisible(true);
+                        }}>
+                        <Ionicons name="person-add-outline" size={15} color="#10B981" />
+                        <Text style={styles.actionBtnAddServerText}>+ Servidor</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {canEditMinistry(min) && (
+                      <TouchableOpacity
+                        style={styles.actionBtnEdit}
+                        onPress={() => openEditModal(min)}>
+                        <Ionicons name="create-outline" size={16} color="#38BDF8" />
+                      </TouchableOpacity>
+                    )}
+
+                    {isPastor && (
+                      <TouchableOpacity
+                        style={styles.actionBtnDelete}
+                        onPress={() => handleDelete(min)}>
+                        <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              </View>
-            );
-          })
-        )}
+              );
+            })
+          )}
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          <View style={{ height: 40 }} />
+        </ScrollView>
       </DoodleBackground>
 
       {/* MODAL CREAR / EDITAR MINISTERIO */}
@@ -694,7 +694,7 @@ export default function MinistriesScreen() {
               <Text style={styles.inputLabel}>Descripción o Función</Text>
               <TextInput
                 style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
-                placeholder="Explica de qué se encarga este ministerio durante los servicios..."
+                placeholder="Explica de qué se encarga este ministerio durante los Servicios..."
                 placeholderTextColor="#94A3B8"
                 multiline
                 value={description}
@@ -857,7 +857,7 @@ export default function MinistriesScreen() {
               <Ionicons name="information-circle" size={18} color="#38BDF8" />
               <Text style={styles.noticeBoxText}>
                 El coordinador permanente tendrá permisos para delegar y asignar los servidores
-                a cada puesto en los servicios, y editar los bloques correspondientes en el cronograma.
+                a cada puesto en los Servicios, y editar los bloques correspondientes en el cronograma.
               </Text>
             </View>
           </ScrollView>

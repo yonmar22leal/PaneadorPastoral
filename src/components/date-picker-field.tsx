@@ -89,6 +89,23 @@ export function formatFullDisplayDate(dateStr?: string): string {
   return `${day} de ${MONTH_NAMES[month]}, ${year}`;
 }
 
+export function calculateAgeFromYMD(year: number, monthIndex: number, day: number): number | undefined {
+  const now = new Date();
+  let age = now.getFullYear() - year;
+  const m = now.getMonth() - monthIndex;
+  if (m < 0 || (m === 0 && now.getDate() < day)) {
+    age--;
+  }
+  return age >= 0 ? age : undefined;
+}
+
+export function calculateAgeFromDate(dateStr?: string): number | undefined {
+  if (!dateStr) return undefined;
+  const parsed = parseDate(dateStr);
+  if (!parsed) return undefined;
+  return calculateAgeFromYMD(parsed.year, parsed.month, parsed.day);
+}
+
 // =============================================================================
 // SUB-COMPONENTE: RUEDA INDIVIDUAL (ARRASTRABLE CON RATÓN O DEDO)
 // =============================================================================
@@ -98,6 +115,7 @@ interface WheelColumnProps<T> {
   onSelect: (item: T) => void;
   renderLabel?: (item: T) => string;
   flex?: number;
+  isOpen?: boolean;
 }
 
 function WheelColumn<T>({
@@ -106,6 +124,7 @@ function WheelColumn<T>({
   onSelect,
   renderLabel,
   flex = 1,
+  isOpen,
 }: WheelColumnProps<T>) {
   const scrollRef = useRef<any>(null);
   const isDraggingRef = useRef(false);
@@ -113,38 +132,65 @@ function WheelColumn<T>({
   const startScrollYRef = useRef(0);
   const hasMovedRef = useRef(false);
   const isInternalScrollRef = useRef(false);
-
+  const scrollTimeoutRef = useRef<any>(null);
   const currentOffsetYRef = useRef(selectedIndex * ITEM_HEIGHT);
 
-  const scrollToIndex = React.useCallback((index: number, animated = true) => {
-    if (index < 0 || index >= items.length) return;
-    const targetY = index * ITEM_HEIGHT;
-    currentOffsetYRef.current = targetY;
-    scrollRef.current?.scrollTo?.({ y: targetY, animated });
-  }, [items.length]);
+  const scrollToIndex = React.useCallback(
+    (index: number, animated = true) => {
+      if (index < 0 || index >= items.length) return;
+      const targetY = index * ITEM_HEIGHT;
+      currentOffsetYRef.current = targetY;
+      scrollRef.current?.scrollTo?.({ y: targetY, animated });
+    },
+    [items.length]
+  );
 
-  // Posicionar el scroll exactamente en el ítem seleccionado al montarse o al cambiar el índice
+  // Posicionar el scroll exactamente en el ítem seleccionado al montarse o al cambiar el índice externamente
   useEffect(() => {
     if (!isDraggingRef.current && !isInternalScrollRef.current) {
+      scrollToIndex(selectedIndex, false);
       const timer = setTimeout(() => {
         scrollToIndex(selectedIndex, false);
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [selectedIndex, scrollToIndex]);
+  }, [selectedIndex, isOpen, scrollToIndex]);
 
-  // Actualizar cuando termina de desplazarse en dispositivos táctiles o rueda
-  const handleScrollEnd = (offsetY: number) => {
+  // Limpiar timers al desmontar
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // ===========================================================================
+  // CONTROLADOR CENTRAL DE SCROLL (RUEDA DE RATÓN EN WEB Y MOVIMIENTO TÁCTIL)
+  // ===========================================================================
+  const handleScroll = (offsetY: number) => {
     currentOffsetYRef.current = offsetY;
     const rawIdx = Math.round(offsetY / ITEM_HEIGHT);
     const clampedIdx = Math.max(0, Math.min(items.length - 1, rawIdx));
+
+    // Si cambió el índice en scroll, actualizar inmediatamente el estado visible
     if (clampedIdx !== selectedIndex) {
       isInternalScrollRef.current = true;
       onSelect(items[clampedIdx]);
       setTimeout(() => {
         isInternalScrollRef.current = false;
-      }, 80);
+      }, 60);
     }
+
+    // Debounce snap para alinear 100% recto ("snap to center") cuando se detiene el movimiento
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!isDraggingRef.current) {
+        scrollToIndex(clampedIdx, true);
+      }
+    }, 120);
   };
 
   // ===========================================================================
@@ -152,46 +198,68 @@ function WheelColumn<T>({
   // ===========================================================================
   const onMouseDown = (e: any) => {
     if (Platform.OS !== 'web') return;
+    if (e.button !== undefined && e.button !== 0) return;
     isDraggingRef.current = true;
     hasMovedRef.current = false;
     startYRef.current = e.clientY || e.pageY || 0;
     startScrollYRef.current = currentOffsetYRef.current;
   };
 
-  const onMouseMove = (e: any) => {
-    if (Platform.OS !== 'web' || !isDraggingRef.current) return;
-    const clientY = e.clientY || e.pageY || 0;
-    const deltaY = clientY - startYRef.current;
-    if (Math.abs(deltaY) > 4) {
-      hasMovedRef.current = true;
-    }
-    const targetY = Math.max(0, startScrollYRef.current - deltaY);
-    currentOffsetYRef.current = targetY;
-    scrollRef.current?.scrollTo?.({ y: targetY, animated: false });
-  };
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
 
-  const onMouseUp = () => {
-    if (Platform.OS !== 'web' || !isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    const finalScroll = currentOffsetYRef.current;
-    const nearestIdx = Math.max(0, Math.min(items.length - 1, Math.round(finalScroll / ITEM_HEIGHT)));
-    scrollToIndex(nearestIdx, true);
-    if (nearestIdx !== selectedIndex) {
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      e.preventDefault();
+      const clientY = e.clientY || e.pageY || 0;
+      const deltaY = clientY - startYRef.current;
+      if (Math.abs(deltaY) > 3) {
+        hasMovedRef.current = true;
+      }
+      const targetY = Math.max(
+        0,
+        Math.min((items.length - 1) * ITEM_HEIGHT, startScrollYRef.current - deltaY)
+      );
+      currentOffsetYRef.current = targetY;
+      scrollRef.current?.scrollTo?.({ y: targetY, animated: false });
+
+      // Actualizar índice en tiempo real para que el texto central y el preview cambien inmediatamente
+      const approxIdx = Math.max(0, Math.min(items.length - 1, Math.round(targetY / ITEM_HEIGHT)));
+      if (approxIdx !== selectedIndex) {
+        isInternalScrollRef.current = true;
+        onSelect(items[approxIdx]);
+        setTimeout(() => {
+          isInternalScrollRef.current = false;
+        }, 50);
+      }
+    };
+
+    const handleWindowMouseUp = () => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      const finalY = currentOffsetYRef.current;
+      const nearestIdx = Math.max(0, Math.min(items.length - 1, Math.round(finalY / ITEM_HEIGHT)));
+      scrollToIndex(nearestIdx, true);
       isInternalScrollRef.current = true;
       onSelect(items[nearestIdx]);
       setTimeout(() => {
         isInternalScrollRef.current = false;
-      }, 80);
-    }
-  };
+      }, 100);
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, [items, selectedIndex, onSelect, scrollToIndex]);
 
   const webProps: any =
     Platform.OS === 'web'
       ? {
           onMouseDown,
-          onMouseMove,
-          onMouseUp,
-          onMouseLeave: onMouseUp,
         }
       : {};
 
@@ -211,12 +279,32 @@ function WheelColumn<T>({
         decelerationRate="fast"
         nestedScrollEnabled
         scrollEventThrottle={16}
-        onMomentumScrollEnd={(e) => handleScrollEnd(e.nativeEvent.contentOffset.y)}
-        onScrollEndDrag={(e) => handleScrollEnd(e.nativeEvent.contentOffset.y)}
+        onScroll={(e) => handleScroll(e.nativeEvent.contentOffset.y)}
+        onMomentumScrollEnd={(e) => handleScroll(e.nativeEvent.contentOffset.y)}
+        onScrollEndDrag={(e) => handleScroll(e.nativeEvent.contentOffset.y)}
+        onLayout={() => {
+          scrollToIndex(selectedIndex, false);
+        }}
         contentContainerStyle={styles.wheelScrollContent}>
         {items.map((item, idx) => {
-          const isSelected = idx === selectedIndex;
+          const distance = Math.abs(idx - selectedIndex);
+          const isSelected = distance === 0;
           const label = renderLabel ? renderLabel(item) : String(item);
+
+          // Opacidad y escala estilo rueda cilíndrica iOS según distancia del centro
+          let opacity = 1;
+          let scale = 1.04;
+          if (distance === 1) {
+            opacity = 0.55;
+            scale = 0.94;
+          } else if (distance === 2) {
+            opacity = 0.25;
+            scale = 0.86;
+          } else if (distance > 2) {
+            opacity = 0.12;
+            scale = 0.8;
+          }
+
           return (
             <TouchableOpacity
               key={`wheel-it-${idx}-${label}`}
@@ -231,6 +319,7 @@ function WheelColumn<T>({
               <Text
                 style={[
                   styles.wheelItemText,
+                  { opacity, transform: [{ scale }] },
                   isSelected && styles.wheelItemTextSelected,
                 ]}
                 numberOfLines={1}>
@@ -338,6 +427,16 @@ export function DatePickerField({
 
   const hasValue = Boolean(value && parseDate(value));
 
+  const currentTempAge = useMemo(
+    () => calculateAgeFromYMD(tempYear, tempMonth, tempDay),
+    [tempYear, tempMonth, tempDay]
+  );
+
+  const selectedAge = useMemo(
+    () => calculateAgeFromDate(value),
+    [value]
+  );
+
   // Índices seleccionados
   const selectedDayIndex = Math.max(0, Math.min(days.length - 1, tempDay - 1));
   const selectedYearIndex = Math.max(0, Math.min(years.length - 1, years.indexOf(tempYear)));
@@ -358,11 +457,20 @@ export function DatePickerField({
         <View style={styles.triggerContent}>
           {hasValue ? (
             <>
-              <Text style={styles.triggerValueText}>
-                {formatFullDisplayDate(value)}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <Text style={styles.triggerValueText}>
+                  {formatFullDisplayDate(value)}
+                </Text>
+                {selectedAge !== undefined && (
+                  <View style={styles.ageBadgeTrigger}>
+                    <Text style={styles.ageBadgeTriggerText}>🎂 {selectedAge} años</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.triggerSubText}>
-                {formatDisplayDate(value)} • Toca para cambiar
+                {formatDisplayDate(value)}
+                {selectedAge !== undefined && selectedAge < 14 ? ' • Prejuvenil (<14)' : ''}
+                {' • Toca para cambiar'}
               </Text>
             </>
           ) : (
@@ -400,9 +508,16 @@ export function DatePickerField({
 
               <View style={{ alignItems: 'center' }}>
                 <Text style={styles.modalTitle}>Seleccionar Fecha</Text>
-                <Text style={styles.modalPreviewText}>
-                  {tempDay} de {MONTH_NAMES[tempMonth]} de {tempYear}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                  <Text style={styles.modalPreviewText}>
+                    {tempDay} de {MONTH_NAMES[tempMonth]} de {tempYear}
+                  </Text>
+                  {currentTempAge !== undefined && (
+                    <View style={styles.modalAgeBadge}>
+                      <Text style={styles.modalAgeBadgeText}>{currentTempAge} años</Text>
+                    </View>
+                  )}
+                </View>
               </View>
 
               <TouchableOpacity onPress={handleConfirm} style={styles.doneBtn}>
@@ -428,6 +543,7 @@ export function DatePickerField({
                 selectedIndex={selectedDayIndex}
                 onSelect={(d) => setTempDay(d)}
                 flex={1.1}
+                isOpen={modalVisible}
               />
 
               {/* COLUMNA 2: MES */}
@@ -436,6 +552,7 @@ export function DatePickerField({
                 selectedIndex={tempMonth}
                 onSelect={handleSelectMonth}
                 flex={2}
+                isOpen={modalVisible}
               />
 
               {/* COLUMNA 3: AÑO */}
@@ -444,7 +561,12 @@ export function DatePickerField({
                 selectedIndex={selectedYearIndex}
                 onSelect={handleSelectYear}
                 flex={1.4}
+                isOpen={modalVisible}
               />
+
+              {/* CAPAS DE GRADIENTE SUAVE SUPERIOR E INFERIOR (ESTILO RUEDA 3D iOS) */}
+              <View pointerEvents="none" style={styles.topFadeOverlay} />
+              <View pointerEvents="none" style={styles.bottomFadeOverlay} />
             </View>
 
             {/* BOTÓN INFERIOR DE ACCIÓN RÁPIDA */}
@@ -456,6 +578,7 @@ export function DatePickerField({
                 <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
                 <Text style={styles.confirmBottomBtnText}>
                   Confirmar Fecha ({tempDay} {MONTH_SHORT[tempMonth]} {tempYear})
+                  {currentTempAge !== undefined ? ` • 🎂 ${currentTempAge} años` : ''}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -513,6 +636,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F8FAFC',
     letterSpacing: 0.2,
+  },
+  ageBadgeTrigger: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  ageBadgeTriggerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#38BDF8',
   },
   triggerPlaceholderText: {
     fontSize: 14,
@@ -588,6 +724,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
+  modalAgeBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  modalAgeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
   doneBtn: {
     backgroundColor: '#0284C7',
     paddingHorizontal: 14,
@@ -637,6 +786,28 @@ const styles = StyleSheet.create({
     borderColor: '#38BDF8',
     borderRadius: 10,
     zIndex: 1,
+  },
+  topFadeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 48,
+    backgroundColor: 'rgba(9, 13, 22, 0.65)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.03)',
+    zIndex: 3,
+  },
+  bottomFadeOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 48,
+    backgroundColor: 'rgba(9, 13, 22, 0.65)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.03)',
+    zIndex: 3,
   },
   wheelColumnWrapper: {
     height: CONTAINER_HEIGHT,

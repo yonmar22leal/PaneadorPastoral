@@ -3,9 +3,10 @@ import { useChurch } from '@/context/ChurchContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,6 +30,11 @@ export default function LoginScreen({ onGoRegister }: LoginScreenProps = {}) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasPasswordError, setHasPasswordError] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+
+  const emailInputRef = useRef<any>(null);
+  const passwordInputRef = useRef<any>(null);
 
   const handleLogin = async () => {
     setErrorMessage(null);
@@ -108,50 +114,87 @@ export default function LoginScreen({ onGoRegister }: LoginScreenProps = {}) {
 
           {/* Identifier Input (Username or Email) */}
           <Text style={styles.inputLabel}>Usuario o Correo Electrónico</Text>
-          <View style={styles.inputWrapper}>
-            <Ionicons name="person-outline" size={20} color="#64748B" />
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => emailInputRef.current?.focus()}
+            style={[
+              styles.inputWrapper,
+              emailFocused && styles.inputWrapperFocused,
+            ]}>
+            <Ionicons
+              name="person-outline"
+              size={20}
+              color={emailFocused ? '#38BDF8' : '#64748B'}
+            />
             <TextInput
+              ref={emailInputRef}
               style={styles.textInput}
               placeholder="Ej: yonmar22 o pastor@iglesia.org"
               placeholderTextColor="#94A3B8"
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
+              onFocus={() => setEmailFocused(true)}
+              onBlur={() => setEmailFocused(false)}
               onChangeText={(text) => {
                 setEmail(text);
                 if (errorMessage) setErrorMessage(null);
               }}
             />
-          </View>
+          </TouchableOpacity>
 
           {/* Password Input */}
           <Text style={styles.inputLabel}>Contraseña</Text>
-          <View style={[styles.inputWrapper, hasPasswordError && styles.inputWrapperError]}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => passwordInputRef.current?.focus()}
+            style={[
+              styles.inputWrapper,
+              passwordFocused && styles.inputWrapperFocused,
+              hasPasswordError && styles.inputWrapperError,
+            ]}>
             <Ionicons
               name="lock-closed-outline"
               size={20}
-              color={hasPasswordError ? '#DC2626' : '#64748B'}
+              color={
+                hasPasswordError
+                  ? '#DC2626'
+                  : passwordFocused
+                  ? '#38BDF8'
+                  : '#64748B'
+              }
             />
             <TextInput
+              ref={passwordInputRef}
               style={styles.textInput}
               placeholder="••••••••"
               placeholderTextColor="#94A3B8"
               secureTextEntry={secureText}
               value={password}
+              onFocus={() => setPasswordFocused(true)}
+              onBlur={() => setPasswordFocused(false)}
               onChangeText={(text) => {
                 setPassword(text);
                 if (errorMessage) setErrorMessage(null);
                 if (hasPasswordError) setHasPasswordError(false);
               }}
             />
-            <TouchableOpacity onPress={() => setSecureText(!secureText)}>
+            <TouchableOpacity
+              onPress={() => setSecureText(!secureText)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Ionicons
                 name={secureText ? 'eye-off-outline' : 'eye-outline'}
                 size={20}
-                color={hasPasswordError ? '#DC2626' : '#64748B'}
+                color={
+                  hasPasswordError
+                    ? '#DC2626'
+                    : passwordFocused
+                    ? '#38BDF8'
+                    : '#64748B'
+                }
               />
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
 
           {/* Submit Button */}
           <TouchableOpacity
@@ -169,19 +212,12 @@ export default function LoginScreen({ onGoRegister }: LoginScreenProps = {}) {
             )}
           </TouchableOpacity>
 
-          {/* Register Link */}
+          {/* Aviso informativo de registro gestionado por pastores */}
           <View style={styles.registerRow}>
-            <Text style={styles.registerPrompt}>¿Eres nuevo o no tienes cuenta? </Text>
-            <TouchableOpacity
-              onPress={() => {
-                if (onGoRegister) {
-                  onGoRegister();
-                } else {
-                  router.push('/register');
-                }
-              }}>
-              <Text style={styles.registerLink}>Inscribirme aquí</Text>
-            </TouchableOpacity>
+            <Ionicons name="information-circle-outline" size={15} color="#64748B" style={{ marginRight: 6 }} />
+            <Text style={styles.registerPrompt}>
+              El registro de cuentas es gestionado exclusivamente por los Pastores.
+            </Text>
           </View>
         </View>
 
@@ -324,12 +360,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 14,
-    paddingHorizontal: 14,
-    height: 48,
-    gap: 10,
+    paddingHorizontal: 16,
+    height: 52,
+    gap: 12,
+    ...(Platform.OS === 'web' ? ({ cursor: 'text' } as any) : {}),
+  },
+  inputWrapperFocused: {
+    borderColor: '#38BDF8',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
   },
   inputWrapperError: {
     borderColor: '#EF4444',
@@ -337,8 +383,16 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    fontSize: 14,
+    height: '100%',
+    fontSize: 15,
     color: '#FFFFFF',
+    paddingVertical: 0,
+    ...(Platform.OS === 'web'
+      ? ({
+          outlineStyle: 'none',
+          outlineWidth: 0,
+        } as any)
+      : {}),
   },
   primaryButton: {
     backgroundColor: '#0284C7',

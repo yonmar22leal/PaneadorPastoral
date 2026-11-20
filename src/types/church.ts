@@ -2,11 +2,11 @@ export type MemberRole = 'senior_pastor' | 'network_pastor' | 'g12_leader' | 'vo
 
 export type ChurchNetwork = 'general' | 'juvenil' | 'adulta';
 
-export type ChurchServiceSlotId = 
+export type ChurchServiceSlotId =
   | 'domingo_11am'
-  | 'domingo_adultos_1' 
-  | 'domingo_juvenil' 
-  | 'domingo_adultos_2' 
+  | 'domingo_adultos_1'
+  | 'domingo_juvenil'
+  | 'domingo_adultos_2'
   | 'viernes_adoracion';
 
 export interface ChurchServiceSchedule {
@@ -70,7 +70,7 @@ export interface CellGroup {
 
 export type PersonGender = 'M' | 'F';
 
-/** Categorías de conteo del servicio. Prejuvenil = menor de 14 años. */
+/** Categorías de conteo del Servicio. Prejuvenil = menor de 14 años. */
 export type AttendanceCategory = 'hombres' | 'mujeres' | 'prejuvenil' | 'sin_clasificar';
 
 export interface DiscipleAttendanceItem {
@@ -271,9 +271,9 @@ export interface ServicePlan {
   volunteers: VolunteerRoster[];
 }
 
-export type ChurchEventType = 'servicio' | 'evento';
+export type ChurchEventType = 'Servicio' | 'evento';
 
-/** Evento de la iglesia con su orden / cronograma (servicio dominical, encuentros, etc.) */
+/** Evento de la iglesia con su orden / cronograma (Servicio, encuentros, etc.) */
 export interface ChurchEvent {
   id: string;
   type: ChurchEventType;

@@ -12,6 +12,7 @@ import {
   uniqueReportDates,
 } from '@/lib/attendance';
 import {
+  ChurchServiceSlotId,
   DiscipleAttendanceItem,
   LeaderAttendanceReport,
   PersonGender,
@@ -20,7 +21,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -63,7 +64,7 @@ export default function AttendanceScreen() {
     isPastor ? 'reports' : 'form'
   );
 
-  // Servicios disponibles de la congregación (Servicio Dominical 11am y Viernes de Adoración)
+  // Servicios disponibles de la congregación (Servicio 11am y Viernes de Adoración)
   const allowedServices = servicesSchedule;
   const defaultServiceId = 'domingo_11am';
 
@@ -106,7 +107,7 @@ export default function AttendanceScreen() {
     latestReportDate(networkReports) || localTodayStr
   );
 
-  // Reportes filtrados por servicio y fecha seleccionados para el pastor
+  // Reportes filtrados por Servicio y fecha seleccionados para el pastor
   const reportsForSelectedService = useMemo(() => {
     return networkReports.filter(
       (r) => r.serviceId === selectedServiceId && r.serviceDate === selectedDate
@@ -118,7 +119,7 @@ export default function AttendanceScreen() {
     return summarizeReports(reportsForSelectedService, members);
   }, [reportsForSelectedService, members]);
 
-  // Registro oficial guardado para la fecha y servicio seleccionados (si existe)
+  // Registro oficial guardado para la fecha y Servicio seleccionados (si existe)
   const existingOfficialRecord = useMemo(() => {
     return attendanceRecords.find(
       (a) => a.date === selectedDate && a.serviceId === selectedServiceId
@@ -126,13 +127,69 @@ export default function AttendanceScreen() {
   }, [attendanceRecords, selectedDate, selectedServiceId]);
 
   const isSaved = Boolean(existingOfficialRecord);
-  const savedTotal = existingOfficialRecord
-    ? (existingOfficialRecord.menCount || 0) +
-    (existingOfficialRecord.womenCount || 0) +
-    (existingOfficialRecord.kidsCount || 0) +
-    (existingOfficialRecord.visitorsCount || 0)
-    : 0;
-  const hasNewReportsPending = isSaved && savedTotal !== serviceSummary.total;
+
+  // Helper para verificar si un reporte individual corresponde a un Servicio cerrado
+  const isReportServiceClosed = useCallback(
+    (rep: LeaderAttendanceReport) => {
+      const isSavedRecord = attendanceRecords.some(
+        (a) => a.date === rep.serviceDate && a.serviceId === rep.serviceId
+      );
+      const isPast = rep.serviceDate < localTodayStr;
+      return isSavedRecord || isPast;
+    },
+    [attendanceRecords, localTodayStr]
+  );
+
+  // =========================================================================
+  // CIERRE AUTOMÁTICO AL FINALIZAR EL DÍA
+  // Si un Servicio ya finalizó (fecha anterior a hoy) y no fue guardado
+  // manualmente por los pastores, el sistema consolida automáticamente
+  // los reportes de líderes recibidos y lo guarda como registro oficial.
+  // =========================================================================
+  useEffect(() => {
+    const pendingPastClosures: { serviceDate: string; serviceId: ChurchServiceSlotId }[] = [];
+
+    leaderAttendanceReports.forEach((rep) => {
+      if (rep.serviceDate < localTodayStr) {
+        const hasOfficial = attendanceRecords.some(
+          (a) => a.date === rep.serviceDate && a.serviceId === rep.serviceId
+        );
+        if (!hasOfficial) {
+          const already = pendingPastClosures.some(
+            (p) => p.serviceDate === rep.serviceDate && p.serviceId === rep.serviceId
+          );
+          if (!already) {
+            pendingPastClosures.push({
+              serviceDate: rep.serviceDate,
+              serviceId: rep.serviceId,
+            });
+          }
+        }
+      }
+    });
+
+    if (pendingPastClosures.length > 0) {
+      pendingPastClosures.forEach((target) => {
+        const reportsForTarget = leaderAttendanceReports.filter(
+          (r) => r.serviceDate === target.serviceDate && r.serviceId === target.serviceId
+        );
+        const summary = summarizeReports(reportsForTarget, members);
+        const srvObj = servicesSchedule.find((s: any) => s.id === target.serviceId);
+
+        saveAttendance({
+          date: target.serviceDate,
+          serviceId: target.serviceId,
+          serviceName: srvObj ? `${srvObj.name} (${srvObj.time})` : 'Servicio',
+          network: srvObj?.network || 'general',
+          menCount: summary.hombres,
+          womenCount: summary.mujeres,
+          kidsCount: summary.prejuvenil,
+          visitorsCount: summary.visitors,
+          notes: `Cierre automático al finalizar el día (${summary.reportsCount} reportes de líderes G12).`,
+        });
+      });
+    }
+  }, [leaderAttendanceReports, attendanceRecords, localTodayStr, members, saveAttendance, servicesSchedule]);
 
   // Helper para resolver el Líder 12 de un reporte de asistencia
   const resolveLeader12ForReport = useCallback(
@@ -351,6 +408,16 @@ export default function AttendanceScreen() {
   const [formServiceDate, setFormServiceDate] = useState<string>(localTodayStr);
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
 
+  // Helper para verificar si el Servicio seleccionado en el formulario está cerrado
+  const isFormServiceSaved = useMemo(() => {
+    return attendanceRecords.some(
+      (a) => a.date === formServiceDate && a.serviceId === selectedServiceId
+    );
+  }, [attendanceRecords, formServiceDate, selectedServiceId]);
+
+  const isFormServicePast = formServiceDate < localTodayStr;
+  const isFormServiceClosed = isFormServiceSaved || isFormServicePast;
+
   // Lista de invitados estructurada con Sexo y Edad (inicia vacía para no inflar reportes)
   const [visitorsList, setVisitorsList] = useState<ReportVisitorItem[]>([]);
   const [newVisitorName, setNewVisitorName] = useState('');
@@ -534,6 +601,14 @@ export default function AttendanceScreen() {
   );
 
   const handleStartEditReport = (rep: LeaderAttendanceReport) => {
+    if (isReportServiceClosed(rep) && !isPastor) {
+      Alert.alert(
+        'Reporte Cerrado',
+        'Los pastores ya consolidaron y guardaron la asistencia oficial de este Servicio (o la fecha ya finalizó). No se admiten modificaciones.'
+      );
+      return;
+    }
+
     setEditingReportId(rep.id);
     setSelectedServiceId(rep.serviceId);
     setFormServiceDate(rep.serviceDate);
@@ -573,6 +648,14 @@ export default function AttendanceScreen() {
   };
 
   const handleDeleteReport = (rep: LeaderAttendanceReport) => {
+    if (isReportServiceClosed(rep) && !isPastor) {
+      Alert.alert(
+        'Reporte Cerrado',
+        'No se puede eliminar un reporte de un Servicio cuya asistencia ya fue cerrada oficialmente por los pastores.'
+      );
+      return;
+    }
+
     Alert.alert(
       '¿Eliminar Reporte de Asistencia?',
       `¿Estás seguro de que deseas eliminar este reporte de "${rep.leaderName}" correspondiente a ${formatDisplayDate(rep.serviceDate)} (${rep.serviceDate})?\n\nEsta acción no se puede deshacer.`,
@@ -598,6 +681,14 @@ export default function AttendanceScreen() {
   };
 
   const handleSubmitLeaderReport = async () => {
+    if (isFormServiceClosed && !isPastor) {
+      Alert.alert(
+        'Recepción Cerrada',
+        'Los pastores ya consolidaron y guardaron la asistencia oficial de este Servicio (o la fecha ya finalizó). La recepción de reportes está cerrada.'
+      );
+      return;
+    }
+
     setSubmitting(true);
     try {
       const leaderName = currentUser
@@ -643,7 +734,7 @@ export default function AttendanceScreen() {
     }
   };
 
-  // Guardar consolidado de pastor como registro oficial
+  // Guardar consolidado de pastor como registro oficial y cerrar la recepción
   const handleSaveConsolidatedAsOfficial = () => {
     saveAttendance({
       date: selectedDate,
@@ -654,12 +745,12 @@ export default function AttendanceScreen() {
       womenCount: serviceSummary.mujeres,
       kidsCount: serviceSummary.prejuvenil, // Prejuvenil (<14 años)
       visitorsCount: serviceSummary.visitors,
-      notes: `Asistencia consolidada desde ${serviceSummary.reportsCount} reportes de líderes G12. Prejuveniles (<14): ${serviceSummary.prejuvenil}.`,
+      notes: `Asistencia consolidada y cerrada desde ${serviceSummary.reportsCount} reportes de líderes G12. Prejuveniles (<14): ${serviceSummary.prejuvenil}.`,
     });
 
     Alert.alert(
-      isSaved ? 'Asistencia Oficial Actualizada' : 'Asistencia Oficial Guardada',
-      `${isSaved ? 'Se actualizó' : 'Se guardó'} el registro oficial para ${currentServiceObj.name}:\n• Total: ${serviceSummary.total}\n• Hombres: ${serviceSummary.hombres}\n• Mujeres: ${serviceSummary.mujeres}\n• Prejuveniles (<14): ${serviceSummary.prejuvenil}\n• Visitas: ${serviceSummary.visitors}`
+      isSaved ? 'Asistencia Oficial Actualizada' : 'Asistencia Oficial Guardada y Cerrada',
+      `${isSaved ? 'Se actualizó' : 'Se guardó'} el registro oficial para ${currentServiceObj.name}:\n• Total: ${serviceSummary.total}\n• Hombres: ${serviceSummary.hombres}\n• Mujeres: ${serviceSummary.mujeres}\n• Prejuveniles (<14): ${serviceSummary.prejuvenil}\n• Visitas: ${serviceSummary.visitors}\n\n🔒 La recepción de reportes de líderes para este Servicio ha quedado cerrada.`
     );
   };
 
@@ -817,17 +908,38 @@ export default function AttendanceScreen() {
               <View style={styles.recipientNoticeCard}>
                 <Ionicons name="paper-plane" size={18} color="#2563EB" />
                 <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.recipientNoticeTitle}>Líder Encargado (Recibe este Reporte):</Text>
+                  <Text style={styles.recipientNoticeTitle}>Líder Encargado:</Text>
                   <Text style={styles.recipientNoticeName}>
-                    {leaderInCharge.name} (Cobertura Pastoral)
+                    {leaderInCharge.name}
                   </Text>
                 </View>
               </View>
 
+              {/* Aviso de Servicio Cerrado / Bloqueado */}
+              {isFormServiceClosed && !isPastor && (
+                <View style={styles.lockedServiceNoticeCard}>
+                  <View style={styles.lockedServiceNoticeIconBox}>
+                    <Ionicons name="lock-closed" size={22} color="#EF4444" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.lockedServiceNoticeTitle}>
+                      {isFormServiceSaved
+                        ? 'Recepción Cerrada por los Pastores'
+                        : 'Servicio Finalizado (Fecha Pasada)'}
+                    </Text>
+                    <Text style={styles.lockedServiceNoticeDesc}>
+                      {isFormServiceSaved
+                        ? 'Los pastores ya consolidaron y guardaron la asistencia oficial de este Servicio. No se admiten nuevos reportes ni modificaciones.'
+                        : 'El día de este Servicio ya culminó y fue cerrado automáticamente al término de la jornada. No se admiten nuevos cambios.'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               {/* 1. Service & Date Selection */}
               <View style={styles.card}>
                 <Text style={styles.sectionTitle}>1. Servicio y Fecha a Reportar</Text>
-                <Text style={styles.fieldDesc}>Selecciona el servicio al que asistió tu equipo:</Text>
+                <Text style={styles.fieldDesc}>Selecciona el Servicio al que asistió tu equipo:</Text>
                 <View style={styles.serviceChipsGrid}>
                   {allowedServices.map((srv) => (
                     <TouchableOpacity
@@ -912,7 +1024,7 @@ export default function AttendanceScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.sectionTitle}>2. Mi Asistencia Personal</Text>
                     <Text style={styles.fieldDesc}>
-                      ¿Asististe tú al servicio en el templo?
+                      ¿Asististe tú al Servicio en el templo?
                     </Text>
                   </View>
                   <Switch
@@ -1013,7 +1125,7 @@ export default function AttendanceScreen() {
                   <View style={styles.noDisciplesNotice}>
                     <Ionicons name="information-circle-outline" size={20} color="#64748B" />
                     <Text style={styles.noDisciplesText}>
-                      Aún no tienes discípulos registrados con cuenta bajo tu cobertura. Tus discípulos pueden inscribirse en la app seleccionándote como su líder.
+                      Aún no tienes discípulos registrados con cuenta bajo tu cobertura. Puedes agregarlos directamente desde la sección Red G12 en &ldquo;Mis 12 Discípulos&rdquo;.
                     </Text>
                   </View>
                 ) : (
@@ -1402,28 +1514,37 @@ export default function AttendanceScreen() {
               </View>
 
               {/* Submit / Update Button */}
-              <TouchableOpacity
-                style={[
-                  styles.submitReportBtn,
-                  submitting && { opacity: 0.6 },
-                  editingReportId ? { backgroundColor: '#D97706' } : {},
-                ]}
-                onPress={handleSubmitLeaderReport}
-                disabled={submitting}
-                activeOpacity={0.85}>
-                <Ionicons
-                  name={editingReportId ? 'checkmark-circle' : 'paper-plane'}
-                  size={20}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.submitReportBtnText}>
-                  {submitting
-                    ? 'Guardando...'
-                    : editingReportId
-                      ? 'Guardar Cambios del Reporte'
-                      : 'Enviar Reporte a mi Pastor'}
-                </Text>
-              </TouchableOpacity>
+              {isFormServiceClosed && !isPastor ? (
+                <View style={styles.submitReportBtnLocked}>
+                  <Ionicons name="lock-closed" size={18} color="#94A3B8" />
+                  <Text style={styles.submitReportBtnLockedText}>
+                    Recepción de Reportes Cerrada Oficialmente
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.submitReportBtn,
+                    submitting && { opacity: 0.6 },
+                    editingReportId ? { backgroundColor: '#D97706' } : {},
+                  ]}
+                  onPress={handleSubmitLeaderReport}
+                  disabled={submitting}
+                  activeOpacity={0.85}>
+                  <Ionicons
+                    name={editingReportId ? 'checkmark-circle' : 'paper-plane'}
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.submitReportBtnText}>
+                    {submitting
+                      ? 'Guardando...'
+                      : editingReportId
+                        ? 'Guardar Cambios del Reporte'
+                        : 'Enviar Reporte a mi Pastor'}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               {/* Recent Reports History with Edit & Delete */}
               <View style={styles.historyCard}>
@@ -1439,6 +1560,7 @@ export default function AttendanceScreen() {
                   .slice(0, 5)
                   .map((r) => {
                     const rSummary = summarizeReports([r], members);
+                    const isClosedR = isReportServiceClosed(r);
                     return (
                       <View key={r.id} style={styles.historyItem}>
                         <Ionicons name="checkmark-done-circle" size={20} color="#10B981" />
@@ -1453,20 +1575,27 @@ export default function AttendanceScreen() {
                             📬 Enviado a: {r.recipientLeaderName || leaderInCharge.name}
                           </Text>
                         </View>
-                        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                          <TouchableOpacity
-                            style={styles.miniActionBtn}
-                            onPress={() => handleStartEditReport(r)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <Ionicons name="pencil" size={13} color="#38BDF8" />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.miniActionBtnDelete}
-                            onPress={() => handleDeleteReport(r)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <Ionicons name="trash-outline" size={13} color="#F87171" />
-                          </TouchableOpacity>
-                        </View>
+                        {isClosedR && !isPastor ? (
+                          <View style={styles.closedMiniBadge}>
+                            <Ionicons name="lock-closed" size={11} color="#EF4444" />
+                            <Text style={styles.closedMiniBadgeText}>Cerrado</Text>
+                          </View>
+                        ) : (
+                          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                            <TouchableOpacity
+                              style={styles.miniActionBtn}
+                              onPress={() => handleStartEditReport(r)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Ionicons name="pencil" size={13} color="#38BDF8" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.miniActionBtnDelete}
+                              onPress={() => handleDeleteReport(r)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Ionicons name="trash-outline" size={13} color="#F87171" />
+                            </TouchableOpacity>
+                          </View>
+                        )}
                       </View>
                     );
                   })}
@@ -1487,7 +1616,7 @@ export default function AttendanceScreen() {
                 </View>
                 <Text style={styles.headerTitle}>Pase & Control de Asistencia</Text>
                 <Text style={styles.headerSubtitle}>
-                  La asistencia del servicio la da el conteo de los reportes: Hombres, Mujeres y Prejuveniles (&lt;14 años)
+                  La asistencia del Servicio la da el conteo de los reportes: Hombres, Mujeres y Prejuveniles (&lt;14 años)
                 </Text>
               </View>
 
@@ -1582,35 +1711,24 @@ export default function AttendanceScreen() {
                         </Text>
                         <Text style={styles.totalBannerNumber}>{serviceSummary.total}</Text>
                         <Text style={styles.totalBannerSub}>
-                          {serviceSummary.reportsCount} reportes recibidos para este servicio
+                          {serviceSummary.reportsCount} reportes recibidos para este Servicio
                         </Text>
                       </View>
                       {isPastor && (
                         <TouchableOpacity
                           style={[
                             styles.saveLiveBtn,
-                            isSaved && !hasNewReportsPending && { backgroundColor: '#059669' },
-                            isSaved && hasNewReportsPending && { backgroundColor: '#D97706' },
+                            isSaved && { backgroundColor: '#059669' },
                           ]}
                           onPress={handleSaveConsolidatedAsOfficial}
                           activeOpacity={0.85}>
                           <Ionicons
-                            name={
-                              isSaved && !hasNewReportsPending
-                                ? 'checkmark-done-circle'
-                                : isSaved && hasNewReportsPending
-                                  ? 'refresh'
-                                  : 'cloud-upload'
-                            }
-                            size={18}
+                            name={isSaved ? 'lock-closed' : 'cloud-upload'}
+                            size={17}
                             color="#FFFFFF"
                           />
                           <Text style={styles.saveLiveBtnText}>
-                            {isSaved && !hasNewReportsPending
-                              ? 'Guardado'
-                              : isSaved && hasNewReportsPending
-                                ? 'Actualizar'
-                                : 'Guardar'}
+                            {isSaved ? 'Cerrado Oficial' : 'Guardar y Cerrar'}
                           </Text>
                         </TouchableOpacity>
                       )}
@@ -1694,11 +1812,11 @@ export default function AttendanceScreen() {
                   {/* Resumen de Líderes agrupados por Líder 12 */}
                   <View style={styles.reportsSummaryCard}>
                     <Text style={styles.sectionHeading}>
-                      Líderes que reportaron para este servicio ({reportsForSelectedService.length})
+                      Líderes que reportaron para este Servicio ({reportsForSelectedService.length})
                     </Text>
                     {reportsForSelectedService.length === 0 ? (
                       <Text style={styles.emptyNoticeText}>
-                        Aún no hay reportes de líderes enviados para este servicio en la fecha {selectedDate}.
+                        Aún no hay reportes de líderes enviados para este Servicio en la fecha {selectedDate}.
                       </Text>
                     ) : (
                       groupedAttendanceReports.map((group) => {
@@ -1774,7 +1892,7 @@ export default function AttendanceScreen() {
                   {reportsForSelectedService.length === 0 ? (
                     <View style={styles.emptyNotice}>
                       <Text style={styles.emptyNoticeText}>
-                        No hay reportes de líderes para este servicio en {selectedDate}.
+                        No hay reportes de líderes para este Servicio en {selectedDate}.
                       </Text>
                     </View>
                   ) : (
@@ -2176,22 +2294,31 @@ export default function AttendanceScreen() {
                         ) : null}
 
                         {/* Botones de Acción */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.06)' }}>
-                          <TouchableOpacity
-                            style={styles.editReportBtn}
-                            onPress={() => handleStartEditReport(rep)}
-                            activeOpacity={0.75}>
-                            <Ionicons name="pencil-outline" size={13} color="#38BDF8" />
-                            <Text style={styles.editReportBtnText}>Editar Reporte</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.deleteReportBtn}
-                            onPress={() => handleDeleteReport(rep)}
-                            activeOpacity={0.75}>
-                            <Ionicons name="trash-outline" size={13} color="#DC2626" />
-                            <Text style={styles.deleteReportBtnText}>Eliminar</Text>
-                          </TouchableOpacity>
-                        </View>
+                        {isReportServiceClosed(rep) && !isPastor ? (
+                          <View style={styles.closedOfficialReportBadge}>
+                            <Ionicons name="lock-closed" size={13} color="#EF4444" />
+                            <Text style={styles.closedOfficialReportBadgeText}>
+                              Asistencia Oficial Cerrada • No modificable
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.06)' }}>
+                            <TouchableOpacity
+                              style={styles.editReportBtn}
+                              onPress={() => handleStartEditReport(rep)}
+                              activeOpacity={0.75}>
+                              <Ionicons name="pencil-outline" size={13} color="#38BDF8" />
+                              <Text style={styles.editReportBtnText}>Editar Reporte</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.deleteReportBtn}
+                              onPress={() => handleDeleteReport(rep)}
+                              activeOpacity={0.75}>
+                              <Ionicons name="trash-outline" size={13} color="#DC2626" />
+                              <Text style={styles.deleteReportBtnText}>Eliminar</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
                       </View>
                     );
                   })}
@@ -2299,6 +2426,89 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FDE68A',
     lineHeight: 18,
+  },
+  lockedServiceNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+  },
+  lockedServiceNoticeIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  lockedServiceNoticeTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FCA5A5',
+  },
+  lockedServiceNoticeDesc: {
+    fontSize: 12,
+    color: '#FECACA',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  submitReportBtnLocked: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 8,
+  },
+  submitReportBtnLockedText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  closedMiniBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  closedMiniBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F87171',
+  },
+  closedOfficialReportBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 10,
+  },
+  closedOfficialReportBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FCA5A5',
   },
   emptyContainer: {
     backgroundColor: 'rgba(15, 23, 42, 0.65)',

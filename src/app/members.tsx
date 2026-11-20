@@ -1,3 +1,4 @@
+import { DatePickerField } from '@/components/date-picker-field';
 import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 import { calcAge } from '@/lib/attendance';
@@ -49,6 +50,7 @@ export default function MembersScreen() {
   const [role, setRole] = useState<MemberRole>('member');
   const [familyName, setFamilyName] = useState('');
   const [notes, setNotes] = useState('');
+  const [password, setPassword] = useState('');
   const [newMemberLeaderId, setNewMemberLeaderId] = useState<string | undefined>(undefined);
 
   // Gestión Pastoral (Bloquear y Cambiar Líder)
@@ -187,7 +189,11 @@ export default function MembersScreen() {
         ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
         : undefined;
 
-    await addMember({
+    const rawNetwork = assignedLeader?.network || currentUser?.network;
+    const resolvedNetwork: 'juvenil' | 'adulta' =
+      rawNetwork === 'adulta' ? 'adulta' : 'juvenil';
+
+    const result = await addMember({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       username: cleanUsername,
@@ -196,18 +202,28 @@ export default function MembersScreen() {
       gender,
       birthDate: birthDate.trim() || undefined,
       role: isLeaderDisciplesMode ? 'member' : role,
-      network: 'general',
+      network: resolvedNetwork,
       leaderId: assignedLeaderId,
       leaderName: assignedLeaderName,
       familyName: familyName.trim() || `Familia ${lastName.trim()}`,
       isActive: true,
-      notes: notes.trim(),
+      notes: notes.trim() || undefined,
+      password: password.trim() || undefined,
     });
+
+    if (!result.success) {
+      Alert.alert(
+        'Error al guardar',
+        result.error || 'No se pudo registrar en la base de datos.'
+      );
+      return;
+    }
 
     setIsAddModalOpen(false);
     setFirstName('');
     setLastName('');
     setUsername('');
+    setPassword('');
     setPhone('');
     setAvatarUrl(null);
     setBirthDate('');
@@ -361,15 +377,17 @@ export default function MembersScreen() {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => setIsAddModalOpen(true)}
-              activeOpacity={0.8}>
-              <Ionicons name="person-add" size={16} color="#FFFFFF" />
-              <Text style={styles.addBtnText}>
-                {isLeaderDisciplesMode ? 'Agregar Discípulo' : 'Añadir'}
-              </Text>
-            </TouchableOpacity>
+            {(isPastor || isLeaderDisciplesMode) && (
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={() => setIsAddModalOpen(true)}
+                activeOpacity={0.8}>
+                <Ionicons name="person-add" size={16} color="#FFFFFF" />
+                <Text style={styles.addBtnText}>
+                  {isLeaderDisciplesMode ? 'Agregar Discípulo' : 'Añadir'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -543,7 +561,7 @@ export default function MembersScreen() {
                           <Text style={styles.memberName}>
                             {member.firstName} {member.lastName}
                           </Text>
-                          {member.username && (
+                          {Boolean(member.username) && (
                             <Text style={styles.memberUsername}>@{member.username}</Text>
                           )}
                         </View>
@@ -586,7 +604,7 @@ export default function MembersScreen() {
                         </Text>
                       )}
 
-                      {member.familyName && (
+                      {Boolean(member.familyName) && (
                         <Text style={styles.familyNameText}>🏡 {member.familyName}</Text>
                       )}
 
@@ -620,7 +638,7 @@ export default function MembersScreen() {
                     </View>
                   </View>
 
-                  {member.notes && (
+                  {Boolean(member.notes) && (
                     <View style={styles.notesContainer}>
                       <Ionicons
                         name="chatbox-ellipses-outline"
@@ -785,7 +803,7 @@ export default function MembersScreen() {
                     </Text>
                   </TouchableOpacity>
 
-                  {avatarUrl && (
+                  {Boolean(avatarUrl) && (
                     <TouchableOpacity
                       style={styles.removePhotoBtn}
                       onPress={() => setAvatarUrl(null)}>
@@ -826,6 +844,20 @@ export default function MembersScreen() {
               />
               <Text style={styles.fieldHelpText}>
                 Este usuario permitirá a la persona iniciar sesión en la app.
+              </Text>
+
+              {/* Contraseña Opcional */}
+              <Text style={styles.formLabel}>Contraseña de Acceso (Opcional)</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="Mínimo 6 caracteres (ej: 123456)"
+                placeholderTextColor="#64748B"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+              <Text style={styles.fieldHelpText}>
+                Opcional. Si la defines, la persona podrá ingresar a la app con su usuario y esta contraseña.
               </Text>
 
               {/* Teléfono Opcional */}
@@ -871,26 +903,36 @@ export default function MembersScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.formLabel}>Fecha de Nacimiento (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Ej: 2004-06-15"
-                placeholderTextColor="#64748B"
+              <DatePickerField
+                label="Fecha de Nacimiento"
                 value={birthDate}
-                onChangeText={setBirthDate}
+                onChange={setBirthDate}
+                placeholder="Seleccionar fecha (Día Mes Año)"
               />
               {calcAge(birthDate) !== undefined && (
-                <Text
+                <View
                   style={{
-                    fontSize: 12,
-                    color: '#38BDF8',
-                    fontWeight: '700',
-                    marginTop: -4,
-                    marginBottom: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(56, 189, 248, 0.28)',
+                    borderRadius: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    marginTop: 6,
+                    marginBottom: 14,
                   }}>
-                  Edad calculada: {calcAge(birthDate)} años{' '}
-                  {calcAge(birthDate)! < 14 ? '• Prejuvenil (<14)' : ''}
-                </Text>
+                  <Ionicons name="sparkles" size={16} color="#38BDF8" />
+                  <Text style={{ fontSize: 13, color: '#38BDF8', fontWeight: '600' }}>
+                    Edad calculada:{' '}
+                    <Text style={{ color: '#F8FAFC', fontWeight: '800' }}>
+                      {calcAge(birthDate)} años
+                    </Text>
+                    {calcAge(birthDate)! < 14 ? ' • 🎒 Categoría Prejuvenil (<14)' : ''}
+                  </Text>
+                </View>
               )}
 
               {/* Si es pastor, permitir seleccionar Rol, Red y Líder */}
@@ -1091,20 +1133,32 @@ export default function MembersScreen() {
                 {/* Fecha de Cumpleaños / Nacimiento */}
                 <View style={styles.manageSection}>
                   <Text style={styles.manageSectionTitle}>Fecha de Cumpleaños / Nacimiento</Text>
-                  <Text style={[styles.currentLeaderLabel, { marginBottom: 6 }]}>
-                    Formato: <Text style={{ fontWeight: '700', color: '#F1F5F9' }}>YYYY-MM-DD (Ej: 1995-05-20)</Text>
-                  </Text>
-                  <TextInput
-                    style={[styles.formInput, { marginBottom: 8 }]}
-                    placeholder="YYYY-MM-DD (Ej: 1995-05-20)"
-                    placeholderTextColor="#64748B"
+                  <DatePickerField
+                    label="Fecha de Nacimiento"
                     value={managedBirthDate}
-                    onChangeText={setManagedBirthDate}
+                    onChange={setManagedBirthDate}
+                    placeholder="Seleccionar fecha (Día Mes Año)"
                   />
                   {calcAge(managedBirthDate) !== undefined && (
-                    <Text style={{ fontSize: 12, color: '#38BDF8', fontWeight: '700', marginBottom: 8 }}>
-                      Edad calculada: {calcAge(managedBirthDate)} años
-                    </Text>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(56, 189, 248, 0.28)',
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        marginTop: 4,
+                        marginBottom: 12,
+                      }}>
+                      <Ionicons name="sparkles" size={14} color="#38BDF8" />
+                      <Text style={{ fontSize: 12, color: '#38BDF8', fontWeight: '700' }}>
+                        Edad calculada: {calcAge(managedBirthDate)} años
+                      </Text>
+                    </View>
                   )}
                   <TouchableOpacity
                     style={styles.saveBirthDateBtn}

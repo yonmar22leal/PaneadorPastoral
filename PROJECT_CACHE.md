@@ -192,7 +192,7 @@
 - `src/app/planner/[id].tsx`: Detalle del evento / Orden de Culto. Timeline interactivo del cronograma, lista de servidores, exportación formateada a WhatsApp y visualización según permisos.
 - `src/app/planner/editor.tsx`: Diseñador completo de cultos. Configuración de predicador, director de alabanza, bloques litúrgicos con minutos acumulativos y asignación de ministerios y voluntarios.
 - `src/app/cells.tsx`: Gestión celular G12. Listado de células por red, modal de creación y formulario de reporte semanal de reunión con cálculo de ofrendas.
-- `src/app/attendance.tsx`: Reporte y consolidación de asistencia al servicio dominical. Vista de pastores (métricas consolidadas y filtros por fecha) y vista de líderes (marcado de discípulos e invitados).
+- `src/app/attendance.tsx`: Reporte y consolidación de asistencia al Servicio. Vista de pastores (métricas consolidadas y filtros por fecha) y vista de líderes (marcado de discípulos e invitados).
 - `src/app/members.tsx`: Directorio de miembros y árbol de los 12. Búsqueda rápida, filtro por red, rol y adición de nuevos miembros.
 - `src/app/kids.tsx`: Ministerio Infantil. Check-in con asignación de código aleatorio (`KID-XXXX`), aulas por edad, alertas de alergias y confirmación de retiro seguro.
 - `src/app/ministries.tsx`: Configuración de ministerios permanentes, colores distintivos, iconos y asignación de coordinadores y roles.
@@ -208,7 +208,7 @@
 - `src/lib/attendance.ts`: Funciones puras de cálculo de edad, clasificación demográfica y consolidación/deduplicación de asistencia.
 - `src/lib/events.ts`: Formateo de fechas, cálculo de cuadrícula de calendario mensual, plantillas de culto y normalización de eventos.
 - `src/lib/supabase.ts`: Instancia del cliente de Supabase con AsyncStorage como auth storage en React Native.
-- `src/data/mockChurchData.ts`: Datos iniciales de reserva (servicios regulares, aulas infantiles, ministerios base).
+- `src/data/mockChurchData.ts`: Datos iniciales de reserva (Servicios regulares, aulas infantiles, ministerios base).
 
 ---
 
@@ -239,7 +239,7 @@ erDiagram
 
 ### Tablas Principales:
 1. `churches`: Entidad iglesia principal (`id = 11111111-1111-1111-1111-111111111111`).
-2. `church_services`: Los 4 servicios oficiales (`domingo_adultos_1`, `domingo_juvenil`, `domingo_adultos_2`, `viernes_adoracion`).
+2. `church_services`: Los 4 Servicios oficiales (`domingo_adultos_1`, `domingo_juvenil`, `domingo_adultos_2`, `viernes_adoracion`).
 3. `members`: Miembros con autorreferencia `leader_id`, `role`, `network`, `gender`, `generation_level` y `is_leader_of_12`.
 4. `cell_groups`: Células registradas con `cell_leader_name`, `leader_id`, `host_name`, día y red.
 5. `cell_meeting_reports`: Reportes semanales de reunión con `members_list` (JSONB), `visitors_list` (JSONB) y `offering_details` (JSONB).
@@ -283,12 +283,12 @@ cmd /c npx eas-cli build --profile preview --platform android       # Genera APK
 ## 8. REGLAS DE NEGOCIO, TERMINOLOGÍA Y SEGURIDAD RECIENTES
 
 1. **Terminología Estandarizada ("Servicio" en lugar de "Culto")**:
-   - Se ha reemplazado la palabra "culto" por "servicio" en toda la interfaz de usuario, títulos, botones, badges, modales y placeholders (ej. *Órdenes de servicio*, *Reporte de servicios*, *Próximo servicio*, *Puestos de servicio en servicios*).
+   - Se ha reemplazado la palabra "culto" por "Servicio" en toda la interfaz de usuario, títulos, botones, badges, modales y placeholders (ej. *Órdenes de Servicio*, *Reporte de Servicios*, *Próximo Servicio*, *Puestos de Servicio en Servicios*).
    - Ninguna pantalla visible ni componente usa ya la palabra "culto".
 
 2. **Diferenciación de Servicios Dominicales vs. Servicio de Adoración**:
-   - En las pantallas de consulta de congregación habitual (`register.tsx` y `profile.tsx`), **solo se muestran los servicios dominicales habituales** (`domingo_adultos_1`, `domingo_juvenil`, `domingo_adultos_2`).
-   - El **Servicio de Adoración** (viernes) **no aparece** en la pregunta *"¿A qué servicio asistes habitualmente?"*, quedando reservado exclusivamente para la creación, coordinación y programación de actividades en el planeador de servicios (`planner/` y `ChurchServicesSchedule`).
+   - En las pantallas de consulta de congregación habitual (`register.tsx` y `profile.tsx`), **solo se muestran los Servicios dominicales habituales** (`domingo_adultos_1`, `domingo_juvenil`, `domingo_adultos_2`).
+   - El **Servicio de Adoración** (viernes) **no aparece** en la pregunta *"¿A qué Servicio asistes habitualmente?"*, quedando reservado exclusivamente para la creación, coordinación y programación de actividades en el planeador de Servicios (`planner/` y `ChurchServicesSchedule`).
 
 3. **Eliminación de Peticiones de Oración en Formularios Personales**:
    - Se ha removido el campo y la sección de "Petición de Oración" tanto en el registro de miembros (`register.tsx`) como en la configuración del perfil (`profile.tsx`), manteniendo los flujos limpios y enfocados en datos personales, cobertura G12 y credenciales.
@@ -322,7 +322,7 @@ cmd /c npx eas-cli build --profile preview --platform android       # Genera APK
 10. **Segregación Estricta de Permisos: Reportes Totales (Pastoral) vs Reportes Individuales**:
     - **Definición Pastoral:** `isPastor` identifica a Pastores Principales y Pastores de Red (`currentUser?.role === 'senior_pastor' || currentUser?.role === 'network_pastor'`).
     - **Asistencia Dominical (`attendance.tsx`):**
-      - **Solo Pastores:** Acceso al *Conteo por Reportes (Consolidado General)* con Gran Total del servicio (Hombres, Mujeres, Prejuveniles <14 y Visitas), guardado oficial de asistencia y vista de todos los reportes agrupados por Líder 12 de la congregación.
+      - **Solo Pastores:** Acceso al *Conteo por Reportes (Consolidado General)* con Gran Total del Servicio (Hombres, Mujeres, Prejuveniles <14 y Visitas), guardado oficial de asistencia y vista de todos los reportes agrupados por Líder 12 de la congregación.
       - **Demás Miembros y Líderes:** Tienen bloqueado el acceso a totales generales. Cuentan con el modo de *Envío de Reporte* y la pestaña *Mis Reportes Individuales*, donde consultan, editan y eliminan exclusivamente los reportes que ellos mismos han enviado con su desglose de aporte personal.
     - **Células de Crecimiento (`cells.tsx`):**
       - **Solo Pastores:** Acceso a la *Planilla Excel Consolidada* con todas las células de la iglesia, subtotales de Líder 12, fila inferior de TOTALES, modal a pantalla completa con zoom y descarga de archivo `.xls`, además del resumen financiero global de ofrendas ($ USD, Bs. Efectivo y Pago Móvil).

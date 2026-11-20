@@ -553,10 +553,13 @@ export default function ProfileScreen() {
               placeholder="Seleccionar fecha (Día Mes Año)"
             />
             {calcAge(birthDate) !== undefined && (
-              <Text style={styles.ageIndicatorText}>
-                🎂 Edad calculada: {calcAge(birthDate)} años{' '}
-                {calcAge(birthDate)! < 14 ? '• Prejuvenil (<14)' : ''}
-              </Text>
+              <View style={styles.ageCardBanner}>
+                <Ionicons name="sparkles" size={16} color="#38BDF8" />
+                <Text style={styles.ageCardBannerText}>
+                  Edad calculada: <Text style={{ color: '#F8FAFC', fontWeight: '800' }}>{calcAge(birthDate)} años</Text>
+                  {calcAge(birthDate)! < 14 ? ' • 🎒 Categoría Prejuvenil (<14)' : ''}
+                </Text>
+              </View>
             )}
 
             <Text style={styles.fieldLabel}>Familia / Apellido Familiar</Text>
@@ -996,9 +999,33 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
+    paddingVertical: 12,
+    fontSize: 15,
     color: '#FFFFFF',
+    ...(Platform.OS === 'web'
+      ? ({
+          outlineStyle: 'none',
+          outlineWidth: 0,
+        } as any)
+      : {}),
+  },
+  ageCardBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.28)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  ageCardBannerText: {
+    fontSize: 13,
+    color: '#38BDF8',
+    fontWeight: '600',
   },
   ageIndicatorText: {
     fontSize: 12,
@@ -1222,9 +1249,15 @@ const styles = StyleSheet.create({
   },
   passwordInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     color: '#FFFFFF',
     paddingVertical: 10,
+    ...(Platform.OS === 'web'
+      ? ({
+          outlineStyle: 'none',
+          outlineWidth: 0,
+        } as any)
+      : {}),
   },
   saveButton: {
     backgroundColor: '#0284C7',

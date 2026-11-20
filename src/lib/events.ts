@@ -4,14 +4,14 @@ export const EVENT_TYPE_META: Record<
   ChurchEventType,
   { label: string; icon: string; color: string; soft: string }
 > = {
-  servicio: { label: 'Servicio', icon: 'sunny', color: '#2563EB', soft: '#DBEAFE' },
+  Servicio: { label: 'Servicio', icon: 'sunny', color: '#2563EB', soft: '#DBEAFE' },
   evento: { label: 'Evento', icon: 'calendar', color: '#7C3AED', soft: '#EDE9FE' },
 };
 
-export const EVENT_TYPES: ChurchEventType[] = ['servicio', 'evento'];
+export const EVENT_TYPES: ChurchEventType[] = ['Servicio', 'evento'];
 
 export function normalizeEventType(type?: string): ChurchEventType {
-  if (type === 'servicio' || type === 'servicio_domingo') return 'servicio';
+  if (type === 'Servicio' || type === 'Servicio_domingo') return 'Servicio';
   return 'evento';
 }
 
@@ -134,7 +134,7 @@ export function scheduleEndTime(ev: Pick<ChurchEvent, 'time' | 'schedule'>): str
 type TemplateItem = Pick<ServiceScheduleItem, 'title' | 'durationMinutes' | 'type' | 'responsible'>;
 
 const TEMPLATES: Record<ChurchEventType, TemplateItem[]> = {
-  servicio: [
+  Servicio: [
     { title: 'Bienvenida', durationMinutes: 10, type: 'welcome', responsible: '' },
     { title: 'Alabanza & Adoración', durationMinutes: 25, type: 'worship', responsible: 'Voz Profetica' },
     { title: 'Mensaje de la Palabra', durationMinutes: 45, type: 'preaching', responsible: '' },

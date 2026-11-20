@@ -2312,9 +2312,9 @@ ${groupedSheetData.leaderGroups
                 <View style={styles.recipientBanner}>
                   <Ionicons name="paper-plane" size={16} color="#2563EB" />
                   <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={styles.recipientBannerTitle}>Líder Encargado (Recibe este Reporte):</Text>
+                    <Text style={styles.recipientBannerTitle}>Líder Encargado:</Text>
                     <Text style={styles.recipientBannerName}>
-                      {leaderInCharge.name} (Cobertura Pastoral)
+                      {leaderInCharge.name}
                     </Text>
                   </View>
                 </View>
@@ -2808,14 +2808,14 @@ ${groupedSheetData.leaderGroups
                     style={[
                       Platform.OS === 'web'
                         ? ({
-                            zoom: sheetZoom,
-                            width: 1290,
-                          } as any)
+                          zoom: sheetZoom,
+                          width: 1290,
+                        } as any)
                         : {
-                            width: 1290,
-                            transform: [{ scale: sheetZoom }],
-                            transformOrigin: 'top left',
-                          },
+                          width: 1290,
+                          transform: [{ scale: sheetZoom }],
+                          transformOrigin: 'top left',
+                        },
                     ]}>
                     {renderSheetTableContent()}
                   </View>

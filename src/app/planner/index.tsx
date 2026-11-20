@@ -1,13 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { DoodleBackground } from '@/components/doodle-background';
-import { useChurch } from '@/context/ChurchContext';
 import { EventCard } from '@/components/event-card';
+import { useChurch } from '@/context/ChurchContext';
 import {
   EVENT_TYPE_META,
   EVENT_TYPES,
@@ -22,6 +15,13 @@ import {
   WEEKDAY_SHORT_LABELS,
 } from '@/lib/events';
 import { ChurchEvent, ChurchEventType } from '@/types/church';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useMemo, useState } from 'react';
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function EventsListScreen() {
   const router = useRouter();
@@ -159,477 +159,477 @@ export default function EventsListScreen() {
       <StatusBar style="light" />
       <DoodleBackground>
         <ScrollView contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
-        {/* HERO HEADER GLASS */}
-        <LinearGradient
-          colors={['rgba(15, 23, 42, 0.95)', 'rgba(30, 58, 138, 0.38)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}>
-          <View style={styles.heroTopRow}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
-              activeOpacity={0.8}>
-              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.heroKicker}>
-                {canManageEvents ? 'PLANEADOR PASTORAL' : 'CRONOGRAMA DE LA IGLESIA'}
-              </Text>
-              <Text style={styles.heroTitle}>Servicios & Eventos</Text>
-            </View>
-          </View>
-          <Text style={styles.heroSubtitle}>
-            {canManageEvents
-              ? 'Organiza el orden del servicio dominical y el cronograma de actividades.'
-              : 'Consulta el orden y los horarios de cada servicio y evento.'}
-          </Text>
-
-          {/* ACCIONES RÁPIDAS PARA PASTORES */}
-          {canManageEvents && (
-            <View style={styles.createRow}>
+          {/* HERO HEADER GLASS */}
+          <LinearGradient
+            colors={['rgba(15, 23, 42, 0.95)', 'rgba(30, 58, 138, 0.38)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.hero}>
+            <View style={styles.heroTopRow}>
               <TouchableOpacity
-                style={styles.createPrimary}
-                activeOpacity={0.85}
-                onPress={() => router.push('/planner/editor?type=servicio' as any)}>
-                <View style={styles.createIcon}>
-                  <Ionicons name="sunny" size={20} color="#38BDF8" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.createPrimaryTitle}>+ Servicio</Text>
-                  <Text style={styles.createPrimarySub}>Orden de servicio</Text>
-                </View>
-                <Ionicons name="add-circle" size={22} color="#38BDF8" />
+                style={styles.backButton}
+                onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as any))}
+                activeOpacity={0.8}>
+                <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.createSecondary}
-                activeOpacity={0.85}
-                onPress={() =>
-                  router.push(
-                    `/planner/editor?type=evento${selectedDate ? `&date=${selectedDate}` : ''}` as any
-                  )
-                }>
-                <View style={styles.createSecondaryIcon}>
-                  <Ionicons name="calendar" size={18} color="#C4B5FD" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.createSecondaryTitle}>+ Evento</Text>
-                  <Text style={styles.createSecondarySub}>Actividad especial</Text>
-                </View>
-                <Ionicons name="add-circle" size={22} color="#A78BFA" />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* ACCESO A MINISTERIOS */}
-          <TouchableOpacity
-            style={styles.ministryPlannerPill}
-            onPress={() => router.push('/ministries' as any)}
-            activeOpacity={0.85}>
-            <Ionicons name="ribbon" size={15} color="#38BDF8" />
-            <Text style={styles.ministryPlannerPillText}>
-              Ministerios & Coordinadores (Alabanza, Medios, Protocolo)
-            </Text>
-            <Ionicons name="chevron-forward" size={14} color="#38BDF8" />
-          </TouchableOpacity>
-
-          {/* AVISO DE COORDINACIÓN PARA NO-PASTORES */}
-          {!canManageEvents && myCoordinatedUpcoming.length > 0 && (
-            <TouchableOpacity
-              style={styles.coordPlannerBanner}
-              activeOpacity={0.85}
-              onPress={() => router.push(`/planner/${myCoordinatedUpcoming[0].id}` as any)}>
-              <View style={styles.coordPlannerDot} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.coordPlannerTitle}>
-                  ¡Tienes servicios asignados para coordinar!
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.heroKicker}>
+                  {canManageEvents ? 'PLANEADOR PASTORAL' : 'CRONOGRAMA DE LA IGLESIA'}
                 </Text>
-                <Text style={styles.coordPlannerSub}>
-                  {myCoordinatedUpcoming[0].title} · {formatEventDate(myCoordinatedUpcoming[0].date)}
-                </Text>
+                <Text style={styles.heroTitle}>Servicios & Eventos</Text>
               </View>
-              <Text style={styles.coordPlannerAction}>Entrar →</Text>
-            </TouchableOpacity>
-          )}
+            </View>
+            <Text style={styles.heroSubtitle}>
+              {canManageEvents
+                ? 'Organiza el orden del Servicio y el cronograma de actividades.'
+                : 'Consulta el orden y los horarios de cada Servicio y evento.'}
+            </Text>
 
-          {/* TOGGLE VISTA: LISTA VS CALENDARIO */}
-          <View style={styles.viewToggle}>
-            <TouchableOpacity
-              style={[styles.viewToggleBtn, viewMode === 'calendar' && styles.viewToggleBtnActive]}
-              onPress={() => setViewMode('calendar')}>
-              <Ionicons
-                name="calendar"
-                size={16}
-                color={viewMode === 'calendar' ? '#FFFFFF' : '#94A3B8'}
-              />
-              <Text
-                style={[
-                  styles.viewToggleText,
-                  viewMode === 'calendar' && styles.viewToggleTextActive,
-                ]}>
-                Calendario
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive]}
-              onPress={() => setViewMode('list')}>
-              <Ionicons
-                name="list"
-                size={16}
-                color={viewMode === 'list' ? '#FFFFFF' : '#94A3B8'}
-              />
-              <Text
-                style={[
-                  styles.viewToggleText,
-                  viewMode === 'list' && styles.viewToggleTextActive,
-                ]}>
-                Lista ({upcoming.length})
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-
-        {/* CONTENIDO SEGÚN MODO DE VISTA */}
-        {viewMode === 'calendar' ? (
-          /* ============================================================ */
-          /* MODO CALENDARIO MENSUAL                                      */
-          /* ============================================================ */
-          <View style={styles.calendarContainer}>
-            {/* CABECERA DEL MES Y NAVEGACIÓN */}
-            <View style={styles.monthHeaderCard}>
-              <View style={styles.monthNavRow}>
+            {/* ACCIONES RÁPIDAS PARA PASTORES */}
+            {canManageEvents && (
+              <View style={styles.createRow}>
                 <TouchableOpacity
-                  style={styles.monthNavBtn}
-                  onPress={goToPrevMonth}
-                  accessibilityLabel="Mes anterior">
-                  <Ionicons name="chevron-back" size={20} color="#38BDF8" />
+                  style={styles.createPrimary}
+                  activeOpacity={0.85}
+                  onPress={() => router.push('/planner/editor?type=Servicio' as any)}>
+                  <View style={styles.createIcon}>
+                    <Ionicons name="sunny" size={20} color="#38BDF8" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.createPrimaryTitle}>+ Servicio</Text>
+                    <Text style={styles.createPrimarySub}>Orden de Servicio</Text>
+                  </View>
+                  <Ionicons name="add-circle" size={22} color="#38BDF8" />
                 </TouchableOpacity>
 
-                <View style={styles.monthTitleWrapper}>
-                  <Text style={styles.monthTitle}>
-                    {MONTH_NAMES[calMonth]} {calYear}
+                <TouchableOpacity
+                  style={styles.createSecondary}
+                  activeOpacity={0.85}
+                  onPress={() =>
+                    router.push(
+                      `/planner/editor?type=evento${selectedDate ? `&date=${selectedDate}` : ''}` as any
+                    )
+                  }>
+                  <View style={styles.createSecondaryIcon}>
+                    <Ionicons name="calendar" size={18} color="#C4B5FD" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.createSecondaryTitle}>+ Evento</Text>
+                    <Text style={styles.createSecondarySub}>Actividad especial</Text>
+                  </View>
+                  <Ionicons name="add-circle" size={22} color="#A78BFA" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* ACCESO A MINISTERIOS */}
+            <TouchableOpacity
+              style={styles.ministryPlannerPill}
+              onPress={() => router.push('/ministries' as any)}
+              activeOpacity={0.85}>
+              <Ionicons name="ribbon" size={15} color="#38BDF8" />
+              <Text style={styles.ministryPlannerPillText}>
+                Ministerios & Coordinadores (Alabanza, Medios, Protocolo)
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color="#38BDF8" />
+            </TouchableOpacity>
+
+            {/* AVISO DE COORDINACIÓN PARA NO-PASTORES */}
+            {!canManageEvents && myCoordinatedUpcoming.length > 0 && (
+              <TouchableOpacity
+                style={styles.coordPlannerBanner}
+                activeOpacity={0.85}
+                onPress={() => router.push(`/planner/${myCoordinatedUpcoming[0].id}` as any)}>
+                <View style={styles.coordPlannerDot} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.coordPlannerTitle}>
+                    ¡Tienes Servicios asignados para coordinar!
+                  </Text>
+                  <Text style={styles.coordPlannerSub}>
+                    {myCoordinatedUpcoming[0].title} · {formatEventDate(myCoordinatedUpcoming[0].date)}
                   </Text>
                 </View>
+                <Text style={styles.coordPlannerAction}>Entrar →</Text>
+              </TouchableOpacity>
+            )}
 
-                <TouchableOpacity
-                  style={styles.monthNavBtn}
-                  onPress={goToNextMonth}
-                  accessibilityLabel="Mes siguiente">
-                  <Ionicons name="chevron-forward" size={20} color="#38BDF8" />
-                </TouchableOpacity>
-              </View>
+            {/* TOGGLE VISTA: LISTA VS CALENDARIO */}
+            <View style={styles.viewToggle}>
+              <TouchableOpacity
+                style={[styles.viewToggleBtn, viewMode === 'calendar' && styles.viewToggleBtnActive]}
+                onPress={() => setViewMode('calendar')}>
+                <Ionicons
+                  name="calendar"
+                  size={16}
+                  color={viewMode === 'calendar' ? '#FFFFFF' : '#94A3B8'}
+                />
+                <Text
+                  style={[
+                    styles.viewToggleText,
+                    viewMode === 'calendar' && styles.viewToggleTextActive,
+                  ]}>
+                  Calendario
+                </Text>
+              </TouchableOpacity>
 
-              {!isCurrentMonthViewing && (
-                <TouchableOpacity style={styles.todayPill} onPress={goToToday}>
-                  <Ionicons name="today-outline" size={13} color="#38BDF8" />
-                  <Text style={styles.todayPillText}>Ir al mes actual</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive]}
+                onPress={() => setViewMode('list')}>
+                <Ionicons
+                  name="list"
+                  size={16}
+                  color={viewMode === 'list' ? '#FFFFFF' : '#94A3B8'}
+                />
+                <Text
+                  style={[
+                    styles.viewToggleText,
+                    viewMode === 'list' && styles.viewToggleTextActive,
+                  ]}>
+                  Lista ({upcoming.length})
+                </Text>
+              </TouchableOpacity>
             </View>
+          </LinearGradient>
 
-            {/* CUADRÍCULA DEL CALENDARIO */}
-            <View style={styles.calendarCard}>
-              {/* DÍAS DE LA SEMANA */}
-              <View style={styles.weekdaysHeader}>
-                {WEEKDAY_SHORT_LABELS.map((label, idx) => (
-                  <View key={label} style={styles.weekdayCell}>
-                    <Text style={[styles.weekdayLabel, idx === 0 && styles.weekdaySunday]}>
-                      {label}
+          {/* CONTENIDO SEGÚN MODO DE VISTA */}
+          {viewMode === 'calendar' ? (
+            /* ============================================================ */
+            /* MODO CALENDARIO MENSUAL                                      */
+            /* ============================================================ */
+            <View style={styles.calendarContainer}>
+              {/* CABECERA DEL MES Y NAVEGACIÓN */}
+              <View style={styles.monthHeaderCard}>
+                <View style={styles.monthNavRow}>
+                  <TouchableOpacity
+                    style={styles.monthNavBtn}
+                    onPress={goToPrevMonth}
+                    accessibilityLabel="Mes anterior">
+                    <Ionicons name="chevron-back" size={20} color="#38BDF8" />
+                  </TouchableOpacity>
+
+                  <View style={styles.monthTitleWrapper}>
+                    <Text style={styles.monthTitle}>
+                      {MONTH_NAMES[calMonth]} {calYear}
                     </Text>
                   </View>
-                ))}
+
+                  <TouchableOpacity
+                    style={styles.monthNavBtn}
+                    onPress={goToNextMonth}
+                    accessibilityLabel="Mes siguiente">
+                    <Ionicons name="chevron-forward" size={20} color="#38BDF8" />
+                  </TouchableOpacity>
+                </View>
+
+                {!isCurrentMonthViewing && (
+                  <TouchableOpacity style={styles.todayPill} onPress={goToToday}>
+                    <Ionicons name="today-outline" size={13} color="#38BDF8" />
+                    <Text style={styles.todayPillText}>Ir al mes actual</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              {/* DÍAS DEL MES POR SEMANAS (DOM A SÁB) */}
-              <View style={styles.daysContainer}>
-                {calendarWeeks.map((week, wIdx) => (
-                  <View key={wIdx} style={styles.weekRow}>
-                    {week.map((item) => {
-                      const dayEvents = eventsByDate[item.date] ?? [];
-                      const isSelected = item.date === selectedDate;
-                      const hasServices = dayEvents.some((e: ChurchEvent) => normalizeEventType(e.type) === 'servicio');
-                      const hasEvents = dayEvents.some((e: ChurchEvent) => normalizeEventType(e.type) === 'evento');
-                      const hasBirthdays = members.some((m) => isBirthdayOnDate(m.birthDate, item.date));
-
-                      return (
-                        <TouchableOpacity
-                          key={item.date}
-                          activeOpacity={0.7}
-                          style={[
-                            styles.dayCell,
-                            isSelected && styles.dayCellSelected,
-                            item.isToday && !isSelected && styles.dayCellToday,
-                          ]}
-                          onPress={() => setSelectedDate(item.date)}>
-                          <Text
-                            style={[
-                              styles.dayCellText,
-                              !item.isCurrentMonth && styles.dayCellMuted,
-                              item.isSunday && item.isCurrentMonth && !isSelected && styles.dayCellSundayText,
-                              item.isToday && !isSelected && styles.dayCellTodayText,
-                              isSelected && styles.dayCellSelectedText,
-                            ]}>
-                            {item.dayNumber}
-                          </Text>
-
-                          {/* PUNTOS INDICADORES DE SERVICIOS / EVENTOS Y CUMPLEAÑOS */}
-                          <View style={styles.dotsRow}>
-                            {hasServices && (
-                              <View
-                                style={[
-                                  styles.eventDot,
-                                  { backgroundColor: isSelected ? '#FFFFFF' : '#2563EB' },
-                                ]}
-                              />
-                            )}
-                            {hasEvents && (
-                              <View
-                                style={[
-                                  styles.eventDot,
-                                  { backgroundColor: isSelected ? '#E9D5FF' : '#7C3AED' },
-                                ]}
-                              />
-                            )}
-                            {hasBirthdays && (
-                              <Text style={{ fontSize: 8, lineHeight: 10 }}>🎂</Text>
-                            )}
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                ))}
-              </View>
-
-              {/* LEYENDA DEL CALENDARIO */}
-              <View style={styles.calendarLegend}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#2563EB' }]} />
-                  <Text style={styles.legendText}>Servicio</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#7C3AED' }]} />
-                  <Text style={styles.legendText}>Evento</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <Text style={{ fontSize: 11 }}>🎂</Text>
-                  <Text style={styles.legendText}>Cumpleaños</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={styles.legendTodayRing} />
-                  <Text style={styles.legendText}>Hoy</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* SECCIÓN DEL DÍA SELECCIONADO */}
-            <View style={styles.selectedDayHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.selectedDayTitle}>
-                    {formatEventDate(selectedDate)}
-                  </Text>
-                  {relativeDayLabel(selectedDate) && (
-                    <View style={styles.relativeBadge}>
-                      <Text style={styles.relativeBadgeText}>
-                        {relativeDayLabel(selectedDate)}
+              {/* CUADRÍCULA DEL CALENDARIO */}
+              <View style={styles.calendarCard}>
+                {/* DÍAS DE LA SEMANA */}
+                <View style={styles.weekdaysHeader}>
+                  {WEEKDAY_SHORT_LABELS.map((label, idx) => (
+                    <View key={label} style={styles.weekdayCell}>
+                      <Text style={[styles.weekdayLabel, idx === 0 && styles.weekdaySunday]}>
+                        {label}
                       </Text>
                     </View>
-                  )}
+                  ))}
                 </View>
-                <Text style={styles.selectedDayCount}>
-                  {selectedDayEvents.length === 0
-                    ? 'Sin eventos oficiales'
-                    : `${selectedDayEvents.length} actividad${selectedDayEvents.length > 1 ? 'es' : ''}`}
-                </Text>
+
+                {/* DÍAS DEL MES POR SEMANAS (DOM A SÁB) */}
+                <View style={styles.daysContainer}>
+                  {calendarWeeks.map((week, wIdx) => (
+                    <View key={wIdx} style={styles.weekRow}>
+                      {week.map((item) => {
+                        const dayEvents = eventsByDate[item.date] ?? [];
+                        const isSelected = item.date === selectedDate;
+                        const hasServices = dayEvents.some((e: ChurchEvent) => normalizeEventType(e.type) === 'Servicio');
+                        const hasEvents = dayEvents.some((e: ChurchEvent) => normalizeEventType(e.type) === 'evento');
+                        const hasBirthdays = members.some((m) => isBirthdayOnDate(m.birthDate, item.date));
+
+                        return (
+                          <TouchableOpacity
+                            key={item.date}
+                            activeOpacity={0.7}
+                            style={[
+                              styles.dayCell,
+                              isSelected && styles.dayCellSelected,
+                              item.isToday && !isSelected && styles.dayCellToday,
+                            ]}
+                            onPress={() => setSelectedDate(item.date)}>
+                            <Text
+                              style={[
+                                styles.dayCellText,
+                                !item.isCurrentMonth && styles.dayCellMuted,
+                                item.isSunday && item.isCurrentMonth && !isSelected && styles.dayCellSundayText,
+                                item.isToday && !isSelected && styles.dayCellTodayText,
+                                isSelected && styles.dayCellSelectedText,
+                              ]}>
+                              {item.dayNumber}
+                            </Text>
+
+                            {/* PUNTOS INDICADORES DE ServicioS / EVENTOS Y CUMPLEAÑOS */}
+                            <View style={styles.dotsRow}>
+                              {hasServices && (
+                                <View
+                                  style={[
+                                    styles.eventDot,
+                                    { backgroundColor: isSelected ? '#FFFFFF' : '#2563EB' },
+                                  ]}
+                                />
+                              )}
+                              {hasEvents && (
+                                <View
+                                  style={[
+                                    styles.eventDot,
+                                    { backgroundColor: isSelected ? '#E9D5FF' : '#7C3AED' },
+                                  ]}
+                                />
+                              )}
+                              {hasBirthdays && (
+                                <Text style={{ fontSize: 8, lineHeight: 10 }}>🎂</Text>
+                              )}
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
+
+                {/* LEYENDA DEL CALENDARIO */}
+                <View style={styles.calendarLegend}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#2563EB' }]} />
+                    <Text style={styles.legendText}>Servicio</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#7C3AED' }]} />
+                    <Text style={styles.legendText}>Evento</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <Text style={{ fontSize: 11 }}>🎂</Text>
+                    <Text style={styles.legendText}>Cumpleaños</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={styles.legendTodayRing} />
+                    <Text style={styles.legendText}>Hoy</Text>
+                  </View>
+                </View>
               </View>
 
-              {canManageEvents && (
-                <TouchableOpacity
-                  style={styles.addForDayBtn}
-                  onPress={() => router.push(`/planner/editor?date=${selectedDate}` as any)}>
-                  <Ionicons name="add" size={16} color="#38BDF8" />
-                  <Text style={styles.addForDayText}>Programar</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* RECORDATORIO DE CUMPLEAÑOS (FESTIVO / RECORDATORIO, NO EVENTO) */}
-            {(() => {
-              const selectedYear = fromISODate(selectedDate).getFullYear();
-              const dayBirthdays = members.filter((m) => isBirthdayOnDate(m.birthDate, selectedDate));
-              if (dayBirthdays.length === 0) return null;
-
-              return (
-                <LinearGradient
-                  colors={['rgba(244, 63, 94, 0.22)', 'rgba(30, 27, 75, 0.65)']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.birthdayReminderCard}>
-                  <View style={styles.birthdayReminderHeader}>
-                    <View style={styles.birthdayBadge}>
-                      <Text style={styles.birthdayBadgeText}>🎉 RECORDATORIO DE CUMPLEAÑOS</Text>
-                    </View>
-                    <Text style={styles.birthdayReminderTitle}>
-                      ¡Hoy celebran su vida! ({dayBirthdays.length})
+              {/* SECCIÓN DEL DÍA SELECCIONADO */}
+              <View style={styles.selectedDayHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.selectedDayTitle}>
+                      {formatEventDate(selectedDate)}
                     </Text>
-                  </View>
-
-                  {dayBirthdays.map((m) => {
-                    const age = getAgeTurning(m.birthDate || '', selectedYear);
-                    return (
-                      <View key={m.id} style={styles.birthdayPersonRow}>
-                        <View style={styles.birthdayAvatarCircle}>
-                          <Text style={styles.birthdayAvatarText}>
-                            {m.firstName?.[0] || '🎂'}
-                          </Text>
-                        </View>
-                        <View style={{ flex: 1, marginLeft: 10 }}>
-                          <Text style={styles.birthdayPersonName}>
-                            {m.firstName} {m.lastName}
-                          </Text>
-                          <Text style={styles.birthdayPersonAge}>
-                            {age ? `Cumple ${age} años 🎂` : 'Celebrando su cumpleaños'}
-                          </Text>
-                        </View>
-                        {m.phone ? (
-                          <View style={styles.birthdayContactActions}>
-                            <TouchableOpacity
-                              style={styles.birthdayActionBtnWhatsApp}
-                              onPress={() => {
-                                const clean = m.phone!.replace(/[^0-9]/g, '');
-                                const text = encodeURIComponent(
-                                  `¡Feliz Cumpleaños ${m.firstName}! 🎉🎂 Que el Señor derrame abundantes bendiciones, gozo y salud en tu vida. ¡Te mandamos un fuerte abrazo desde tu iglesia IEC Caja de Agua! 🙏✨`
-                                );
-                                Linking.openURL(`https://wa.me/${clean}?text=${text}`);
-                              }}>
-                              <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={styles.birthdayActionBtnCall}
-                              onPress={() => Linking.openURL(`tel:${m.phone}`)}>
-                              <Ionicons name="call" size={14} color="#38BDF8" />
-                            </TouchableOpacity>
-                          </View>
-                        ) : null}
+                    {relativeDayLabel(selectedDate) && (
+                      <View style={styles.relativeBadge}>
+                        <Text style={styles.relativeBadgeText}>
+                          {relativeDayLabel(selectedDate)}
+                        </Text>
                       </View>
-                    );
-                  })}
-                </LinearGradient>
-              );
-            })()}
-
-            {/* LISTA DE ACTIVIDADES PARA EL DÍA SELECCIONADO */}
-            <View style={styles.selectedDayList}>
-              {selectedDayEvents.length === 0 ? (
-                <View style={styles.emptyDayCard}>
-                  <Ionicons name="calendar-outline" size={36} color="#94A3B8" />
-                  <Text style={styles.emptyDayTitle}>Día sin actividades</Text>
-                  <Text style={styles.emptyDaySub}>
-                    No hay ningún servicio ni evento programado para esta fecha.
+                    )}
+                  </View>
+                  <Text style={styles.selectedDayCount}>
+                    {selectedDayEvents.length === 0
+                      ? 'Sin eventos oficiales'
+                      : `${selectedDayEvents.length} actividad${selectedDayEvents.length > 1 ? 'es' : ''}`}
                   </Text>
-                  {canManageEvents && (
-                    <TouchableOpacity
-                      style={styles.emptyDayAddBtn}
-                      onPress={() => router.push(`/planner/editor?date=${selectedDate}` as any)}>
-                      <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
-                      <Text style={styles.emptyDayAddBtnText}>Crear evento o servicio</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
-              ) : (
-                selectedDayEvents.map((ev: ChurchEvent) => (
-                  <EventCard
-                    key={ev.id}
-                    event={ev}
-                    onPress={() => router.push(`/planner/${ev.id}` as any)}
-                  />
-                ))
-              )}
-            </View>
-          </View>
-        ) : (
-          /* ============================================================ */
-          /* MODO LISTA                                                   */
-          /* ============================================================ */
-          <View>
-            {/* SEGMENTO PRÓXIMOS VS ANTERIORES */}
-            <View style={styles.segment}>
-              {(['upcoming', 'past'] as const).map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  style={[styles.segmentBtn, scope === s && styles.segmentBtnActive]}
-                  onPress={() => setScope(s)}>
-                  <Text style={[styles.segmentText, scope === s && styles.segmentTextActive]}>
-                    {s === 'upcoming' ? `Próximos (${upcoming.length})` : `Anteriores (${past.length})`}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
 
-            {/* FILTROS DE CATEGORÍA: TODOS | SERVICIO | EVENTO */}
-            <View style={styles.filterRow}>
-              <TouchableOpacity
-                style={[styles.filterChip, typeFilter === 'all' && styles.filterChipActive]}
-                onPress={() => setTypeFilter('all')}>
-                <Text style={[styles.filterText, typeFilter === 'all' && styles.filterTextActive]}>
-                  Todos
-                </Text>
-              </TouchableOpacity>
-              {EVENT_TYPES.map((t) => {
-                const meta = EVENT_TYPE_META[t];
-                const active = typeFilter === t;
-                return (
+                {canManageEvents && (
                   <TouchableOpacity
-                    key={t}
-                    style={[
-                      styles.filterChip,
-                      active && { backgroundColor: meta.color, borderColor: meta.color },
-                    ]}
-                    onPress={() => setTypeFilter(t)}>
-                    <Ionicons
-                      name={meta.icon as keyof typeof Ionicons.glyphMap}
-                      size={13}
-                      color={active ? '#FFFFFF' : meta.color}
+                    style={styles.addForDayBtn}
+                    onPress={() => router.push(`/planner/editor?date=${selectedDate}` as any)}>
+                    <Ionicons name="add" size={16} color="#38BDF8" />
+                    <Text style={styles.addForDayText}>Programar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* RECORDATORIO DE CUMPLEAÑOS (FESTIVO / RECORDATORIO, NO EVENTO) */}
+              {(() => {
+                const selectedYear = fromISODate(selectedDate).getFullYear();
+                const dayBirthdays = members.filter((m) => isBirthdayOnDate(m.birthDate, selectedDate));
+                if (dayBirthdays.length === 0) return null;
+
+                return (
+                  <LinearGradient
+                    colors={['rgba(244, 63, 94, 0.22)', 'rgba(30, 27, 75, 0.65)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.birthdayReminderCard}>
+                    <View style={styles.birthdayReminderHeader}>
+                      <View style={styles.birthdayBadge}>
+                        <Text style={styles.birthdayBadgeText}>🎉 RECORDATORIO DE CUMPLEAÑOS</Text>
+                      </View>
+                      <Text style={styles.birthdayReminderTitle}>
+                        ¡Hoy celebran su vida! ({dayBirthdays.length})
+                      </Text>
+                    </View>
+
+                    {dayBirthdays.map((m) => {
+                      const age = getAgeTurning(m.birthDate || '', selectedYear);
+                      return (
+                        <View key={m.id} style={styles.birthdayPersonRow}>
+                          <View style={styles.birthdayAvatarCircle}>
+                            <Text style={styles.birthdayAvatarText}>
+                              {m.firstName?.[0] || '🎂'}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1, marginLeft: 10 }}>
+                            <Text style={styles.birthdayPersonName}>
+                              {m.firstName} {m.lastName}
+                            </Text>
+                            <Text style={styles.birthdayPersonAge}>
+                              {age ? `Cumple ${age} años 🎂` : 'Celebrando su cumpleaños'}
+                            </Text>
+                          </View>
+                          {m.phone ? (
+                            <View style={styles.birthdayContactActions}>
+                              <TouchableOpacity
+                                style={styles.birthdayActionBtnWhatsApp}
+                                onPress={() => {
+                                  const clean = m.phone!.replace(/[^0-9]/g, '');
+                                  const text = encodeURIComponent(
+                                    `¡Feliz Cumpleaños ${m.firstName}! 🎉🎂 Que el Señor derrame abundantes bendiciones, gozo y salud en tu vida. ¡Te mandamos un fuerte abrazo desde tu iglesia IEC Caja de Agua! 🙏✨`
+                                  );
+                                  Linking.openURL(`https://wa.me/${clean}?text=${text}`);
+                                }}>
+                                <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.birthdayActionBtnCall}
+                                onPress={() => Linking.openURL(`tel:${m.phone}`)}>
+                                <Ionicons name="call" size={14} color="#38BDF8" />
+                              </TouchableOpacity>
+                            </View>
+                          ) : null}
+                        </View>
+                      );
+                    })}
+                  </LinearGradient>
+                );
+              })()}
+
+              {/* LISTA DE ACTIVIDADES PARA EL DÍA SELECCIONADO */}
+              <View style={styles.selectedDayList}>
+                {selectedDayEvents.length === 0 ? (
+                  <View style={styles.emptyDayCard}>
+                    <Ionicons name="calendar-outline" size={36} color="#94A3B8" />
+                    <Text style={styles.emptyDayTitle}>Día sin actividades</Text>
+                    <Text style={styles.emptyDaySub}>
+                      No hay ningún Servicio ni evento programado para esta fecha.
+                    </Text>
+                    {canManageEvents && (
+                      <TouchableOpacity
+                        style={styles.emptyDayAddBtn}
+                        onPress={() => router.push(`/planner/editor?date=${selectedDate}` as any)}>
+                        <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
+                        <Text style={styles.emptyDayAddBtnText}>Crear evento o Servicio</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : (
+                  selectedDayEvents.map((ev: ChurchEvent) => (
+                    <EventCard
+                      key={ev.id}
+                      event={ev}
+                      onPress={() => router.push(`/planner/${ev.id}` as any)}
                     />
-                    <Text style={[styles.filterText, active && styles.filterTextActive]}>
-                      {meta.label}s
+                  ))
+                )}
+              </View>
+            </View>
+          ) : (
+            /* ============================================================ */
+            /* MODO LISTA                                                   */
+            /* ============================================================ */
+            <View>
+              {/* SEGMENTO PRÓXIMOS VS ANTERIORES */}
+              <View style={styles.segment}>
+                {(['upcoming', 'past'] as const).map((s) => (
+                  <TouchableOpacity
+                    key={s}
+                    style={[styles.segmentBtn, scope === s && styles.segmentBtnActive]}
+                    onPress={() => setScope(s)}>
+                    <Text style={[styles.segmentText, scope === s && styles.segmentTextActive]}>
+                      {s === 'upcoming' ? `Próximos (${upcoming.length})` : `Anteriores (${past.length})`}
                     </Text>
                   </TouchableOpacity>
-                );
-              })}
-            </View>
+                ))}
+              </View>
 
-            {/* LISTA */}
-            <View style={styles.list}>
-              {list.length === 0 ? (
-                <View style={styles.empty}>
-                  <Ionicons name="calendar-clear-outline" size={40} color="#CBD5E1" />
-                  <Text style={styles.emptyTitle}>
-                    {scope === 'upcoming' ? 'No hay eventos programados' : 'Sin eventos anteriores'}
+              {/* FILTROS DE CATEGORÍA: TODOS | Servicio | EVENTO */}
+              <View style={styles.filterRow}>
+                <TouchableOpacity
+                  style={[styles.filterChip, typeFilter === 'all' && styles.filterChipActive]}
+                  onPress={() => setTypeFilter('all')}>
+                  <Text style={[styles.filterText, typeFilter === 'all' && styles.filterTextActive]}>
+                    Todos
                   </Text>
-                  {canManageEvents && scope === 'upcoming' && (
-                    <Text style={styles.emptySub}>
-                      Toca “+ Servicio” o “+ Evento” arriba para crear una actividad.
+                </TouchableOpacity>
+                {EVENT_TYPES.map((t) => {
+                  const meta = EVENT_TYPE_META[t];
+                  const active = typeFilter === t;
+                  return (
+                    <TouchableOpacity
+                      key={t}
+                      style={[
+                        styles.filterChip,
+                        active && { backgroundColor: meta.color, borderColor: meta.color },
+                      ]}
+                      onPress={() => setTypeFilter(t)}>
+                      <Ionicons
+                        name={meta.icon as keyof typeof Ionicons.glyphMap}
+                        size={13}
+                        color={active ? '#FFFFFF' : meta.color}
+                      />
+                      <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                        {meta.label}s
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* LISTA */}
+              <View style={styles.list}>
+                {list.length === 0 ? (
+                  <View style={styles.empty}>
+                    <Ionicons name="calendar-clear-outline" size={40} color="#CBD5E1" />
+                    <Text style={styles.emptyTitle}>
+                      {scope === 'upcoming' ? 'No hay eventos programados' : 'Sin eventos anteriores'}
                     </Text>
-                  )}
-                </View>
-              ) : (
-                list.map((ev) => (
-                  <EventCard
-                    key={ev.id}
-                    event={ev}
-                    onPress={() => router.push(`/planner/${ev.id}` as any)}
-                  />
-                ))
-              )}
+                    {canManageEvents && scope === 'upcoming' && (
+                      <Text style={styles.emptySub}>
+                        Toca “+ Servicio” o “+ Evento” arriba para crear una actividad.
+                      </Text>
+                    )}
+                  </View>
+                ) : (
+                  list.map((ev) => (
+                    <EventCard
+                      key={ev.id}
+                      event={ev}
+                      onPress={() => router.push(`/planner/${ev.id}` as any)}
+                    />
+                  ))
+                )}
+              </View>
             </View>
-          </View>
-        )}
-      </ScrollView>
+          )}
+        </ScrollView>
       </DoodleBackground>
     </SafeAreaView>
   );

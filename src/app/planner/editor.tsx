@@ -1,34 +1,5 @@
-import { useMemo, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
-import {
-  ChurchEvent,
-  ChurchEventType,
-  ChurchServiceSlotId,
-  EventMinistryAssignment,
-  Member,
-  Ministry,
-  ServiceScheduleItem,
-  VolunteerRoster,
-} from '@/types/church';
 import {
   addDaysISO,
   buildTemplate,
@@ -46,6 +17,35 @@ import {
   scheduleEndTime,
   todayISO,
 } from '@/lib/events';
+import {
+  ChurchEvent,
+  ChurchEventType,
+  ChurchServiceSlotId,
+  EventMinistryAssignment,
+  Member,
+  Ministry,
+  ServiceScheduleItem,
+  VolunteerRoster,
+} from '@/types/church';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useMemo, useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 
@@ -68,27 +68,27 @@ export default function EventEditorScreen() {
 
   const initialType: ChurchEventType =
     (existing?.type ? normalizeEventType(existing.type) : undefined) ??
-    (params.type ? normalizeEventType(params.type) : 'servicio');
+    (params.type ? normalizeEventType(params.type) : 'Servicio');
 
   const defaultSlot = sundayServices[0];
   const initialTime =
     existing?.time ??
-    (initialType === 'servicio'
+    (initialType === 'Servicio'
       ? '11:00 AM'
       : '7:00 PM');
 
   const [type, setType] = useState<ChurchEventType>(initialType);
   const [serviceSlotId, setServiceSlotId] = useState<ChurchServiceSlotId | undefined>(
-    existing?.serviceSlotId ?? (initialType === 'servicio' ? 'domingo_11am' : undefined)
+    existing?.serviceSlotId ?? (initialType === 'Servicio' ? 'domingo_11am' : undefined)
   );
   const [title, setTitle] = useState(
     existing?.title ??
-      (initialType === 'servicio'
-        ? defaultSlot?.name ?? 'Servicio Dominical'
-        : '')
+    (initialType === 'Servicio'
+      ? defaultSlot?.name ?? 'Servicio'
+      : '')
   );
   const [date, setDate] = useState(
-    existing?.date ?? params.date ?? (initialType === 'servicio' ? nextWeekdayISO(0) : todayISO())
+    existing?.date ?? params.date ?? (initialType === 'Servicio' ? nextWeekdayISO(0) : todayISO())
   );
   const [time, setTime] = useState(initialTime);
   const [location, setLocation] = useState(existing?.location ?? 'Templo Principal');
@@ -159,11 +159,11 @@ export default function EventEditorScreen() {
       prev.map((m) =>
         m.ministryId === ministryId
           ? {
-              ...m,
-              coordinatorId: member.id,
-              coordinatorName: `${member.firstName} ${member.lastName}`,
-              coordinatorPhone: member.phone || '',
-            }
+            ...m,
+            coordinatorId: member.id,
+            coordinatorName: `${member.firstName} ${member.lastName}`,
+            coordinatorPhone: member.phone || '',
+          }
           : m
       )
     );
@@ -307,9 +307,9 @@ export default function EventEditorScreen() {
     const prevDefaultTitle =
       title === EVENT_TYPE_META[type]?.label ||
       sundayServices.some((s) => s.name === title) ||
-      title === 'Servicio Dominical' ||
+      title === 'Servicio' ||
       !title.trim();
-    if (t === 'servicio') {
+    if (t === 'Servicio') {
       const slot = sundayServices.find((s) => s.id === serviceSlotId) ?? defaultSlot;
       setServiceSlotId(slot?.id);
       if (slot) {
@@ -326,7 +326,7 @@ export default function EventEditorScreen() {
     }
     if (!scheduleTouched) {
       const startTime =
-        t === 'servicio' && defaultSlot ? defaultSlot.time.split(' - ')[0] : time;
+        t === 'Servicio' && defaultSlot ? defaultSlot.time.split(' - ')[0] : time;
       setSchedule(buildTemplate(t, startTime));
     }
   };
@@ -417,7 +417,7 @@ export default function EventEditorScreen() {
         time: time.trim(),
         location: location.trim() || undefined,
         network,
-        serviceSlotId: type === 'servicio' ? serviceSlotId : undefined,
+        serviceSlotId: type === 'Servicio' ? serviceSlotId : undefined,
         theme: theme.trim() || undefined,
         preacher: preacher.trim() || undefined,
         worshipLeader: worshipLeader.trim() || undefined,
@@ -458,658 +458,658 @@ export default function EventEditorScreen() {
         style={{ flex: 1, backgroundColor: '#080C16' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <DoodleBackground>
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: 140 }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          {/* BANNER DE AUTORÍA Y PROPIEDAD */}
-          <View
-            style={{
-              marginHorizontal: 16,
-              marginTop: 14,
-              marginBottom: 4,
-              backgroundColor: 'rgba(56, 189, 248, 0.12)',
-              borderRadius: 14,
-              padding: 12,
-              borderWidth: 1,
-              borderColor: 'rgba(56, 189, 248, 0.25)',
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-            }}>
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: 140 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            {/* BANNER DE AUTORÍA Y PROPIEDAD */}
             <View
               style={{
-                width: 34,
-                height: 34,
-                borderRadius: 17,
-                backgroundColor: 'rgba(56, 189, 248, 0.18)',
+                marginHorizontal: 16,
+                marginTop: 14,
+                marginBottom: 4,
+                backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                borderRadius: 14,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: 'rgba(56, 189, 248, 0.25)',
+                flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'center',
+                gap: 10,
               }}>
-              <Ionicons name="shield-checkmark" size={18} color="#38BDF8" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: '#38BDF8', textTransform: 'uppercase' }}>
-                {existing ? 'Dueño del Evento' : 'Creador del Evento'}
-              </Text>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
-                {existing?.createdByName || (currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'Pastor')}
-              </Text>
-              <Text style={{ fontSize: 11, color: '#94A3B8' }}>
-                {currentUser?.role === 'senior_pastor' && existing && existing.createdById !== currentUser.id
-                  ? 'Editando con autoridad de Pastor Principal'
-                  : 'Solo el creador y pastores principales pueden editar este evento'}
-              </Text>
-            </View>
-          </View>
-
-          {/* 1. TYPE */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Tipo</Text>
-            <View style={styles.typeGrid}>
-              {EVENT_TYPES.map((t) => {
-                const m = EVENT_TYPE_META[t];
-                const active = t === type;
-                return (
-                  <TouchableOpacity
-                    key={t}
-                    onPress={() => handleTypeChange(t)}
-                    style={[
-                      styles.typeChip,
-                      active && { backgroundColor: m.color, borderColor: m.color },
-                    ]}>
-                    <Ionicons
-                      name={m.icon as keyof typeof Ionicons.glyphMap}
-                      size={14}
-                      color={active ? '#FFFFFF' : m.color}
-                    />
-                    <Text style={[styles.typeChipText, active && { color: '#FFFFFF' }]}>
-                      {m.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-          </View>
-
-          {/* 2. WHEN & WHERE */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Fecha y hora</Text>
-            <Text style={styles.dateSelected}>
-              <Ionicons name="calendar" size={14} color={typeMeta.color} /> {formatEventDate(date)}
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, paddingVertical: 10 }}>
-              {dateOptions.map((d) => {
-                const dt = fromISODate(d);
-                const active = d === date;
-                const isSunday = dt.getDay() === 0;
-                return (
-                  <TouchableOpacity
-                    key={d}
-                    onPress={() => setDate(d)}
-                    style={[
-                      styles.dayChip,
-                      isSunday && styles.dayChipSunday,
-                      active && { backgroundColor: typeMeta.color, borderColor: typeMeta.color },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.dayChipWeek,
-                        isSunday && { color: '#2563EB' },
-                        active && { color: '#FFFFFF' },
-                      ]}>
-                      {formatEventDate(d, { short: true }).split(' ')[0]}
-                    </Text>
-                    <Text style={[styles.dayChipNum, active && { color: '#FFFFFF' }]}>
-                      {dt.getDate()}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            <View style={styles.row2}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Hora de inicio</Text>
-                <TextInput
-                  style={styles.input}
-                  value={time}
-                  onChangeText={setTime}
-                  placeholder="9:00 AM"
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-              <View style={{ flex: 1.4 }}>
-                <Text style={styles.label}>Lugar</Text>
-                <TextInput
-                  style={styles.input}
-                  value={location}
-                  onChangeText={setLocation}
-                  placeholder="Templo Principal"
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-            </View>
-
-
-          </View>
-
-          {/* 3. DETAILS */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Detalles</Text>
-            <Text style={styles.label}>Nombre del evento *</Text>
-            <TextInput
-              style={styles.input}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="Ej: Encuentro de Mujeres"
-              placeholderTextColor="#94A3B8"
-            />
-            <Text style={styles.label}>Tema / Lema</Text>
-            <TextInput
-              style={styles.input}
-              value={theme}
-              onChangeText={setTheme}
-              placeholder="Ej: Mujeres de Fe y Propósito"
-              placeholderTextColor="#94A3B8"
-            />
-            <View style={styles.row2}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Predica</Text>
-                <TextInput
-                  style={styles.input}
-                  value={preacher}
-                  onChangeText={setPreacher}
-                  placeholder="Pastor(a)..."
-                  placeholderTextColor="#94A3B8"
-                />
+              <View
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 17,
+                  backgroundColor: 'rgba(56, 189, 248, 0.18)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Ionicons name="shield-checkmark" size={18} color="#38BDF8" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Alabanza</Text>
-                <TextInput
-                  style={styles.input}
-                  value={worshipLeader}
-                  onChangeText={setWorshipLeader}
-                  placeholder="Equipo..."
-                  placeholderTextColor="#94A3B8"
-                />
-              </View>
-            </View>
-            <Text style={styles.label}>Indicaciones generales</Text>
-            <TextInput
-              style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              placeholder="Notas para el equipo (vestimenta, llegada, etc.)"
-              placeholderTextColor="#94A3B8"
-            />
-          </View>
-
-          {/* 3.1. MINISTERIOS & COORDINACIÓN */}
-          <View style={styles.card}>
-            <View style={styles.cardHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>Ministerios & Coordinación</Text>
-                <Text style={styles.cardSub}>
-                  Asigna al coordinador responsable de Alabanza, Audiovisual y Protocolo para este servicio.
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#38BDF8', textTransform: 'uppercase' }}>
+                  {existing ? 'Dueño del Evento' : 'Creador del Evento'}
+                </Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+                  {existing?.createdByName || (currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'Pastor')}
+                </Text>
+                <Text style={{ fontSize: 11, color: '#94A3B8' }}>
+                  {currentUser?.role === 'senior_pastor' && existing && existing.createdById !== currentUser.id
+                    ? 'Editando con autoridad de Pastor Principal'
+                    : 'Solo el creador y pastores principales pueden editar este evento'}
                 </Text>
               </View>
-              <TouchableOpacity
-                style={styles.templateBtn}
-                onPress={() => router.push('/ministries' as any)}>
-                <Ionicons name="ribbon-outline" size={14} color="#38BDF8" />
-                <Text style={styles.templateBtnText}>Ministerios</Text>
-              </TouchableOpacity>
             </View>
 
-            {ministries.map((min) => {
-              const assignment = eventMinistries.find((m) => m.ministryId === min.id);
-              const isActive = Boolean(assignment);
-
-              return (
-                <View
-                  key={min.id}
-                  style={[
-                    styles.minCardRow,
-                    isActive && { borderColor: min.color || '#38BDF8', backgroundColor: (min.color || '#38BDF8') + '15' },
-                  ]}>
-                  <View style={styles.minHeaderRow}>
-                    <View
+            {/* 1. TYPE */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Tipo</Text>
+              <View style={styles.typeGrid}>
+                {EVENT_TYPES.map((t) => {
+                  const m = EVENT_TYPE_META[t];
+                  const active = t === type;
+                  return (
+                    <TouchableOpacity
+                      key={t}
+                      onPress={() => handleTypeChange(t)}
                       style={[
-                        styles.minIconCircle,
-                        { backgroundColor: (min.color || '#38BDF8') + '22' },
+                        styles.typeChip,
+                        active && { backgroundColor: m.color, borderColor: m.color },
                       ]}>
                       <Ionicons
-                        name={(min.icon as any) || 'people'}
-                        size={18}
-                        color={min.color || '#38BDF8'}
+                        name={m.icon as keyof typeof Ionicons.glyphMap}
+                        size={14}
+                        color={active ? '#FFFFFF' : m.color}
                       />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={styles.minTitle}>{min.name}</Text>
-                      <Text style={styles.minSub} numberOfLines={1}>
-                        {min.description || 'Sin descripción'}
+                      <Text style={[styles.typeChipText, active && { color: '#FFFFFF' }]}>
+                        {m.label}
                       </Text>
-                    </View>
-                    <Switch
-                      value={isActive}
-                      onValueChange={() => toggleMinistry(min)}
-                      trackColor={{ false: '#334155', true: min.color || '#0284C7' }}
-                      thumbColor="#FFFFFF"
-                    />
-                  </View>
-
-                  {isActive && assignment && (
-                    <View style={styles.minAssignmentDetails}>
-                      <View style={styles.minCoordBox}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.minCoordLabel}>COORDINADOR(A) PERMANENTE</Text>
-                          <Text style={styles.minCoordName}>{assignment.coordinatorName}</Text>
-                          {assignment.coordinatorPhone ? (
-                            <Text style={styles.minCoordPhone}>📞 {assignment.coordinatorPhone}</Text>
-                          ) : null}
-                        </View>
-                        <TouchableOpacity
-                          style={styles.minChangeBtn}
-                          onPress={() => {
-                            setMemberSearchQuery('');
-                            setPickingCoordinatorForMinId(min.id);
-                          }}>
-                          <Ionicons name="swap-horizontal" size={14} color="#38BDF8" />
-                          <Text style={styles.minChangeBtnText}>Delegar</Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      {min.defaultRoles && min.defaultRoles.length > 0 && (
-                        <View style={{ marginTop: 8 }}>
-                          <Text style={[styles.label, { fontSize: 10, color: '#94A3B8' }]}>
-                            PUESTOS DISPONIBLES:
-                          </Text>
-                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                            {min.defaultRoles.map((r, rIdx) => (
-                              <View
-                                key={rIdx}
-                                style={{
-                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                  borderWidth: 1,
-                                  borderColor: 'rgba(255, 255, 255, 0.12)',
-                                  borderRadius: 6,
-                                  paddingHorizontal: 6,
-                                  paddingVertical: 2,
-                                }}>
-                                <Text style={{ fontSize: 10, color: '#E2E8F0', fontWeight: '700' }}>
-                                  {r}
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      )}
-
-                      <Text style={[styles.label, { marginTop: 8, fontSize: 11 }]}>
-                        Instrucciones para {assignment.coordinatorName.split(' ')[0]}
-                      </Text>
-                      <TextInput
-                        style={[styles.input, styles.inputSm]}
-                        placeholder={`Ej: Vestimenta formal, llegar 45 min antes...`}
-                        placeholderTextColor="#94A3B8"
-                        value={assignment.notes || ''}
-                        onChangeText={(t) => updateMinistryNotes(min.id, t)}
-                      />
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-
-          {/* 4. SCHEDULE */}
-          <View style={styles.card}>
-            <View style={styles.cardHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>Cronograma</Text>
-                <Text style={styles.cardSub}>
-                  {finalSchedule.length} bloques · {totalMinutes} min
-                  {endTime ? ` · termina ${endTime}` : ''}
-                </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-              <TouchableOpacity style={styles.templateBtn} onPress={loadTemplate}>
-                <Ionicons name="color-wand" size={14} color="#38BDF8" />
-                <Text style={styles.templateBtnText}>Plantilla</Text>
-              </TouchableOpacity>
+
             </View>
 
-            <View style={styles.autoRow}>
-              <Ionicons name="timer-outline" size={16} color="#475569" />
-              <Text style={styles.autoText}>Calcular horas según la duración</Text>
-              <Switch
-                value={autoTimes}
-                onValueChange={setAutoTimes}
-                trackColor={{ false: '#CBD5E1', true: '#3B82F6' }}
-                thumbColor="#FFFFFF"
+            {/* 2. WHEN & WHERE */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Fecha y hora</Text>
+              <Text style={styles.dateSelected}>
+                <Ionicons name="calendar" size={14} color={typeMeta.color} /> {formatEventDate(date)}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, paddingVertical: 10 }}>
+                {dateOptions.map((d) => {
+                  const dt = fromISODate(d);
+                  const active = d === date;
+                  const isSunday = dt.getDay() === 0;
+                  return (
+                    <TouchableOpacity
+                      key={d}
+                      onPress={() => setDate(d)}
+                      style={[
+                        styles.dayChip,
+                        isSunday && styles.dayChipSunday,
+                        active && { backgroundColor: typeMeta.color, borderColor: typeMeta.color },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.dayChipWeek,
+                          isSunday && { color: '#2563EB' },
+                          active && { color: '#FFFFFF' },
+                        ]}>
+                        {formatEventDate(d, { short: true }).split(' ')[0]}
+                      </Text>
+                      <Text style={[styles.dayChipNum, active && { color: '#FFFFFF' }]}>
+                        {dt.getDate()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={styles.row2}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Hora de inicio</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={time}
+                    onChangeText={setTime}
+                    placeholder="9:00 AM"
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+                <View style={{ flex: 1.4 }}>
+                  <Text style={styles.label}>Lugar</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={location}
+                    onChangeText={setLocation}
+                    placeholder="Templo Principal"
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+              </View>
+
+
+            </View>
+
+            {/* 3. DETAILS */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Detalles</Text>
+              <Text style={styles.label}>Nombre del evento *</Text>
+              <TextInput
+                style={styles.input}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="Ej: Encuentro de Mujeres"
+                placeholderTextColor="#94A3B8"
+              />
+              <Text style={styles.label}>Tema / Lema</Text>
+              <TextInput
+                style={styles.input}
+                value={theme}
+                onChangeText={setTheme}
+                placeholder="Ej: Mujeres de Fe y Propósito"
+                placeholderTextColor="#94A3B8"
+              />
+              <View style={styles.row2}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Predica</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={preacher}
+                    onChangeText={setPreacher}
+                    placeholder="Pastor(a)..."
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Alabanza</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={worshipLeader}
+                    onChangeText={setWorshipLeader}
+                    placeholder="Equipo..."
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+              </View>
+              <Text style={styles.label}>Indicaciones generales</Text>
+              <TextInput
+                style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                placeholder="Notas para el equipo (vestimenta, llegada, etc.)"
+                placeholderTextColor="#94A3B8"
               />
             </View>
 
-            {finalSchedule.map((item, index) => {
-              const im = ITEM_TYPE_META[item.type] ?? ITEM_TYPE_META.other;
-              const expanded = expandedId === item.id;
-              return (
-                <View key={item.id} style={[styles.itemCard, { borderLeftColor: im.color }]}>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.itemSummary}
-                    onPress={() => setExpandedId(expanded ? null : item.id)}>
-                    <View style={styles.itemTimeBox}>
-                      <Text style={styles.itemTime}>{item.time || '--'}</Text>
-                      <Text style={styles.itemDur}>{item.durationMinutes}m</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.itemTitle} numberOfLines={1}>
-                        {item.title || 'Bloque sin título'}
-                      </Text>
-                      <Text style={styles.itemResp} numberOfLines={1}>
-                        {im.label}
-                        {item.responsible ? ` · ${item.responsible}` : ''}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name={expanded ? 'chevron-up' : 'create-outline'}
-                      size={18}
-                      color="#94A3B8"
-                    />
-                  </TouchableOpacity>
-
-                  {expanded && (
-                    <View style={styles.itemEditor}>
-                      <Text style={styles.label}>Título *</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={item.title}
-                        onChangeText={(v) => updateItem(item.id, { title: v })}
-                        placeholder="Ej: Alabanza & Adoración"
-                        placeholderTextColor="#94A3B8"
-                        autoFocus={!item.title}
-                      />
-                      <Text style={styles.label}>Responsable</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={item.responsible}
-                        onChangeText={(v) => updateItem(item.id, { responsible: v })}
-                        placeholder="¿Quién lo dirige?"
-                        placeholderTextColor="#94A3B8"
-                      />
-                      <View style={styles.row2}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.label}>Duración (min)</Text>
-                          <View style={styles.stepper}>
-                            <TouchableOpacity
-                              style={styles.stepBtn}
-                              onPress={() =>
-                                updateItem(item.id, {
-                                  durationMinutes: Math.max(0, item.durationMinutes - 5),
-                                })
-                              }>
-                              <Ionicons name="remove" size={16} color="#FFFFFF" />
-                            </TouchableOpacity>
-                            <TextInput
-                              style={styles.stepInput}
-                              keyboardType="number-pad"
-                              value={String(item.durationMinutes)}
-                              onChangeText={(v) =>
-                                updateItem(item.id, {
-                                  durationMinutes: parseInt(v.replace(/[^0-9]/g, ''), 10) || 0,
-                                })
-                              }
-                            />
-                            <TouchableOpacity
-                              style={styles.stepBtn}
-                              onPress={() =>
-                                updateItem(item.id, { durationMinutes: item.durationMinutes + 5 })
-                              }>
-                              <Ionicons name="add" size={16} color="#FFFFFF" />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.label}>Hora</Text>
-                          <TextInput
-                            style={[styles.input, autoTimes && styles.inputDisabled]}
-                            editable={!autoTimes}
-                            value={item.time}
-                            onChangeText={(v) => updateItem(item.id, { time: v })}
-                            placeholder="9:00 AM"
-                            placeholderTextColor="#94A3B8"
-                          />
-                        </View>
-                      </View>
-                      <Text style={styles.label}>Tipo de bloque</Text>
-                      <View style={styles.typeGrid}>
-                        {ITEM_TYPES.map((it) => {
-                          const m = ITEM_TYPE_META[it];
-                          const active = it === item.type;
-                          return (
-                            <TouchableOpacity
-                              key={it}
-                              onPress={() => updateItem(item.id, { type: it })}
-                              style={[
-                                styles.miniChip,
-                                active && { backgroundColor: m.color, borderColor: m.color },
-                              ]}>
-                              <Text style={[styles.miniChipText, active && { color: '#FFFFFF' }]}>
-                                {m.label}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                      <Text style={styles.label}>Ministerio asignado</Text>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
-                        <TouchableOpacity
-                          onPress={() => updateItem(item.id, { ministryId: undefined, ministryName: undefined })}
-                          style={[
-                            styles.miniChip,
-                            !item.ministryName && { backgroundColor: 'rgba(255, 255, 255, 0.15)', borderColor: 'rgba(255, 255, 255, 0.25)' },
-                          ]}>
-                          <Text style={[styles.miniChipText, !item.ministryName && { color: '#FFFFFF' }]}>
-                            General
-                          </Text>
-                        </TouchableOpacity>
-                        {eventMinistries.map((m) => {
-                          const isSel = item.ministryId === m.ministryId || item.ministryName === m.ministryName;
-                          return (
-                            <TouchableOpacity
-                              key={m.ministryId}
-                              onPress={() =>
-                                updateItem(item.id, {
-                                  ministryId: m.ministryId,
-                                  ministryName: m.ministryName,
-                                })
-                              }
-                              style={[
-                                styles.miniChip,
-                                isSel && { backgroundColor: '#0284C7', borderColor: '#38BDF8' },
-                              ]}>
-                              <Text style={[styles.miniChipText, isSel && { color: '#FFFFFF' }]}>
-                                {m.ministryName}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
-
-                      <Text style={styles.label}>Notas</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={item.notes ?? ''}
-                        onChangeText={(v) => updateItem(item.id, { notes: v || undefined })}
-                        placeholder="Indicaciones para este bloque"
-                        placeholderTextColor="#94A3B8"
-                      />
-                      <View style={styles.itemActions}>
-                        <TouchableOpacity
-                          style={styles.itemActionBtn}
-                          disabled={index === 0}
-                          onPress={() => moveItem(index, -1)}>
-                          <Ionicons name="arrow-up" size={16} color={index === 0 ? 'rgba(255,255,255,0.15)' : '#94A3B8'} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.itemActionBtn}
-                          disabled={index === finalSchedule.length - 1}
-                          onPress={() => moveItem(index, 1)}>
-                          <Ionicons
-                            name="arrow-down"
-                            size={16}
-                            color={index === finalSchedule.length - 1 ? 'rgba(255,255,255,0.15)' : '#94A3B8'}
-                          />
-                        </TouchableOpacity>
-                        <View style={{ flex: 1 }} />
-                        <TouchableOpacity
-                          style={[styles.itemActionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}
-                          onPress={() => removeItem(item.id)}>
-                          <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                          <Text style={styles.deleteText}>Quitar</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-
-            <TouchableOpacity style={styles.addBtn} onPress={addItem}>
-              <Ionicons name="add-circle" size={18} color="#38BDF8" />
-              <Text style={styles.addBtnText}>Agregar bloque al cronograma</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* 5. VOLUNTEERS */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Servidores</Text>
-            <Text style={styles.cardSub}>Equipo asignado para este evento</Text>
-            {volunteers.map((v) => (
-              <View key={v.id} style={styles.volRow}>
-                <View style={{ flex: 1, gap: 6 }}>
-                  {eventMinistries.length > 0 && (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      {eventMinistries.map((em) => (
-                        <TouchableOpacity
-                          key={em.ministryId}
-                          onPress={() => updateVolunteer(v.id, { area: em.ministryName, ministryId: em.ministryId })}
-                          style={[
-                            styles.miniChip,
-                            v.area === em.ministryName && { backgroundColor: '#0284C7', borderColor: '#38BDF8' },
-                          ]}>
-                          <Text style={[styles.miniChipText, v.area === em.ministryName && { color: '#FFFFFF' }]}>
-                            {em.ministryName}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-
-                  {/* Chips de Puestos / Roles sugeridos para esta área/ministerio */}
-                  {(() => {
-                    const minObj = ministries.find(
-                      (m) =>
-                        (v.ministryId && m.id === v.ministryId) ||
-                        m.name.toLowerCase() === v.area.toLowerCase()
-                    );
-                    if (!minObj || !minObj.defaultRoles || minObj.defaultRoles.length === 0) return null;
-                    return (
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{ gap: 6, paddingVertical: 2 }}>
-                        {minObj.defaultRoles.map((r, rIdx) => {
-                          const isSel = v.role === r;
-                          return (
-                            <TouchableOpacity
-                              key={rIdx}
-                              onPress={() => updateVolunteer(v.id, { role: r })}
-                              style={[
-                                styles.miniChip,
-                                isSel && {
-                                  backgroundColor: minObj.color || '#0284C7',
-                                  borderColor: minObj.color || '#38BDF8',
-                                },
-                              ]}>
-                              <Text
-                                style={[
-                                  styles.miniChipText,
-                                  isSel && { color: '#FFFFFF', fontWeight: '800' },
-                                ]}>
-                                {r}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
-                    );
-                  })()}
-
-                  <View style={styles.row2}>
-                    <TextInput
-                      style={[styles.input, styles.inputSm, { flex: 1 }]}
-                      value={v.area}
-                      onChangeText={(t) => updateVolunteer(v.id, { area: t })}
-                      placeholder="Área (ej: Ujieres, Alabanza)"
-                      placeholderTextColor="#94A3B8"
-                    />
-                    <TextInput
-                      style={[styles.input, styles.inputSm, { flex: 1 }]}
-                      value={v.role}
-                      onChangeText={(t) => updateVolunteer(v.id, { role: t })}
-                      placeholder="Puesto / Rol (ej: Consola, Puerta)"
-                      placeholderTextColor="#94A3B8"
-                    />
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                    <TextInput
-                      style={[styles.input, styles.inputSm, { flex: 1 }]}
-                      value={v.assignedTo}
-                      onChangeText={(t) => updateVolunteer(v.id, { assignedTo: t })}
-                      placeholder="Nombre del servidor"
-                      placeholderTextColor="#94A3B8"
-                    />
-                    <TouchableOpacity
-                      style={styles.pickMemberSmBtn}
-                      onPress={() => {
-                        setMemberSearchQuery('');
-                        setPickingVolunteerForVolId(v.id);
-                      }}>
-                      <Ionicons name="people" size={14} color="#38BDF8" />
-                      <Text style={styles.pickMemberSmBtnText}>Buscar</Text>
-                    </TouchableOpacity>
-                  </View>
+            {/* 3.1. MINISTERIOS & COORDINACIÓN */}
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>Ministerios & Coordinación</Text>
+                  <Text style={styles.cardSub}>
+                    Asigna al coordinador responsable de Alabanza, Audiovisual y Protocolo para este Servicio.
+                  </Text>
                 </View>
                 <TouchableOpacity
-                  style={styles.volRemove}
-                  onPress={() => setVolunteers((prev) => prev.filter((x) => x.id !== v.id))}>
-                  <Ionicons name="close" size={16} color="#EF4444" />
+                  style={styles.templateBtn}
+                  onPress={() => router.push('/ministries' as any)}>
+                  <Ionicons name="ribbon-outline" size={14} color="#38BDF8" />
+                  <Text style={styles.templateBtnText}>Ministerios</Text>
                 </TouchableOpacity>
               </View>
-            ))}
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() =>
-                setVolunteers((prev) => [
-                  ...prev,
-                  { id: localId('vol'), area: '', role: '', assignedTo: '', confirmed: false },
-                ])
-              }>
-              <Ionicons name="person-add" size={16} color="#38BDF8" />
-              <Text style={styles.addBtnText}>Agregar servidor</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+
+              {ministries.map((min) => {
+                const assignment = eventMinistries.find((m) => m.ministryId === min.id);
+                const isActive = Boolean(assignment);
+
+                return (
+                  <View
+                    key={min.id}
+                    style={[
+                      styles.minCardRow,
+                      isActive && { borderColor: min.color || '#38BDF8', backgroundColor: (min.color || '#38BDF8') + '15' },
+                    ]}>
+                    <View style={styles.minHeaderRow}>
+                      <View
+                        style={[
+                          styles.minIconCircle,
+                          { backgroundColor: (min.color || '#38BDF8') + '22' },
+                        ]}>
+                        <Ionicons
+                          name={(min.icon as any) || 'people'}
+                          size={18}
+                          color={min.color || '#38BDF8'}
+                        />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={styles.minTitle}>{min.name}</Text>
+                        <Text style={styles.minSub} numberOfLines={1}>
+                          {min.description || 'Sin descripción'}
+                        </Text>
+                      </View>
+                      <Switch
+                        value={isActive}
+                        onValueChange={() => toggleMinistry(min)}
+                        trackColor={{ false: '#334155', true: min.color || '#0284C7' }}
+                        thumbColor="#FFFFFF"
+                      />
+                    </View>
+
+                    {isActive && assignment && (
+                      <View style={styles.minAssignmentDetails}>
+                        <View style={styles.minCoordBox}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.minCoordLabel}>COORDINADOR(A) PERMANENTE</Text>
+                            <Text style={styles.minCoordName}>{assignment.coordinatorName}</Text>
+                            {assignment.coordinatorPhone ? (
+                              <Text style={styles.minCoordPhone}>📞 {assignment.coordinatorPhone}</Text>
+                            ) : null}
+                          </View>
+                          <TouchableOpacity
+                            style={styles.minChangeBtn}
+                            onPress={() => {
+                              setMemberSearchQuery('');
+                              setPickingCoordinatorForMinId(min.id);
+                            }}>
+                            <Ionicons name="swap-horizontal" size={14} color="#38BDF8" />
+                            <Text style={styles.minChangeBtnText}>Delegar</Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {min.defaultRoles && min.defaultRoles.length > 0 && (
+                          <View style={{ marginTop: 8 }}>
+                            <Text style={[styles.label, { fontSize: 10, color: '#94A3B8' }]}>
+                              PUESTOS DISPONIBLES:
+                            </Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                              {min.defaultRoles.map((r, rIdx) => (
+                                <View
+                                  key={rIdx}
+                                  style={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(255, 255, 255, 0.12)',
+                                    borderRadius: 6,
+                                    paddingHorizontal: 6,
+                                    paddingVertical: 2,
+                                  }}>
+                                  <Text style={{ fontSize: 10, color: '#E2E8F0', fontWeight: '700' }}>
+                                    {r}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        )}
+
+                        <Text style={[styles.label, { marginTop: 8, fontSize: 11 }]}>
+                          Instrucciones para {assignment.coordinatorName.split(' ')[0]}
+                        </Text>
+                        <TextInput
+                          style={[styles.input, styles.inputSm]}
+                          placeholder={`Ej: Vestimenta formal, llegar 45 min antes...`}
+                          placeholderTextColor="#94A3B8"
+                          value={assignment.notes || ''}
+                          onChangeText={(t) => updateMinistryNotes(min.id, t)}
+                        />
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* 4. SCHEDULE */}
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>Cronograma</Text>
+                  <Text style={styles.cardSub}>
+                    {finalSchedule.length} bloques · {totalMinutes} min
+                    {endTime ? ` · termina ${endTime}` : ''}
+                  </Text>
+                </View>
+                <TouchableOpacity style={styles.templateBtn} onPress={loadTemplate}>
+                  <Ionicons name="color-wand" size={14} color="#38BDF8" />
+                  <Text style={styles.templateBtnText}>Plantilla</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.autoRow}>
+                <Ionicons name="timer-outline" size={16} color="#475569" />
+                <Text style={styles.autoText}>Calcular horas según la duración</Text>
+                <Switch
+                  value={autoTimes}
+                  onValueChange={setAutoTimes}
+                  trackColor={{ false: '#CBD5E1', true: '#3B82F6' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+
+              {finalSchedule.map((item, index) => {
+                const im = ITEM_TYPE_META[item.type] ?? ITEM_TYPE_META.other;
+                const expanded = expandedId === item.id;
+                return (
+                  <View key={item.id} style={[styles.itemCard, { borderLeftColor: im.color }]}>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.itemSummary}
+                      onPress={() => setExpandedId(expanded ? null : item.id)}>
+                      <View style={styles.itemTimeBox}>
+                        <Text style={styles.itemTime}>{item.time || '--'}</Text>
+                        <Text style={styles.itemDur}>{item.durationMinutes}m</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.itemTitle} numberOfLines={1}>
+                          {item.title || 'Bloque sin título'}
+                        </Text>
+                        <Text style={styles.itemResp} numberOfLines={1}>
+                          {im.label}
+                          {item.responsible ? ` · ${item.responsible}` : ''}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name={expanded ? 'chevron-up' : 'create-outline'}
+                        size={18}
+                        color="#94A3B8"
+                      />
+                    </TouchableOpacity>
+
+                    {expanded && (
+                      <View style={styles.itemEditor}>
+                        <Text style={styles.label}>Título *</Text>
+                        <TextInput
+                          style={styles.input}
+                          value={item.title}
+                          onChangeText={(v) => updateItem(item.id, { title: v })}
+                          placeholder="Ej: Alabanza & Adoración"
+                          placeholderTextColor="#94A3B8"
+                          autoFocus={!item.title}
+                        />
+                        <Text style={styles.label}>Responsable</Text>
+                        <TextInput
+                          style={styles.input}
+                          value={item.responsible}
+                          onChangeText={(v) => updateItem(item.id, { responsible: v })}
+                          placeholder="¿Quién lo dirige?"
+                          placeholderTextColor="#94A3B8"
+                        />
+                        <View style={styles.row2}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.label}>Duración (min)</Text>
+                            <View style={styles.stepper}>
+                              <TouchableOpacity
+                                style={styles.stepBtn}
+                                onPress={() =>
+                                  updateItem(item.id, {
+                                    durationMinutes: Math.max(0, item.durationMinutes - 5),
+                                  })
+                                }>
+                                <Ionicons name="remove" size={16} color="#FFFFFF" />
+                              </TouchableOpacity>
+                              <TextInput
+                                style={styles.stepInput}
+                                keyboardType="number-pad"
+                                value={String(item.durationMinutes)}
+                                onChangeText={(v) =>
+                                  updateItem(item.id, {
+                                    durationMinutes: parseInt(v.replace(/[^0-9]/g, ''), 10) || 0,
+                                  })
+                                }
+                              />
+                              <TouchableOpacity
+                                style={styles.stepBtn}
+                                onPress={() =>
+                                  updateItem(item.id, { durationMinutes: item.durationMinutes + 5 })
+                                }>
+                                <Ionicons name="add" size={16} color="#FFFFFF" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.label}>Hora</Text>
+                            <TextInput
+                              style={[styles.input, autoTimes && styles.inputDisabled]}
+                              editable={!autoTimes}
+                              value={item.time}
+                              onChangeText={(v) => updateItem(item.id, { time: v })}
+                              placeholder="9:00 AM"
+                              placeholderTextColor="#94A3B8"
+                            />
+                          </View>
+                        </View>
+                        <Text style={styles.label}>Tipo de bloque</Text>
+                        <View style={styles.typeGrid}>
+                          {ITEM_TYPES.map((it) => {
+                            const m = ITEM_TYPE_META[it];
+                            const active = it === item.type;
+                            return (
+                              <TouchableOpacity
+                                key={it}
+                                onPress={() => updateItem(item.id, { type: it })}
+                                style={[
+                                  styles.miniChip,
+                                  active && { backgroundColor: m.color, borderColor: m.color },
+                                ]}>
+                                <Text style={[styles.miniChipText, active && { color: '#FFFFFF' }]}>
+                                  {m.label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                        <Text style={styles.label}>Ministerio asignado</Text>
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
+                          <TouchableOpacity
+                            onPress={() => updateItem(item.id, { ministryId: undefined, ministryName: undefined })}
+                            style={[
+                              styles.miniChip,
+                              !item.ministryName && { backgroundColor: 'rgba(255, 255, 255, 0.15)', borderColor: 'rgba(255, 255, 255, 0.25)' },
+                            ]}>
+                            <Text style={[styles.miniChipText, !item.ministryName && { color: '#FFFFFF' }]}>
+                              General
+                            </Text>
+                          </TouchableOpacity>
+                          {eventMinistries.map((m) => {
+                            const isSel = item.ministryId === m.ministryId || item.ministryName === m.ministryName;
+                            return (
+                              <TouchableOpacity
+                                key={m.ministryId}
+                                onPress={() =>
+                                  updateItem(item.id, {
+                                    ministryId: m.ministryId,
+                                    ministryName: m.ministryName,
+                                  })
+                                }
+                                style={[
+                                  styles.miniChip,
+                                  isSel && { backgroundColor: '#0284C7', borderColor: '#38BDF8' },
+                                ]}>
+                                <Text style={[styles.miniChipText, isSel && { color: '#FFFFFF' }]}>
+                                  {m.ministryName}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+
+                        <Text style={styles.label}>Notas</Text>
+                        <TextInput
+                          style={styles.input}
+                          value={item.notes ?? ''}
+                          onChangeText={(v) => updateItem(item.id, { notes: v || undefined })}
+                          placeholder="Indicaciones para este bloque"
+                          placeholderTextColor="#94A3B8"
+                        />
+                        <View style={styles.itemActions}>
+                          <TouchableOpacity
+                            style={styles.itemActionBtn}
+                            disabled={index === 0}
+                            onPress={() => moveItem(index, -1)}>
+                            <Ionicons name="arrow-up" size={16} color={index === 0 ? 'rgba(255,255,255,0.15)' : '#94A3B8'} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.itemActionBtn}
+                            disabled={index === finalSchedule.length - 1}
+                            onPress={() => moveItem(index, 1)}>
+                            <Ionicons
+                              name="arrow-down"
+                              size={16}
+                              color={index === finalSchedule.length - 1 ? 'rgba(255,255,255,0.15)' : '#94A3B8'}
+                            />
+                          </TouchableOpacity>
+                          <View style={{ flex: 1 }} />
+                          <TouchableOpacity
+                            style={[styles.itemActionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}
+                            onPress={() => removeItem(item.id)}>
+                            <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                            <Text style={styles.deleteText}>Quitar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+
+              <TouchableOpacity style={styles.addBtn} onPress={addItem}>
+                <Ionicons name="add-circle" size={18} color="#38BDF8" />
+                <Text style={styles.addBtnText}>Agregar bloque al cronograma</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 5. VOLUNTEERS */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Servidores</Text>
+              <Text style={styles.cardSub}>Equipo asignado para este evento</Text>
+              {volunteers.map((v) => (
+                <View key={v.id} style={styles.volRow}>
+                  <View style={{ flex: 1, gap: 6 }}>
+                    {eventMinistries.length > 0 && (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                        {eventMinistries.map((em) => (
+                          <TouchableOpacity
+                            key={em.ministryId}
+                            onPress={() => updateVolunteer(v.id, { area: em.ministryName, ministryId: em.ministryId })}
+                            style={[
+                              styles.miniChip,
+                              v.area === em.ministryName && { backgroundColor: '#0284C7', borderColor: '#38BDF8' },
+                            ]}>
+                            <Text style={[styles.miniChipText, v.area === em.ministryName && { color: '#FFFFFF' }]}>
+                              {em.ministryName}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Chips de Puestos / Roles sugeridos para esta área/ministerio */}
+                    {(() => {
+                      const minObj = ministries.find(
+                        (m) =>
+                          (v.ministryId && m.id === v.ministryId) ||
+                          m.name.toLowerCase() === v.area.toLowerCase()
+                      );
+                      if (!minObj || !minObj.defaultRoles || minObj.defaultRoles.length === 0) return null;
+                      return (
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={{ gap: 6, paddingVertical: 2 }}>
+                          {minObj.defaultRoles.map((r, rIdx) => {
+                            const isSel = v.role === r;
+                            return (
+                              <TouchableOpacity
+                                key={rIdx}
+                                onPress={() => updateVolunteer(v.id, { role: r })}
+                                style={[
+                                  styles.miniChip,
+                                  isSel && {
+                                    backgroundColor: minObj.color || '#0284C7',
+                                    borderColor: minObj.color || '#38BDF8',
+                                  },
+                                ]}>
+                                <Text
+                                  style={[
+                                    styles.miniChipText,
+                                    isSel && { color: '#FFFFFF', fontWeight: '800' },
+                                  ]}>
+                                  {r}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      );
+                    })()}
+
+                    <View style={styles.row2}>
+                      <TextInput
+                        style={[styles.input, styles.inputSm, { flex: 1 }]}
+                        value={v.area}
+                        onChangeText={(t) => updateVolunteer(v.id, { area: t })}
+                        placeholder="Área (ej: Ujieres, Alabanza)"
+                        placeholderTextColor="#94A3B8"
+                      />
+                      <TextInput
+                        style={[styles.input, styles.inputSm, { flex: 1 }]}
+                        value={v.role}
+                        onChangeText={(t) => updateVolunteer(v.id, { role: t })}
+                        placeholder="Puesto / Rol (ej: Consola, Puerta)"
+                        placeholderTextColor="#94A3B8"
+                      />
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                      <TextInput
+                        style={[styles.input, styles.inputSm, { flex: 1 }]}
+                        value={v.assignedTo}
+                        onChangeText={(t) => updateVolunteer(v.id, { assignedTo: t })}
+                        placeholder="Nombre del servidor"
+                        placeholderTextColor="#94A3B8"
+                      />
+                      <TouchableOpacity
+                        style={styles.pickMemberSmBtn}
+                        onPress={() => {
+                          setMemberSearchQuery('');
+                          setPickingVolunteerForVolId(v.id);
+                        }}>
+                        <Ionicons name="people" size={14} color="#38BDF8" />
+                        <Text style={styles.pickMemberSmBtnText}>Buscar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.volRemove}
+                    onPress={() => setVolunteers((prev) => prev.filter((x) => x.id !== v.id))}>
+                    <Ionicons name="close" size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={() =>
+                  setVolunteers((prev) => [
+                    ...prev,
+                    { id: localId('vol'), area: '', role: '', assignedTo: '', confirmed: false },
+                  ])
+                }>
+                <Ionicons name="person-add" size={16} color="#38BDF8" />
+                <Text style={styles.addBtnText}>Agregar servidor</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </DoodleBackground>
       </KeyboardAvoidingView>
 
@@ -1172,7 +1172,7 @@ export default function EventEditorScreen() {
                 <Text style={styles.myselfTitle}>
                   {currentUser.firstName} {currentUser.lastName} (Tú mismo)
                 </Text>
-                <Text style={styles.myselfSubtitle}>Asignarme como coordinador de este servicio</Text>
+                <Text style={styles.myselfSubtitle}>Asignarme como coordinador de este Servicio</Text>
               </View>
               <Ionicons name="arrow-forward" size={16} color="#38BDF8" />
             </TouchableOpacity>

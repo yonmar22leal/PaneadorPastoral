@@ -1,3 +1,4 @@
+import { DoodleBackground } from '@/components/doodle-background';
 import { useChurch } from '@/context/ChurchContext';
 import {
   addDaysISO,
@@ -17,8 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { DoodleBackground } from '@/components/doodle-background';
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -374,415 +374,415 @@ export default function EventDetailScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="light" />
       <DoodleBackground>
-      <ScrollView contentContainerStyle={{ paddingBottom: 130, backgroundColor: 'transparent' }}>
-        {/* HERO */}
-        <LinearGradient
-          colors={['rgba(15, 23, 42, 0.95)', 'rgba(30, 58, 138, 0.38)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}>
-          <View style={styles.heroTop}>
-            <TouchableOpacity style={styles.iconBtn} onPress={goBack}>
-              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            {canEditAll && (
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity style={styles.iconBtn} onPress={handleDuplicate}>
-                  <Ionicons name="copy-outline" size={18} color="#FFFFFF" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.iconBtn, styles.iconBtnDanger]}
-                  onPress={handleDelete}>
-                  <Ionicons name="trash-outline" size={18} color="#FCA5A5" />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-
-          <View style={[styles.typePill, { backgroundColor: meta.color }]}>
-            <Ionicons name={meta.icon as keyof typeof Ionicons.glyphMap} size={12} color="#FFFFFF" />
-            <Text style={styles.typePillText}>{meta.label}</Text>
-          </View>
-          <Text style={styles.title}>{event.title}</Text>
-          {event.theme ? <Text style={styles.theme}>“{event.theme}”</Text> : null}
-
-          {/* INSIGNIA DEL DUEÑO / CREADOR */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              marginTop: 10,
-              backgroundColor: 'rgba(255, 255, 255, 0.12)',
-              alignSelf: 'flex-start',
-              paddingHorizontal: 10,
-              paddingVertical: 5,
-              borderRadius: 20,
-            }}>
-            <Ionicons name="shield-checkmark" size={13} color="#93C5FD" />
-            <Text style={{ fontSize: 11, color: '#DBEAFE' }}>
-              Creado por:{' '}
-              <Text style={{ fontWeight: '800', color: '#FFFFFF' }}>
-                {event.createdByName || 'Pastor'}
-              </Text>
-              {isOwner
-                ? ' · (Tú eres el dueño)'
-                : currentUser?.role === 'senior_pastor'
-                ? ' · (Supervisión Pastoral)'
-                : ''}
-            </Text>
-          </View>
-
-          <View style={styles.infoGrid}>
-            <View style={styles.infoItem}>
-              <Ionicons name="calendar" size={14} color="#93C5FD" />
-              <Text style={styles.infoText}>{formatEventDate(event.date)}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Ionicons name="time" size={14} color="#93C5FD" />
-              <Text style={styles.infoText}>
-                {event.time}
-                {end ? ` – ${end}` : ''}
-              </Text>
-            </View>
-            {event.location ? (
-              <View style={styles.infoItem}>
-                <Ionicons name="location" size={14} color="#93C5FD" />
-                <Text style={styles.infoText}>{event.location}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {(event.preacher || event.worshipLeader) && (
-            <View style={styles.peopleRow}>
-              {event.preacher ? (
-                <View style={styles.personBox}>
-                  <Text style={styles.personRole}>Predica</Text>
-                  <Text style={styles.personName}>{event.preacher}</Text>
-                </View>
-              ) : null}
-              {event.worshipLeader ? (
-                <View style={styles.personBox}>
-                  <Text style={styles.personRole}>Alabanza</Text>
-                  <Text style={styles.personName}>{event.worshipLeader}</Text>
-                </View>
-              ) : null}
-            </View>
-          )}
-
-          {/* EQUIPO DE COORDINADORES DELEGADOS */}
-          {eventMinistries.length > 0 && (
-            <View style={styles.ministriesHeroCard}>
-              <Text style={styles.ministriesHeroTitle}>COORDINACIÓN DE MINISTERIOS</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 8, marginTop: 8 }}>
-                {eventMinistries.map((min) => {
-                  const isMyMin = coordinatedMinistries.some(
-                    (cm) => cm.ministryId === min.ministryId
-                  );
-                  return (
-                    <TouchableOpacity
-                      key={min.ministryId}
-                      activeOpacity={0.8}
-                      onPress={() => {
-                        if (canEditAll || isMyMin) {
-                          openMinistryCoordinator(min);
-                        }
-                      }}
-                      style={[
-                        styles.minHeroChip,
-                        isMyMin && styles.minHeroChipActive,
-                      ]}>
-                      <View style={styles.minHeroChipDot} />
-                      <View>
-                        <Text style={styles.minHeroChipName}>{min.ministryName}</Text>
-                        <Text style={styles.minHeroChipCoord}>
-                          {min.coordinatorName} {isMyMin ? '(Tú)' : ''}
-                        </Text>
-                      </View>
-                      {(canEditAll || isMyMin) && (
-                        <Ionicons name="create-outline" size={14} color="#DBEAFE" style={{ marginLeft: 4 }} />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          )}
-        </LinearGradient>
-
-        {/* BANNER PARA COORDINADOR ASIGNADO */}
-        {!canEditAll && coordinatedMinistries.length > 0 && (
-          <View style={styles.coordCalloutCard}>
-            <View style={styles.coordCalloutIcon}>
-              <Ionicons name="sparkles" size={22} color="#1E3A8A" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.coordCalloutTitle}>¡Eres Coordinador Asignado!</Text>
-              <Text style={styles.coordCalloutDesc}>
-                Tienes a cargo:{' '}
-                <Text style={{ fontWeight: '800' }}>
-                  {coordinatedMinistries.map((m) => m.ministryName).join(', ')}
-                </Text>
-                . Puedes armar la lista de servidores y editar tu parte del cronograma.
-              </Text>
-              <TouchableOpacity
-                style={styles.coordCalloutBtn}
-                onPress={() => openMinistryCoordinator(coordinatedMinistries[0])}>
-                <Ionicons name="create" size={16} color="#FFFFFF" />
-                <Text style={styles.coordCalloutBtnText}>
-                  Gestionar {coordinatedMinistries[0].ministryName}
-                </Text>
+        <ScrollView contentContainerStyle={{ paddingBottom: 130, backgroundColor: 'transparent' }}>
+          {/* HERO */}
+          <LinearGradient
+            colors={['rgba(15, 23, 42, 0.95)', 'rgba(30, 58, 138, 0.38)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.hero}>
+            <View style={styles.heroTop}>
+              <TouchableOpacity style={styles.iconBtn} onPress={goBack}>
+                <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
               </TouchableOpacity>
+              {canEditAll && (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity style={styles.iconBtn} onPress={handleDuplicate}>
+                    <Ionicons name="copy-outline" size={18} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.iconBtn, styles.iconBtnDanger]}
+                    onPress={handleDelete}>
+                    <Ionicons name="trash-outline" size={18} color="#FCA5A5" />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-          </View>
-        )}
 
-        {event.description ? (
-          <View style={styles.descCard}>
-            <Ionicons name="information-circle" size={16} color="#2563EB" />
-            <Text style={styles.descText}>{event.description}</Text>
-          </View>
-        ) : null}
+            <View style={[styles.typePill, { backgroundColor: meta.color }]}>
+              <Ionicons name={meta.icon as keyof typeof Ionicons.glyphMap} size={12} color="#FFFFFF" />
+              <Text style={styles.typePillText}>{meta.label}</Text>
+            </View>
+            <Text style={styles.title}>{event.title}</Text>
+            {event.theme ? <Text style={styles.theme}>“{event.theme}”</Text> : null}
 
-        {!canManageEvents && !canEditPart && (
-          <View style={styles.readOnlyNotice}>
-            <Ionicons name="eye-outline" size={14} color="#64748B" />
-            <Text style={styles.readOnlyText}>
-              Modo consulta · Los pastores y coordinadores administran este cronograma
-            </Text>
-          </View>
-        )}
+            {/* INSIGNIA DEL DUEÑO / CREADOR */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                marginTop: 10,
+                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                alignSelf: 'flex-start',
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 20,
+              }}>
+              <Ionicons name="shield-checkmark" size={13} color="#93C5FD" />
+              <Text style={{ fontSize: 11, color: '#DBEAFE' }}>
+                Creado por:{' '}
+                <Text style={{ fontWeight: '800', color: '#FFFFFF' }}>
+                  {event.createdByName || 'Pastor'}
+                </Text>
+                {isOwner
+                  ? ' · (Tú eres el dueño)'
+                  : currentUser?.role === 'senior_pastor'
+                    ? ' · (Supervisión Pastoral)'
+                    : ''}
+              </Text>
+            </View>
 
-        {/* TABS */}
-        <View style={styles.segment}>
-          <TouchableOpacity
-            style={[styles.segmentBtn, tab === 'schedule' && styles.segmentBtnActive]}
-            onPress={() => setTab('schedule')}>
-            <Ionicons
-              name="list"
-              size={16}
-              color={tab === 'schedule' ? '#FFFFFF' : '#64748B'}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                tab === 'schedule' && styles.segmentTextActive,
-              ]}>
-              Cronograma ({event.schedule.length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.segmentBtn, tab === 'volunteers' && styles.segmentBtnActive]}
-            onPress={() => setTab('volunteers')}>
-            <Ionicons
-              name="people"
-              size={16}
-              color={tab === 'volunteers' ? '#FFFFFF' : '#64748B'}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                tab === 'volunteers' && styles.segmentTextActive,
-              ]}>
-              Servidores ({confirmed}/{event.volunteers.length})
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.infoGrid}>
+              <View style={styles.infoItem}>
+                <Ionicons name="calendar" size={14} color="#93C5FD" />
+                <Text style={styles.infoText}>{formatEventDate(event.date)}</Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Ionicons name="time" size={14} color="#93C5FD" />
+                <Text style={styles.infoText}>
+                  {event.time}
+                  {end ? ` – ${end}` : ''}
+                </Text>
+              </View>
+              {event.location ? (
+                <View style={styles.infoItem}>
+                  <Ionicons name="location" size={14} color="#93C5FD" />
+                  <Text style={styles.infoText}>{event.location}</Text>
+                </View>
+              ) : null}
+            </View>
 
-        {tab === 'schedule' ? (
-          <View style={styles.section}>
-            {event.schedule.length > 0 && (
-              <Text style={styles.sectionHint}>Duración total: {totalMinutes} minutos</Text>
-            )}
-            {event.schedule.length === 0 ? (
-              <Text style={styles.emptyText}>Aún no se ha cargado el cronograma.</Text>
-            ) : (
-              event.schedule.map((item, index) => {
-                const im = ITEM_TYPE_META[item.type] ?? ITEM_TYPE_META.other;
-                const isLast = index === event.schedule.length - 1;
-
-                return (
-                  <View key={item.id} style={styles.timelineRow}>
-                    <View style={styles.timelineLeft}>
-                      <Text style={styles.timeText}>{item.time}</Text>
-                      <Text style={styles.durationPill}>{item.durationMinutes} min</Text>
-                      {!isLast && <View style={styles.timelineLine} />}
-                    </View>
-                    <View style={[styles.itemCard, { borderLeftColor: im.color }]}>
-                      <View style={styles.itemHeader}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.itemTitle}>{item.title}</Text>
-                          {item.ministryName ? (
-                            <View style={styles.minTag}>
-                              <Text style={styles.minTagText}>🏛️ {item.ministryName}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                        <View style={[styles.itemBadge, { backgroundColor: im.color }]}>
-                          <Ionicons
-                            name={im.icon as keyof typeof Ionicons.glyphMap}
-                            size={10}
-                            color="#FFFFFF"
-                          />
-                          <Text style={styles.itemBadgeText}>{im.label}</Text>
-                        </View>
-                      </View>
-
-                      {item.responsible ? (
-                        <View style={styles.responsibleRow}>
-                          <Ionicons name="person-circle" size={16} color="#64748B" />
-                          <Text style={styles.responsibleText}>{item.responsible}</Text>
-                        </View>
-                      ) : null}
-                      {item.notes ? <Text style={styles.itemNotes}>{item.notes}</Text> : null}
-                    </View>
+            {(event.preacher || event.worshipLeader) && (
+              <View style={styles.peopleRow}>
+                {event.preacher ? (
+                  <View style={styles.personBox}>
+                    <Text style={styles.personRole}>Predica</Text>
+                    <Text style={styles.personName}>{event.preacher}</Text>
                   </View>
-                );
-              })
+                ) : null}
+                {event.worshipLeader ? (
+                  <View style={styles.personBox}>
+                    <Text style={styles.personRole}>Alabanza</Text>
+                    <Text style={styles.personName}>{event.worshipLeader}</Text>
+                  </View>
+                ) : null}
+              </View>
             )}
-          </View>
-        ) : (
-          <View style={styles.section}>
-            <Text style={styles.sectionHint}>
-              Toca un servidor para marcarlo como confirmado o pendiente.
-            </Text>
 
-            {groupedVolunteers.length === 0 ? (
-              <Text style={styles.emptyText}>No hay servidores asignados para este servicio.</Text>
-            ) : (
-              groupedVolunteers.map((grp) => (
-                <View
-                  key={grp.ministryName}
-                  style={[styles.minGroupCard, { borderLeftColor: grp.color }]}>
-                  {/* Cabecera del Ministerio */}
-                  <View style={styles.minGroupHeader}>
-                    <View
-                      style={[
-                        styles.minGroupIcon,
-                        { backgroundColor: grp.color + '1A' },
-                      ]}>
-                      <Ionicons
-                        name={(grp.icon as any) || 'people'}
-                        size={18}
-                        color={grp.color}
-                      />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={styles.minGroupTitle}>{grp.ministryName}</Text>
-                      {grp.coordinatorName ? (
-                        <Text style={styles.minGroupCoord}>
-                          Coord. Permanente:{' '}
-                          <Text style={{ fontWeight: '700', color: '#1E293B' }}>
-                            {grp.coordinatorName}
-                          </Text>
-                        </Text>
-                      ) : null}
-                    </View>
-                    {grp.canManageThisGroup && grp.assignment && (
+            {/* EQUIPO DE COORDINADORES DELEGADOS */}
+            {eventMinistries.length > 0 && (
+              <View style={styles.ministriesHeroCard}>
+                <Text style={styles.ministriesHeroTitle}>COORDINACIÓN DE MINISTERIOS</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, marginTop: 8 }}>
+                  {eventMinistries.map((min) => {
+                    const isMyMin = coordinatedMinistries.some(
+                      (cm) => cm.ministryId === min.ministryId
+                    );
+                    return (
                       <TouchableOpacity
-                        style={[styles.manageMinBtn, { borderColor: grp.color }]}
-                        onPress={() => openMinistryCoordinator(grp.assignment!)}>
-                        <Ionicons name="create-outline" size={13} color={grp.color} />
-                        <Text style={[styles.manageMinBtnText, { color: grp.color }]}>
-                          Asignar Roles
-                        </Text>
+                        key={min.ministryId}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          if (canEditAll || isMyMin) {
+                            openMinistryCoordinator(min);
+                          }
+                        }}
+                        style={[
+                          styles.minHeroChip,
+                          isMyMin && styles.minHeroChipActive,
+                        ]}>
+                        <View style={styles.minHeroChipDot} />
+                        <View>
+                          <Text style={styles.minHeroChipName}>{min.ministryName}</Text>
+                          <Text style={styles.minHeroChipCoord}>
+                            {min.coordinatorName} {isMyMin ? '(Tú)' : ''}
+                          </Text>
+                        </View>
+                        {(canEditAll || isMyMin) && (
+                          <Ionicons name="create-outline" size={14} color="#DBEAFE" style={{ marginLeft: 4 }} />
+                        )}
                       </TouchableOpacity>
-                    )}
-                  </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+          </LinearGradient>
 
-                  {/* Lista de Servidores del Ministerio */}
-                  {grp.items.length === 0 ? (
-                    <View style={styles.minGroupEmpty}>
-                      <Text style={styles.minGroupEmptyText}>
-                        Aún no se han asignado servidores para {grp.ministryName}.
-                      </Text>
+          {/* BANNER PARA COORDINADOR ASIGNADO */}
+          {!canEditAll && coordinatedMinistries.length > 0 && (
+            <View style={styles.coordCalloutCard}>
+              <View style={styles.coordCalloutIcon}>
+                <Ionicons name="sparkles" size={22} color="#1E3A8A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.coordCalloutTitle}>¡Eres Coordinador Asignado!</Text>
+                <Text style={styles.coordCalloutDesc}>
+                  Tienes a cargo:{' '}
+                  <Text style={{ fontWeight: '800' }}>
+                    {coordinatedMinistries.map((m) => m.ministryName).join(', ')}
+                  </Text>
+                  . Puedes armar la lista de servidores y editar tu parte del cronograma.
+                </Text>
+                <TouchableOpacity
+                  style={styles.coordCalloutBtn}
+                  onPress={() => openMinistryCoordinator(coordinatedMinistries[0])}>
+                  <Ionicons name="create" size={16} color="#FFFFFF" />
+                  <Text style={styles.coordCalloutBtnText}>
+                    Gestionar {coordinatedMinistries[0].ministryName}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {event.description ? (
+            <View style={styles.descCard}>
+              <Ionicons name="information-circle" size={16} color="#2563EB" />
+              <Text style={styles.descText}>{event.description}</Text>
+            </View>
+          ) : null}
+
+          {!canManageEvents && !canEditPart && (
+            <View style={styles.readOnlyNotice}>
+              <Ionicons name="eye-outline" size={14} color="#64748B" />
+              <Text style={styles.readOnlyText}>
+                Modo consulta · Los pastores y coordinadores administran este cronograma
+              </Text>
+            </View>
+          )}
+
+          {/* TABS */}
+          <View style={styles.segment}>
+            <TouchableOpacity
+              style={[styles.segmentBtn, tab === 'schedule' && styles.segmentBtnActive]}
+              onPress={() => setTab('schedule')}>
+              <Ionicons
+                name="list"
+                size={16}
+                color={tab === 'schedule' ? '#FFFFFF' : '#64748B'}
+              />
+              <Text
+                style={[
+                  styles.segmentText,
+                  tab === 'schedule' && styles.segmentTextActive,
+                ]}>
+                Cronograma ({event.schedule.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.segmentBtn, tab === 'volunteers' && styles.segmentBtnActive]}
+              onPress={() => setTab('volunteers')}>
+              <Ionicons
+                name="people"
+                size={16}
+                color={tab === 'volunteers' ? '#FFFFFF' : '#64748B'}
+              />
+              <Text
+                style={[
+                  styles.segmentText,
+                  tab === 'volunteers' && styles.segmentTextActive,
+                ]}>
+                Servidores ({confirmed}/{event.volunteers.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {tab === 'schedule' ? (
+            <View style={styles.section}>
+              {event.schedule.length > 0 && (
+                <Text style={styles.sectionHint}>Duración total: {totalMinutes} minutos</Text>
+              )}
+              {event.schedule.length === 0 ? (
+                <Text style={styles.emptyText}>Aún no se ha cargado el cronograma.</Text>
+              ) : (
+                event.schedule.map((item, index) => {
+                  const im = ITEM_TYPE_META[item.type] ?? ITEM_TYPE_META.other;
+                  const isLast = index === event.schedule.length - 1;
+
+                  return (
+                    <View key={item.id} style={styles.timelineRow}>
+                      <View style={styles.timelineLeft}>
+                        <Text style={styles.timeText}>{item.time}</Text>
+                        <Text style={styles.durationPill}>{item.durationMinutes} min</Text>
+                        {!isLast && <View style={styles.timelineLine} />}
+                      </View>
+                      <View style={[styles.itemCard, { borderLeftColor: im.color }]}>
+                        <View style={styles.itemHeader}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.itemTitle}>{item.title}</Text>
+                            {item.ministryName ? (
+                              <View style={styles.minTag}>
+                                <Text style={styles.minTagText}>🏛️ {item.ministryName}</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          <View style={[styles.itemBadge, { backgroundColor: im.color }]}>
+                            <Ionicons
+                              name={im.icon as keyof typeof Ionicons.glyphMap}
+                              size={10}
+                              color="#FFFFFF"
+                            />
+                            <Text style={styles.itemBadgeText}>{im.label}</Text>
+                          </View>
+                        </View>
+
+                        {item.responsible ? (
+                          <View style={styles.responsibleRow}>
+                            <Ionicons name="person-circle" size={16} color="#64748B" />
+                            <Text style={styles.responsibleText}>{item.responsible}</Text>
+                          </View>
+                        ) : null}
+                        {item.notes ? <Text style={styles.itemNotes}>{item.notes}</Text> : null}
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          ) : (
+            <View style={styles.section}>
+              <Text style={styles.sectionHint}>
+                Toca un servidor para marcarlo como confirmado o pendiente.
+              </Text>
+
+              {groupedVolunteers.length === 0 ? (
+                <Text style={styles.emptyText}>No hay servidores asignados para este Servicio.</Text>
+              ) : (
+                groupedVolunteers.map((grp) => (
+                  <View
+                    key={grp.ministryName}
+                    style={[styles.minGroupCard, { borderLeftColor: grp.color }]}>
+                    {/* Cabecera del Ministerio */}
+                    <View style={styles.minGroupHeader}>
+                      <View
+                        style={[
+                          styles.minGroupIcon,
+                          { backgroundColor: grp.color + '1A' },
+                        ]}>
+                        <Ionicons
+                          name={(grp.icon as any) || 'people'}
+                          size={18}
+                          color={grp.color}
+                        />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={styles.minGroupTitle}>{grp.ministryName}</Text>
+                        {grp.coordinatorName ? (
+                          <Text style={styles.minGroupCoord}>
+                            Coord. Permanente:{' '}
+                            <Text style={{ fontWeight: '700', color: '#1E293B' }}>
+                              {grp.coordinatorName}
+                            </Text>
+                          </Text>
+                        ) : null}
+                      </View>
                       {grp.canManageThisGroup && grp.assignment && (
                         <TouchableOpacity
-                          style={[styles.addFirstServerBtn, { backgroundColor: grp.color }]}
+                          style={[styles.manageMinBtn, { borderColor: grp.color }]}
                           onPress={() => openMinistryCoordinator(grp.assignment!)}>
-                          <Ionicons name="person-add" size={13} color="#FFFFFF" />
-                          <Text style={styles.addFirstServerBtnText}>
-                            Asignar Puestos & Servidores
+                          <Ionicons name="create-outline" size={13} color={grp.color} />
+                          <Text style={[styles.manageMinBtnText, { color: grp.color }]}>
+                            Asignar Roles
                           </Text>
                         </TouchableOpacity>
                       )}
                     </View>
-                  ) : (
-                    grp.items.map((vol) => {
-                      const allowedToToggle = canConfirmVolunteer(vol);
-                      return (
-                        <TouchableOpacity
-                          key={vol.id}
-                          disabled={!allowedToToggle}
-                          activeOpacity={0.8}
-                          onPress={() => toggleVolunteerConfirmation(event.id, vol.id)}
-                          style={[
-                            styles.volCard,
-                            vol.confirmed && styles.volCardConfirmed,
-                          ]}>
-                          <View
+
+                    {/* Lista de Servidores del Ministerio */}
+                    {grp.items.length === 0 ? (
+                      <View style={styles.minGroupEmpty}>
+                        <Text style={styles.minGroupEmptyText}>
+                          Aún no se han asignado servidores para {grp.ministryName}.
+                        </Text>
+                        {grp.canManageThisGroup && grp.assignment && (
+                          <TouchableOpacity
+                            style={[styles.addFirstServerBtn, { backgroundColor: grp.color }]}
+                            onPress={() => openMinistryCoordinator(grp.assignment!)}>
+                            <Ionicons name="person-add" size={13} color="#FFFFFF" />
+                            <Text style={styles.addFirstServerBtnText}>
+                              Asignar Puestos & Servidores
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ) : (
+                      grp.items.map((vol) => {
+                        const allowedToToggle = canConfirmVolunteer(vol);
+                        return (
+                          <TouchableOpacity
+                            key={vol.id}
+                            disabled={!allowedToToggle}
+                            activeOpacity={0.8}
+                            onPress={() => toggleVolunteerConfirmation(event.id, vol.id)}
                             style={[
-                              styles.checkbox,
-                              vol.confirmed && styles.checkboxActive,
+                              styles.volCard,
+                              vol.confirmed && styles.volCardConfirmed,
                             ]}>
-                            {vol.confirmed && (
-                              <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                            )}
-                          </View>
-                          <View style={{ flex: 1 }}>
                             <View
-                              style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 6,
-                                flexWrap: 'wrap',
-                              }}>
-                              <View
-                                style={[
-                                  styles.roleBadgePill,
-                                  {
-                                    backgroundColor: grp.color + '18',
-                                    borderColor: grp.color + '55',
-                                  },
-                                ]}>
-                                <Text
-                                  style={[
-                                    styles.roleBadgePillText,
-                                    { color: grp.color },
-                                  ]}>
-                                  {vol.role || 'Servidor'}
-                                </Text>
-                              </View>
-                              {vol.phone ? (
-                                <Text style={{ fontSize: 11, color: '#64748B' }}>
-                                  📞 {vol.phone}
-                                </Text>
-                              ) : null}
+                              style={[
+                                styles.checkbox,
+                                vol.confirmed && styles.checkboxActive,
+                              ]}>
+                              {vol.confirmed && (
+                                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                              )}
                             </View>
-                            <Text style={styles.volName}>{vol.assignedTo}</Text>
-                          </View>
-                          <Text
-                            style={[
-                              styles.volStatus,
-                              vol.confirmed
-                                ? { backgroundColor: '#DCFCE7', color: '#065F46' }
-                                : { backgroundColor: '#FEF3C7', color: '#B45309' },
-                            ]}>
-                            {vol.confirmed ? 'Confirmado' : 'Pendiente'}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })
-                  )}
-                </View>
-              ))
-            )}
-          </View>
-        )}
-      </ScrollView>
+                            <View style={{ flex: 1 }}>
+                              <View
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  flexWrap: 'wrap',
+                                }}>
+                                <View
+                                  style={[
+                                    styles.roleBadgePill,
+                                    {
+                                      backgroundColor: grp.color + '18',
+                                      borderColor: grp.color + '55',
+                                    },
+                                  ]}>
+                                  <Text
+                                    style={[
+                                      styles.roleBadgePillText,
+                                      { color: grp.color },
+                                    ]}>
+                                    {vol.role || 'Servidor'}
+                                  </Text>
+                                </View>
+                                {vol.phone ? (
+                                  <Text style={{ fontSize: 11, color: '#64748B' }}>
+                                    📞 {vol.phone}
+                                  </Text>
+                                ) : null}
+                              </View>
+                              <Text style={styles.volName}>{vol.assignedTo}</Text>
+                            </View>
+                            <Text
+                              style={[
+                                styles.volStatus,
+                                vol.confirmed
+                                  ? { backgroundColor: '#DCFCE7', color: '#065F46' }
+                                  : { backgroundColor: '#FEF3C7', color: '#B45309' },
+                              ]}>
+                              {vol.confirmed ? 'Confirmado' : 'Pendiente'}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+        </ScrollView>
       </DoodleBackground>
 
       {/* FAB FLOTANTE PARA EDITAR */}
@@ -822,7 +822,7 @@ export default function EventDetailScreen() {
               <Ionicons name="close" size={22} color="#0F172A" />
             </TouchableOpacity>
             <View style={{ alignItems: 'center' }}>
-              <Text style={styles.modalSubHeader}>COORDINACIÓN DEL SERVICIO</Text>
+              <Text style={styles.modalSubHeader}>COORDINACIÓN DEL Servicio</Text>
               <Text style={styles.modalTitle}>
                 {activeCoordMinistry?.ministryName || 'Ministerio'}
               </Text>
