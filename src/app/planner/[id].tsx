@@ -48,6 +48,7 @@ export default function EventDetailScreen() {
     members,
     canUserEditEventPart,
     updateEventMinistryData,
+    updateMinistry,
   } = useChurch();
 
   const [tab, setTab] = useState<'schedule' | 'volunteers'>('schedule');
@@ -280,6 +281,17 @@ export default function EventDetailScreen() {
         modalVolunteers,
         modalNotes
       );
+      // Guardar temporalmente la última configuración de puestos usada en este ministerio
+      const latestRoles = Array.from(
+        new Set(modalVolunteers.map((v) => v.role.trim()).filter(Boolean))
+      );
+      if (latestRoles.length > 0) {
+        try {
+          await updateMinistry(activeCoordMinistry.ministryId, { defaultRoles: latestRoles });
+        } catch {
+          // Si es coordinador solo de este evento (no permanente), no bloquear el guardado del evento
+        }
+      }
       setActiveCoordMinistry(null);
       Alert.alert(
         '¡Cambios Guardados!',

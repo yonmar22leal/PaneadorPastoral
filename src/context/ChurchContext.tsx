@@ -44,7 +44,7 @@ function generateUUID(): string {
 }
 
 const STORAGE_CURRENT_USER = '@planeador_current_user_v1';
-const STORAGE_MINISTRIES = '@planeador_ministries_v1';
+const STORAGE_MINISTRIES = '@planeador_ministries_v2';
 const STORAGE_PASTORAL_POSTS = '@planeador_pastoral_posts_v2';
 const STORAGE_PRAYER_REQUESTS = '@planeador_prayer_requests_v2';
 const STORAGE_MARRIAGES = '@planeador_marriages_v1';
@@ -350,6 +350,7 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
       try {
         // Limpieza de datos antiguos simulados guardados en almacenamiento local
         AsyncStorage.multiRemove([
+          '@planeador_ministries_v1',
           '@planeador_pastoral_posts_v1',
           '@planeador_prayer_requests_v1',
           '@planeador_ladder_v1',
@@ -369,18 +370,10 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
         if (storedMin) {
           const parsedMin = JSON.parse(storedMin);
           if (Array.isArray(parsedMin) && parsedMin.length > 0) {
-            const enriched = parsedMin.map((m: Ministry) => {
-              const def = defaultMinistries.find(
-                (d) => d.id === m.id || d.name.toLowerCase() === m.name.toLowerCase()
-              );
-              return {
-                ...m,
-                defaultRoles:
-                  m.defaultRoles && m.defaultRoles.length > 0
-                    ? m.defaultRoles
-                    : (def?.defaultRoles || []),
-              };
-            });
+            const enriched = parsedMin.map((m: Ministry) => ({
+              ...m,
+              defaultRoles: Array.isArray(m.defaultRoles) ? m.defaultRoles : [],
+            }));
             setMinistries(enriched);
           }
         }
@@ -740,26 +733,18 @@ export const ChurchProvider = ({ children }: { children: ReactNode }) => {
           console.warn('Supabase ministries fetch error:', minError.message);
         }
       } else if (minData && minData.length > 0) {
-        const mappedMin: Ministry[] = minData.map((m) => {
-          const defMin = defaultMinistries.find(
-            (d) => d.id === m.id || d.name.toLowerCase() === m.name.toLowerCase()
-          );
-          return {
-            id: m.id,
-            name: m.name,
-            description: m.description || undefined,
-            coordinatorId: m.coordinator_id || '',
-            coordinatorName: m.coordinator_name || '',
-            coordinatorPhone: m.coordinator_phone || undefined,
-            color: m.color || '#2563EB',
-            icon: m.icon || 'people',
-            defaultRoles:
-              Array.isArray(m.default_roles) && m.default_roles.length > 0
-                ? m.default_roles
-                : (defMin?.defaultRoles || []),
-            createdAt: m.created_at,
-          };
-        });
+        const mappedMin: Ministry[] = minData.map((m) => ({
+          id: m.id,
+          name: m.name,
+          description: m.description || undefined,
+          coordinatorId: m.coordinator_id || '',
+          coordinatorName: m.coordinator_name || '',
+          coordinatorPhone: m.coordinator_phone || undefined,
+          color: m.color || '#2563EB',
+          icon: m.icon || 'people',
+          defaultRoles: Array.isArray(m.default_roles) ? m.default_roles : [],
+          createdAt: m.created_at,
+        }));
         setMinistries(mappedMin);
         AsyncStorage.setItem(STORAGE_MINISTRIES, JSON.stringify(mappedMin)).catch(() => { });
       }

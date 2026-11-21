@@ -109,47 +109,6 @@ export default function MinistriesScreen() {
     });
   }, [members, memberSearch]);
 
-  const getSuggestedRolesByName = (minName: string): string[] => {
-    const lower = minName.toLowerCase();
-    if (lower.includes('audio') || lower.includes('multi') || lower.includes('media') || lower.includes('video')) {
-      return [
-        'Consola de Sonido',
-        'Videos & Pantallas',
-        'Fotografía',
-        'Medios & Redes',
-        'Cámara 1 (Principal)',
-        'Cámara 2',
-        'Streaming en Vivo',
-        'Iluminación',
-      ];
-    }
-    if (lower.includes('proto') || lower.includes('ujier') || lower.includes('bienven') || lower.includes('orden')) {
-      return [
-        'Puerta Principal',
-        'Pilar Derecho',
-        'Pilar Izquierdo',
-        'Pasillo Central',
-        'Recolección de Ofrendas',
-        'Bienvenida a Nuevos',
-        'Acomodación de Filas',
-        'Plataforma & Altar',
-      ];
-    }
-    if (lower.includes('alab') || lower.includes('mús') || lower.includes('ador') || lower.includes('coro')) {
-      return [
-        'Voz Líder',
-        'Coros',
-        'Batería',
-        'Bajo',
-        'Guitarra Eléctrica',
-        'Guitarra Acústica',
-        'Piano / Teclado',
-        'Director Musical',
-      ];
-    }
-    return ['Coordinador General', 'Servidor de Apoyo', 'Líder de Turno'];
-  };
-
   const handleAddRole = () => {
     const trimmed = newRoleText.trim();
     if (!trimmed) return;
@@ -163,11 +122,6 @@ export default function MinistriesScreen() {
 
   const handleRemoveRole = (roleToRemove: string) => {
     setRolesList((prev) => prev.filter((r) => r !== roleToRemove));
-  };
-
-  const handleLoadSuggestedRoles = () => {
-    const suggested = getSuggestedRolesByName(name || 'audiovisual');
-    setRolesList(suggested);
   };
 
   const filteredMinistries = useMemo(() => {
@@ -276,7 +230,7 @@ export default function MinistriesScreen() {
     setDescription('');
     setSelectedColor(PRESET_COLORS[0].hex);
     setSelectedIcon(PRESET_ICONS[0].name);
-    setRolesList(getSuggestedRolesByName('audiovisual'));
+    setRolesList([]);
     setNewRoleText('');
 
     // Por defecto sugerir al pastor actual como coordinador inicial
@@ -305,11 +259,7 @@ export default function MinistriesScreen() {
     setCoordinatorId(min.coordinatorId);
     setCoordinatorName(min.coordinatorName);
     setCoordinatorPhone(min.coordinatorPhone || '');
-    setRolesList(
-      min.defaultRoles && min.defaultRoles.length > 0
-        ? min.defaultRoles
-        : getSuggestedRolesByName(min.name)
-    );
+    setRolesList(min.defaultRoles ? [...min.defaultRoles] : []);
     setNewRoleText('');
     setModalVisible(true);
   };
@@ -811,14 +761,16 @@ export default function MinistriesScreen() {
             {/* 5. Puestos y Roles de Servicio Habituales */}
             <View style={styles.formGroup}>
               <View style={styles.roleHeaderRow}>
-                <Text style={styles.inputLabel}>Puestos de Servicio en Servicios</Text>
-                <TouchableOpacity onPress={handleLoadSuggestedRoles} style={styles.suggestBtn}>
-                  <Ionicons name="sparkles" size={13} color="#38BDF8" />
-                  <Text style={styles.suggestBtnText}>Sugerir Puestos</Text>
-                </TouchableOpacity>
+                <Text style={styles.inputLabel}>Puestos de Servicio (Última configuración)</Text>
+                {rolesList.length > 0 && (
+                  <TouchableOpacity onPress={() => setRolesList([])} style={styles.suggestBtn}>
+                    <Ionicons name="trash-outline" size={13} color="#F87171" />
+                    <Text style={[styles.suggestBtnText, { color: '#F87171' }]}>Limpiar</Text>
+                  </TouchableOpacity>
+                )}
               </View>
               <Text style={styles.inputHelp}>
-                Puestos donde el coordinador asignará servidores (ej: Consola, Videos, Foto, Medios, Puerta, Pilar derecho...).
+                Se guarda la última configuración que agregues aquí (puedes modificarla o limpiarla en cualquier momento).
               </Text>
 
               {/* Lista de tags/chips con botón de borrar */}
